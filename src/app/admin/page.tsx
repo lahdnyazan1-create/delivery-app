@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Lock, LogOut, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Lock, LogOut, Pencil, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useApp } from "@/context/AppContext";
 import {
@@ -42,15 +42,24 @@ export default function AdminPage() {
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const [tab, setTab] = useState<Tab>("orders");
+  const [showHistory, setShowHistory] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const [restForm, setRestForm] = useState<Restaurant | null>(null);
   const [dishForm, setDishForm] = useState<Dish | null>(null);
   const [promoForm, setPromoForm] = useState<PromoCode | null>(null);
 
-  const incoming = useMemo(
+  const activeOrders = useMemo(
     () => orders.filter((o) => o.status !== "Delivered"),
     [orders],
   );
+
+  const historyOrders = useMemo(
+    () => orders.filter((o) => o.status === "Delivered"),
+    [orders],
+  );
+
+  const displayedOrders = showHistory ? historyOrders : activeOrders;
 
   if (!adminUnlocked) {
     return (
@@ -116,7 +125,7 @@ export default function AdminPage() {
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-extrabold">Admin Dashboard</h1>
-          <p className="text-xs text-foreground-muted">واجهة التحكم</p>
+          <p className="text-xs text-foreground-muted">واجهة التحكم الشاملة</p>
         </div>
         <button
           type="button"
@@ -132,10 +141,10 @@ export default function AdminPage() {
         <div className="flex w-max gap-2">
           {(
             [
-              ["orders", "Orders"],
-              ["restaurants", "Restaurants"],
-              ["dishes", "Dishes"],
-              ["promos", "Promos"],
+              ["orders", `Orders (${activeOrders.length})`],
+              ["restaurants", `Restaurants (${restaurants.length})`],
+              ["dishes", `Dishes (${dishes.length})`],
+              ["promos", `Promos (${promoCodes.length})`],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -156,52 +165,98 @@ export default function AdminPage() {
 
       {tab === "orders" && (
         <section className="space-y-3 pb-8">
-          {incoming.length === 0 ? (
+          <div className="flex justify-between items-center bg-secondary/50 p-1.5 rounded-xl border border-glass-border mb-3">
+            <button
+              onClick={() => setShowHistory(false)}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${!showHistory ? "bg-primary text-white" : "text-foreground-muted"}`}
+            >
+              الطلبات النشطة ({activeOrders.length})
+            </button>
+            <button
+              onClick={() => setShowHistory(true)}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${showHistory ? "bg-primary text-white" : "text-foreground-muted"}`}
+            >
+              الطلبات المكتملة ({historyOrders.length})
+            </button>
+          </div>
+
+          {displayedOrders.length === 0 ? (
             <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-foreground-muted">
-              No incoming orders.
+              {showHistory ? "لا يوجد طلبات مكتملة." : "لا يوجد طلبات حالية."}
             </p>
           ) : (
-            incoming.map((order) => (
-              <div key={order.id} className="glass rounded-2xl p-4">
-                <div className="mb-2 flex justify-between gap-2">
-                  <div>
-                    <p className="font-bold">{order.restaurantName}</p>
-                    <p className="text-xs text-foreground-muted">
-                      {order.customerName} · {order.customerPhone}
-                    </p>
-                    <p className="text-xs text-foreground-muted">
-                      {order.deliveryAddress}
-                    </p>
+            displayedOrders.map((order) => {
+              const isExpanded = expandedOrderId === order.id;
+              return (
+                <div key={order.id} className="glass rounded-2xl p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-md">
+                        #{order.id.slice(-6)}
+                      </span>
+                      <h3 className="font-bold text-base mt-1">{order.restaurantName}</h3>
+                      <p className="text-xs text-foreground-muted">
+                        العميل: {order.customerName} · {order.customerPhone}
+                      </p>
+                      <p className="text-xs text-foreground-muted">
+                        العنوان: {order.deliveryAddress}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-base font-extrabold text-primary block">
+                        ${order.total.toFixed(2)}
+                      </span>
+                      <button
+                        onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                        className="mt-2 text-xs flex items-center gap-1 text-foreground-muted hover:text-white"
+                      >
+                        {isExpanded ? "إخفاء الأصناف" : "عرض الأصناف"}
+                        {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-sm font-bold text-primary">
-                    ${order.total.toFixed(2)}
-                  </span>
+
+                  {isExpanded && order.items && (
+                    <div className="border-t border-glass-border pt-2 mt-2 space-y-1">
+                      <p className="text-xs font-bold text-foreground-muted mb-1">عناصر الطلب:</p>
+                      {order.items.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between text-xs py-1 border-b border-white/5 last:border-0">
+                          <span>{item.quantity}x {item.name}</span>
+                          <span className="font-mono">${(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="border-t border-glass-border pt-3">
+                    <label className="block text-xs font-semibold text-foreground-muted mb-1">
+                      تحديث حالة الطلب
+                    </label>
+                    <select
+                      value={order.status}
+                      onChange={(e) =>
+                        updateOrderStatus(
+                          order.id,
+                          e.target.value as OrderStatus,
+                        )
+                      }
+                      className="w-full rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none font-bold"
+                    >
+                      {ORDER_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <label className="block text-xs font-semibold text-foreground-muted">
-                  Status
-                  <select
-                    value={order.status}
-                    onChange={(e) =>
-                      updateOrderStatus(
-                        order.id,
-                        e.target.value as OrderStatus,
-                      )
-                    }
-                    className="mt-1.5 w-full rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none"
-                  >
-                    {ORDER_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            ))
+              );
+            })
           )}
         </section>
       )}
 
+      {/* باقي أقسام الواجهة (المطاعم، الوجبات، الكوبونات) تبدأ من هنا كما هي بدون تغيير */}
       {tab === "restaurants" && (
         <section className="space-y-3 pb-8">
           <button
