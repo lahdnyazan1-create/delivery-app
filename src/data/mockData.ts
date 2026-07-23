@@ -188,3 +188,28 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "Out for Delivery",
   "Delivered",
 ];
+
+export interface Driver {
+  id: string;
+  name: string;
+  phone: string;
+  vehicle: string;
+  plateNumber: string;
+}
+
+export const INITIAL_DRIVERS: Driver[] = [
+  {
+    id: "drv-101",
+    name: "أحمد ياسين",
+    phone: "0599000111",
+    vehicle: "سكوتر SYM Joymax",
+    plateNumber: "6-8921-99",
+  },
+  {
+    id: "drv-102",
+    name: "محمود خليل",
+    phone: "0599000222",
+    vehicle: "سيارة هيونداي Getz",
+    plateNumber: "6-1234-98",
+  },
+];
