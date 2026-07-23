@@ -15,7 +15,6 @@ import {
 import { AppShell } from "@/components/layout/AppShell";
 import { useApp } from "@/context/AppContext";
 import { INITIAL_DRIVERS, ORDER_STATUSES, type OrderStatus } from "@/data/mockData";
-
 const DRIVER_SESSION_KEY = "zest-active-driver-id";
 
 export default function DriverDashboard() {
