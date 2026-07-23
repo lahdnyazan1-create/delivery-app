@@ -48,7 +48,6 @@ export default function CartPage() {
     return true;
   };
 
-  const deliveryFee = cartRestaurant?.deliveryFee ?? 0;
   const grandTotal = total + deliveryFee;
 
   const visibleCart = cart.filter((item) => getDish(item.dishId));
