@@ -27,7 +27,7 @@ export default function OrderHistory() {
   // دالة الطلب بنقرة واحدة (Quick Re-Order)
   const handleQuickReOrder = (orderItems: Order['items']) => {
     playSound('add');
-    triggerHaptic('heavy');
+    triggerHaptic('medium');
 
     // مسح السلة الحالية وإضافة عناصر الطلب المحدد إليها
     clearCart();
@@ -76,7 +76,7 @@ export default function OrderHistory() {
           <div className="flex items-center justify-between border-b border-glass-border pb-2 mb-3">
             <div>
               <span className="text-xs font-bold text-primary block">
-                طلب #{order.id ? order.id.slice(0, 6) : '---'}
+                طلب #{order.id?.slice(0, 6) ?? ''}
               </span>
               <span className="text-[10px] text-foreground-muted">
                 {order.createdAt
