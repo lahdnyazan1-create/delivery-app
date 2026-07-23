@@ -11,97 +11,25 @@ import React, {
   useSyncExternalStore,
 } from "react";
 
+import {
+  Restaurant,
+  Dish,
+  Driver,
+  Order,
+  OrderItem,
+  OrderStatus,
+  PromoCode,
+  UserProfile,
+} from "@/types/database";
+
 // ==========================================
 // 1. TYPES & INTERFACES
 // ==========================================
-
-export type OrderStatus =
-  | "Pending"
-  | "Preparing"
-  | "OutForDelivery"
-  | "Delivered"
-  | "Cancelled";
-
-export interface Driver {
-  id: string;
-  name: string;
-  phone: string;
-  vehicle: string;
-  plateNumber: string;
-  currentLat?: number;
-  currentLng?: number;
-}
-
-export interface Dish {
-  id: string;
-  restaurantId: string;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-  category: string;
-  available: boolean;
-}
-
-export interface Restaurant {
-  id: string;
-  name: string;
-  cuisine: string;
-  rating: number;
-  deliveryFee: number;
-  etaMinutes: number;
-  image: string;
-  address: string;
-  isOpen: boolean;
-}
 
 export interface CartItem {
   dishId: string;
   quantity: number;
   notes?: string;
-}
-
-export interface OrderItem {
-  dishId: string;
-  dishName: string;
-  price: number;
-  quantity: number;
-}
-
-export interface Order {
-  id: string;
-  restaurantId: string;
-  restaurantName: string;
-  items: OrderItem[];
-  subtotal: number;
-  discount: number;
-  deliveryFee: number;
-  total: number;
-  promoCode: string | null;
-  status: OrderStatus;
-  createdAt: number;
-  etaMinutes: number;
-  customerName: string;
-  customerPhone: string;
-  deliveryAddress: string;
-  deliveryLat?: number;
-  deliveryLng?: number;
-  driver?: Driver | null; // إضافة بيانات السائق إلى الطلب
-}
-
-export interface PromoCode {
-  code: string;
-  percentOff: number;
-  active: boolean;
-}
-
-export interface UserProfile {
-  fullName: string;
-  phone: string;
-  address: string;
-  locationLabel: string;
-  lat?: number;
-  lng?: number;
 }
 
 // ==========================================
@@ -111,7 +39,7 @@ export interface UserProfile {
 interface AppState {
   restaurants: Restaurant[];
   dishes: Dish[];
-  drivers: Driver[]; // قائمة السائقين المتاحين
+  drivers: Driver[];
   cart: CartItem[];
   cartRestaurantId: string | null;
   appliedPromo: string | null;
@@ -130,7 +58,9 @@ type Action =
   | { type: "CREATE_ORDER"; payload: Order }
   | { type: "ASSIGN_DRIVER"; payload: { orderId: string; driver: Driver } }
   | { type: "UPDATE_ORDER_STATUS"; payload: { orderId: string; status: OrderStatus } }
-  | { type: "UPDATE_USER_PROFILE"; payload: Partial<UserProfile> };
+  | { type: "UPDATE_USER_PROFILE"; payload: Partial<UserProfile> }
+  | { type: "ADD_RESTAURANT"; payload: Restaurant }
+  | { type: "TOGGLE_RESTAURANT_ACTIVE"; payload: string };
 
 // ==========================================
 // 3. INITIAL MOCK DATA
@@ -163,7 +93,7 @@ const INITIAL_RESTAURANTS: Restaurant[] = [
     etaMinutes: 30,
     image: "/images/pizza.jpg",
     address: "الشارع الرئيسي - وسط المدينة",
-    isOpen: true,
+    active: true,
   },
   {
     id: "rest-2",
@@ -174,7 +104,7 @@ const INITIAL_RESTAURANTS: Restaurant[] = [
     etaMinutes: 25,
     image: "/images/burger.jpg",
     address: "شارع الجامعة",
-    isOpen: true,
+    active: true,
   },
 ];
 
@@ -226,10 +156,12 @@ const INITIAL_STATE: AppState = {
   promoCodes: INITIAL_PROMOS,
   orders: [],
   user: {
-    fullName: "يزن",
+    uid: "user-1",
     phone: "0590000000",
+    displayName: "يزن",
+    role: "customer",
     address: "حي الرفيديا",
-    locationLabel: "البيت",
+    createdAt: Date.now(),
   },
 };
 
@@ -255,8 +187,7 @@ export function calcTotals(
     : null;
   const discount = promo ? (subtotal * promo.percentOff) / 100 : 0;
   const totalAfterDiscount = Math.max(0, subtotal - discount);
-  
-  // لا توجد رسوم توصيل إذا كانت السلة فارغة
+
   const finalDeliveryFee = cart.length > 0 ? deliveryFee : 0;
 
   return {
@@ -275,8 +206,6 @@ function appReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "ADD_TO_CART": {
       const { dishId, restaurantId } = action.payload;
-      
-      // تبديل المطعم في حال كانت هناك عناصر من مطعم آخر
       const isDifferentRestaurant =
         state.cartRestaurantId && state.cartRestaurantId !== restaurantId;
       const currentCart = isDifferentRestaurant ? [] : state.cart;
@@ -358,7 +287,7 @@ function appReducer(state: AppState, action: Action): AppState {
         ...state,
         orders: state.orders.map((ord) =>
           ord.id === action.payload.orderId
-            ? { ...ord, driver: action.payload.driver, status: "OutForDelivery" }
+            ? { ...ord, driver: action.payload.driver, courierId: action.payload.driver.id, status: "OutForDelivery" }
             : ord
         ),
       };
@@ -379,6 +308,20 @@ function appReducer(state: AppState, action: Action): AppState {
         user: { ...state.user, ...action.payload },
       };
 
+    case "ADD_RESTAURANT":
+      return {
+        ...state,
+        restaurants: [action.payload, ...state.restaurants],
+      };
+
+    case "TOGGLE_RESTAURANT_ACTIVE":
+      return {
+        ...state,
+        restaurants: state.restaurants.map((r) =>
+          r.id === action.payload ? { ...r, active: !r.active } : r
+        ),
+      };
+
     default:
       return state;
   }
@@ -390,6 +333,9 @@ function appReducer(state: AppState, action: Action): AppState {
 
 interface AppContextType {
   state: AppState;
+  restaurants: Restaurant[];
+  orders: Order[];
+  drivers: Driver[];
   cartRestaurant: Restaurant | null;
   subtotal: number;
   discount: number;
@@ -405,6 +351,8 @@ interface AppContextType {
   assignDriverToOrder: (orderId: string, driverId: string) => boolean;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   updateUserProfile: (profile: Partial<UserProfile>) => void;
+  addRestaurant: (restaurant: Restaurant) => void;
+  toggleRestaurantActive: (id: string) => void;
   getDish: (dishId: string) => Dish | undefined;
   getRestaurant: (id: string) => Restaurant | undefined;
   getDishesByRestaurant: (restaurantId: string) => Dish[];
@@ -416,8 +364,7 @@ const emptySubscribe = () => () => {};
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, INITIAL_STATE);
-  
-  // منع مشاكل SSR/Hydration
+
   const isServer = useSyncExternalStore(
     emptySubscribe,
     () => false,
@@ -497,7 +444,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (dish) {
         lines.push({
           dishId: dish.id,
-          dishName: dish.name,
+          name: dish.name,
           price: dish.price,
           quantity: item.quantity,
         });
@@ -512,7 +459,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       restaurant.deliveryFee
     );
 
-    // اختيار سائق عشوائي تلقائياً للطلب لتجربة السيستم
     const randomDriver =
       s.drivers.length > 0
         ? s.drivers[Math.floor(Math.random() * s.drivers.length)]
@@ -531,12 +477,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       status: "Pending",
       createdAt: Date.now(),
       etaMinutes: restaurant.etaMinutes,
-      customerName: s.user.fullName,
+      customerName: s.user.displayName || "عميل",
       customerPhone: s.user.phone,
-      deliveryAddress: s.user.address || s.user.locationLabel,
-      deliveryLat: s.user.lat,
-      deliveryLng: s.user.lng,
-      driver: randomDriver, // ربط السائق بالطلب عند إنشائه
+      deliveryAddress: s.user.address || "العنوان الأساسي",
+      driver: randomDriver,
+      courierId: randomDriver?.id,
     };
 
     dispatch({ type: "CREATE_ORDER", payload: newOrder });
@@ -563,6 +508,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "UPDATE_USER_PROFILE", payload: profile });
   }, []);
 
+  const addRestaurant = useCallback((restaurant: Restaurant) => {
+    dispatch({ type: "ADD_RESTAURANT", payload: restaurant });
+  }, []);
+
+  const toggleRestaurantActive = useCallback((id: string) => {
+    dispatch({ type: "TOGGLE_RESTAURANT_ACTIVE", payload: id });
+  }, []);
+
   // --- GETTERS ---
 
   const getDish = useCallback(
@@ -584,6 +537,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const contextValue = useMemo(
     () => ({
       state,
+      restaurants: state.restaurants,
+      orders: state.orders,
+      drivers: state.drivers,
       cartRestaurant,
       subtotal,
       discount,
@@ -599,6 +555,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       assignDriverToOrder,
       updateOrderStatus,
       updateUserProfile,
+      addRestaurant,
+      toggleRestaurantActive,
       getDish,
       getRestaurant,
       getDishesByRestaurant,
@@ -620,6 +578,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       assignDriverToOrder,
       updateOrderStatus,
       updateUserProfile,
+      addRestaurant,
+      toggleRestaurantActive,
       getDish,
       getRestaurant,
       getDishesByRestaurant,
@@ -636,10 +596,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     </AppContext.Provider>
   );
 }
-
-// ==========================================
-// 7. CUSTOM HOOK
-// ==========================================
 
 export function useApp() {
   const context = useContext(AppContext);
