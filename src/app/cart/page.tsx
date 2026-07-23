@@ -12,7 +12,7 @@ import { useApp } from "@/context/AppContext";
 export default function CartPage() {
   const router = useRouter();
   const {
-    cart,
+    state: { cart },
     cartRestaurant,
     getDish,
     updateQuantity,
