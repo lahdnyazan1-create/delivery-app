@@ -12,20 +12,19 @@ import { useApp } from "@/context/AppContext";
 export default function CartPage() {
   const router = useRouter();
   const {
-    state: { cart },
+    state: { cart, appliedPromo, user },
     cartRestaurant,
     getDish,
     updateQuantity,
     removeFromCart,
     subtotal,
     discount,
+    deliveryFee,
     total,
-    appliedPromo,
     placeOrder,
     applyPromo,
-    user,
-    isAuthenticated,
-  } = useApp();
+    removePromo,
+  } = useApp();  
 
   const [promoInput, setPromoInput] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
