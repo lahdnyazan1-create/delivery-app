@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+:root {
+  /* Brand palette */
+  --color-primary: #ff6b35;
+  --color-primary-soft: #ff8f66;
+  --color-secondary: #1a2b4c;
+  --color-secondary-muted: #2a3f66;
+  --color-accent: #00c853;
+  --color-accent-soft: #69f0ae;
+
+  /* Surfaces */
+  --background: #0f1729;
+  --background-elevated: #1a2b4c;
+  --foreground: #f7f4ef;
+  --foreground-muted: #a8b3c7;
+  --glass: rgb(255 255 255 / 0.08);
+  --glass-border: rgb(255 255 255 / 0.14);
+  --glass-strong: rgb(255 255 255 / 0.12);
+
+  /* Safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+@theme inline {
+  --color-primary: var(--color-primary);
+  --color-primary-soft: var(--color-primary-soft);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-muted: var(--color-secondary-muted);
+  --color-accent: var(--color-accent);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-background: var(--background);
+  --color-background-elevated: var(--background-elevated);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-glass-strong: var(--glass-strong);
+  --font-sans: var(--font-cairo);
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    height: 100%;
+  }
+
+  body {
+    min-height: 100%;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-cairo), ui-sans-serif, sans-serif;
+    overscroll-behavior: none;
+  }
+
+  button,
+  [role="button"],
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-strong {
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, var(--safe-bottom));
+  }
+
+  .pt-safe {
+    padding-top: max(0.75rem, var(--safe-top));
+  }
+
+  .app-gradient {
+    background:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgb(255 107 53 / 0.28), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgb(0 200 83 / 0.12), transparent),
+      linear-gradient(180deg, #152238 0%, #0f1729 45%, #0c1322 100%);
+  }
+}
