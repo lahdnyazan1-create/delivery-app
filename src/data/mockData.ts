@@ -124,3 +124,14 @@ export const INITIAL_PROMOS: PromoCode[] = [
   { code: "ZEST10", percentOff: 10, active: true },
   { code: "HEAVEN20", percentOff: 20, active: true },
 ];
+
+export type CuisineId = "all" | "pizza" | "burger" | "oriental" | "sushi" | "sweets";
+
+export const CUISINES = [
+  { id: "all", name: "الكل", icon: "🍽️" },
+  { id: "pizza", name: "بيتزا", icon: "🍕" },
+  { id: "burger", name: "برغر", icon: "🍔" },
+  { id: "oriental", name: "شرقي", icon: "🥙" },
+  { id: "sushi", name: "سوشي", icon: "🍣" },
+  { id: "sweets", name: "حلويات", icon: "🍰" },
+];
