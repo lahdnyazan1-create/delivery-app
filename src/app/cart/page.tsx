@@ -17,6 +17,7 @@ export default function CartPage() {
     cartRestaurant,
     getDish,
     updateQuantity,
+    deliveryFee,
     removeFromCart,
     subtotal,
     discount,
