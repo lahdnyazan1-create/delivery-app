@@ -1,228 +1,248 @@
 "use client";
 
-import {
+import React, {
   createContext,
-  useCallback,
   useContext,
+  useReducer,
   useMemo,
+  useCallback,
   useRef,
+  useEffect,
   useSyncExternalStore,
-  type ReactNode,
 } from "react";
-import {
-  ADMIN_PIN,
-  COVER_PRESETS,
-  INITIAL_DISHES,
-  INITIAL_PROMOS,
-  INITIAL_RESTAURANTS,
-  LOGO_PRESETS,
-  type CartItem,
-  type Dish,
-  type Order,
-  type OrderLineItem,
-  type OrderStatus,
-  type PromoCode,
-  type Restaurant,
-  type UserProfile,
-} from "@/data/mockData";
 
-const STORAGE_KEY = "zest-app-v3";
-const ADMIN_SESSION_KEY = "zest-admin-unlocked";
+// ==========================================
+// 1. TYPES & INTERFACES
+// ==========================================
 
-export type FlyPayload = {
+export type OrderStatus =
+  | "Pending"
+  | "Preparing"
+  | "OutForDelivery"
+  | "Delivered"
+  | "Cancelled";
+
+export interface Driver {
   id: string;
-  gradient: string;
-  from: { x: number; y: number };
-  to: { x: number; y: number };
-};
+  name: string;
+  phone: string;
+  vehicle: string;
+  plateNumber: string;
+  currentLat?: number;
+  currentLng?: number;
+}
 
-export type CartConflict = {
+export interface Dish {
+  id: string;
+  restaurantId: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  category: string;
+  available: boolean;
+}
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  cuisine: string;
+  rating: number;
+  deliveryFee: number;
+  etaMinutes: number;
+  image: string;
+  address: string;
+  isOpen: boolean;
+}
+
+export interface CartItem {
   dishId: string;
-  from: { x: number; y: number; w: number; h: number } | null;
-  currentRestaurantId: string;
-  nextRestaurantId: string;
-};
+  quantity: number;
+  notes?: string;
+}
 
-type PersistedState = {
+export interface OrderItem {
+  dishId: string;
+  dishName: string;
+  price: number;
+  quantity: number;
+}
+
+export interface Order {
+  id: string;
+  restaurantId: string;
+  restaurantName: string;
+  items: OrderItem[];
+  subtotal: number;
+  discount: number;
+  deliveryFee: number;
+  total: number;
+  promoCode: string | null;
+  status: OrderStatus;
+  createdAt: number;
+  etaMinutes: number;
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string;
+  deliveryLat?: number;
+  deliveryLng?: number;
+  driver?: Driver | null; // إضافة بيانات السائق إلى الطلب
+}
+
+export interface PromoCode {
+  code: string;
+  percentOff: number;
+  active: boolean;
+}
+
+export interface UserProfile {
+  fullName: string;
+  phone: string;
+  address: string;
+  locationLabel: string;
+  lat?: number;
+  lng?: number;
+}
+
+// ==========================================
+// 2. STATE & ACTIONS
+// ==========================================
+
+interface AppState {
   restaurants: Restaurant[];
   dishes: Dish[];
+  drivers: Driver[]; // قائمة السائقين المتاحين
   cart: CartItem[];
   cartRestaurantId: string | null;
   appliedPromo: string | null;
-  unlockedPromos: string[];
   promoCodes: PromoCode[];
   orders: Order[];
-  activeOrderId: string | null;
-  scratchRevealed: boolean;
-  user: UserProfile | null;
+  user: UserProfile;
+}
+
+type Action =
+  | { type: "ADD_TO_CART"; payload: { dishId: string; restaurantId: string } }
+  | { type: "REMOVE_FROM_CART"; payload: { dishId: string } }
+  | { type: "UPDATE_QUANTITY"; payload: { dishId: string; quantity: number } }
+  | { type: "CLEAR_CART" }
+  | { type: "APPLY_PROMO"; payload: string }
+  | { type: "REMOVE_PROMO" }
+  | { type: "CREATE_ORDER"; payload: Order }
+  | { type: "ASSIGN_DRIVER"; payload: { orderId: string; driver: Driver } }
+  | { type: "UPDATE_ORDER_STATUS"; payload: { orderId: string; status: OrderStatus } }
+  | { type: "UPDATE_USER_PROFILE"; payload: Partial<UserProfile> };
+
+// ==========================================
+// 3. INITIAL MOCK DATA
+// ==========================================
+
+const INITIAL_DRIVERS: Driver[] = [
+  {
+    id: "drv-101",
+    name: "أحمد ياسين",
+    phone: "0599000111",
+    vehicle: "سكوتر SYM Joymax",
+    plateNumber: "6-8921-99",
+  },
+  {
+    id: "drv-102",
+    name: "محمود خليل",
+    phone: "0599000222",
+    vehicle: "سيارة هيونداي Getz",
+    plateNumber: "6-1234-98",
+  },
+];
+
+const INITIAL_RESTAURANTS: Restaurant[] = [
+  {
+    id: "rest-1",
+    name: "Pizza Heaven",
+    cuisine: "إيطالي / بيتزا",
+    rating: 4.8,
+    deliveryFee: 10,
+    etaMinutes: 30,
+    image: "/images/pizza.jpg",
+    address: "الشارع الرئيسي - وسط المدينة",
+    isOpen: true,
+  },
+  {
+    id: "rest-2",
+    name: "Burger Craft",
+    cuisine: "وجبات سريعة / برجر",
+    rating: 4.6,
+    deliveryFee: 8,
+    etaMinutes: 25,
+    image: "/images/burger.jpg",
+    address: "شارع الجامعة",
+    isOpen: true,
+  },
+];
+
+const INITIAL_DISHES: Dish[] = [
+  {
+    id: "dish-1",
+    restaurantId: "rest-1",
+    name: "بيتزا مارجريتا",
+    description: "صلصة طماطم طازجة، جبنة موزاريلا، وريدان طازج",
+    price: 35,
+    image: "/images/margherita.jpg",
+    category: "بيتزا",
+    available: true,
+  },
+  {
+    id: "dish-2",
+    restaurantId: "rest-1",
+    name: "بيتزا ببروني",
+    description: "شرائح الببروني البقري مع جبنة الموزاريلا الغنية",
+    price: 45,
+    image: "/images/pepperoni.jpg",
+    category: "بيتزا",
+    available: true,
+  },
+  {
+    id: "dish-3",
+    restaurantId: "rest-2",
+    name: "كلاسيك برجر",
+    description: "شريحة بلدي 150غم، جبنة شيدر، خس، طماطم، وصلصة خاصة",
+    price: 28,
+    image: "/images/burger-classic.jpg",
+    category: "برجر",
+    available: true,
+  },
+];
+
+const INITIAL_PROMOS: PromoCode[] = [
+  { code: "SAVE10", percentOff: 10, active: true },
+  { code: "HEAVEN20", percentOff: 20, active: true },
+];
+
+const INITIAL_STATE: AppState = {
+  restaurants: INITIAL_RESTAURANTS,
+  dishes: INITIAL_DISHES,
+  drivers: INITIAL_DRIVERS,
+  cart: [],
+  cartRestaurantId: null,
+  appliedPromo: null,
+  promoCodes: INITIAL_PROMOS,
+  orders: [],
+  user: {
+    fullName: "يزن",
+    phone: "0590000000",
+    address: "حي الرفيديا",
+    locationLabel: "البيت",
+  },
 };
 
-type RuntimeState = PersistedState & {
-  hydrated: boolean;
-  adminUnlocked: boolean;
-  cartPopKey: number;
-  fly: FlyPayload | null;
-  cartConflict: CartConflict | null;
-  storageError: string | null;
-};
+// ==========================================
+// 4. HELPER CALCULATIONS
+// ==========================================
 
-function normalizeRestaurant(r: Restaurant): Restaurant {
-  return {
-    ...r,
-    active: r.active !== false,
-    etaMinutes: finite(r.etaMinutes, 25),
-    deliveryFee: finite(r.deliveryFee, 0),
-    rating: finite(r.rating, 4.5),
-    coverGradient: r.coverGradient || COVER_PRESETS[0],
-    logoGradient: r.logoGradient || LOGO_PRESETS[0],
-  };
-}
-
-function normalizeDish(d: Dish): Dish {
-  return {
-    ...d,
-    category: d.category || "General",
-    available: d.available !== false,
-    price: finite(d.price, 0),
-    gradient: d.gradient || COVER_PRESETS[0],
-  };
-}
-
-function normalizePromo(p: PromoCode): PromoCode {
-  return {
-    ...p,
-    code: String(p.code || "").toUpperCase(),
-    percentOff: Math.min(100, Math.max(1, finite(p.percentOff, 10))),
-    active: p.active !== false,
-  };
-}
-
-function finite(n: unknown, fallback: number) {
-  const v = typeof n === "number" ? n : Number(n);
-  return Number.isFinite(v) ? v : fallback;
-}
-
-function normalizeOrder(o: Order): Order {
-  const items: OrderLineItem[] = (o.items || []).map((item) => {
-    const legacy = item as OrderLineItem & CartItem;
-    return {
-      dishId: legacy.dishId,
-      name: legacy.name || legacy.dishId,
-      price: finite(legacy.price, 0),
-      quantity: Math.max(1, finite(legacy.quantity, 1)),
-    };
-  });
-  return {
-    ...o,
-    items,
-    status: o.status ?? "Pending",
-    subtotal: finite(o.subtotal, 0),
-    discount: finite(o.discount, 0),
-    total: finite(o.total, 0),
-    customerName: o.customerName ?? "",
-    customerPhone: o.customerPhone ?? "",
-    deliveryAddress: o.deliveryAddress ?? "",
-    deliveryLat: o.deliveryLat ?? null,
-    deliveryLng: o.deliveryLng ?? null,
-  };
-}
-
-function defaults(): RuntimeState {
-  return {
-    restaurants: INITIAL_RESTAURANTS.map(normalizeRestaurant),
-    dishes: INITIAL_DISHES.map(normalizeDish),
-    cart: [],
-    cartRestaurantId: null,
-    appliedPromo: null,
-    unlockedPromos: [],
-    promoCodes: INITIAL_PROMOS.map(normalizePromo),
-    orders: [],
-    activeOrderId: null,
-    scratchRevealed: false,
-    user: null,
-    hydrated: false,
-    adminUnlocked: false,
-    cartPopKey: 0,
-    fly: null,
-    cartConflict: null,
-    storageError: null,
-  };
-}
-
-function loadPersisted(): Partial<PersistedState> | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as Partial<PersistedState>;
-  } catch {
-    return null;
-  }
-}
-
-function mergePersisted(saved: Partial<PersistedState> | null): RuntimeState {
-  const base = defaults();
-  if (!saved) {
-    return {
-      ...base,
-      hydrated: true,
-      adminUnlocked:
-        typeof window !== "undefined" &&
-        sessionStorage.getItem(ADMIN_SESSION_KEY) === "1",
-    };
-  }
-  return {
-    ...base,
-    restaurants: (
-      saved.restaurants?.length ? saved.restaurants : INITIAL_RESTAURANTS
-    ).map(normalizeRestaurant),
-    dishes: (saved.dishes?.length ? saved.dishes : INITIAL_DISHES).map(
-      normalizeDish,
-    ),
-    cart: saved.cart ?? [],
-    cartRestaurantId: saved.cartRestaurantId ?? null,
-    appliedPromo: saved.appliedPromo ?? null,
-    unlockedPromos: saved.unlockedPromos ?? [],
-    promoCodes: (
-      saved.promoCodes?.length ? saved.promoCodes : INITIAL_PROMOS
-    ).map(normalizePromo),
-    orders: (saved.orders ?? []).map(normalizeOrder),
-    activeOrderId: saved.activeOrderId ?? null,
-    scratchRevealed: saved.scratchRevealed ?? false,
-    user: saved.user ?? null,
-    hydrated: true,
-    adminUnlocked:
-      typeof window !== "undefined" &&
-      sessionStorage.getItem(ADMIN_SESSION_KEY) === "1",
-  };
-}
-
-function persist(state: RuntimeState) {
-  try {
-    const payload: PersistedState = {
-      restaurants: state.restaurants,
-      dishes: state.dishes,
-      cart: state.cart,
-      cartRestaurantId: state.cartRestaurantId,
-      appliedPromo: state.appliedPromo,
-      unlockedPromos: state.unlockedPromos,
-      promoCodes: state.promoCodes,
-      orders: state.orders,
-      activeOrderId: state.activeOrderId,
-      scratchRevealed: state.scratchRevealed,
-      user: state.user,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    return null;
-  } catch {
-    return "تعذر حفظ البيانات محلياً (مساحة التخزين ممتلئة أو محظورة)";
-  }
-}
-
-function calcTotals(
+export function calcTotals(
   cart: CartItem[],
   dishes: Dish[],
   appliedPromo: string | null,
   promoCodes: PromoCode[],
+  deliveryFee: number = 0
 ) {
   const subtotal = cart.reduce((sum, item) => {
     const dish = dishes.find((d) => d.id === item.dishId);
@@ -234,452 +254,279 @@ function calcTotals(
     ? promoCodes.find((p) => p.code === appliedPromo && p.active)
     : null;
   const discount = promo ? (subtotal * promo.percentOff) / 100 : 0;
-  return { subtotal, discount, total: Math.max(0, subtotal - discount) };
-}
+  const totalAfterDiscount = Math.max(0, subtotal - discount);
+  
+  // لا توجد رسوم توصيل إذا كانت السلة فارغة
+  const finalDeliveryFee = cart.length > 0 ? deliveryFee : 0;
 
-function isValidPhone(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  return digits.length >= 9 && digits.length <= 15;
-}
-
-function isLoggedIn(user: UserProfile | null): user is UserProfile {
-  return Boolean(
-    user &&
-      user.fullName.trim().length >= 2 &&
-      isValidPhone(user.phone),
-  );
-}
-
-function hasDeliveryLocation(user: UserProfile) {
-  return Boolean(user.address.trim() || user.locationLabel.trim());
-}
-
-function rectPayload(fromRect?: DOMRect) {
-  if (!fromRect) return null;
   return {
-    x: fromRect.left,
-    y: fromRect.top,
-    w: fromRect.width,
-    h: fromRect.height,
+    subtotal,
+    discount,
+    deliveryFee: finalDeliveryFee,
+    total: totalAfterDiscount + finalDeliveryFee,
   };
 }
 
-/* ——— external store (localStorage-safe hydration) ——— */
-const SERVER_SNAPSHOT = defaults();
-let memory = defaults();
-let hydratedOnce = false;
-const listeners = new Set<() => void>();
+// ==========================================
+// 5. REDUCER
+// ==========================================
 
-function emit() {
-  listeners.forEach((l) => l());
-}
+function appReducer(state: AppState, action: Action): AppState {
+  switch (action.type) {
+    case "ADD_TO_CART": {
+      const { dishId, restaurantId } = action.payload;
+      
+      // تبديل المطعم في حال كانت هناك عناصر من مطعم آخر
+      const isDifferentRestaurant =
+        state.cartRestaurantId && state.cartRestaurantId !== restaurantId;
+      const currentCart = isDifferentRestaurant ? [] : state.cart;
 
-function getServerSnapshot(): RuntimeState {
-  return SERVER_SNAPSHOT;
-}
+      const existingIndex = currentCart.findIndex((i) => i.dishId === dishId);
+      let updatedCart: CartItem[];
 
-function getSnapshot(): RuntimeState {
-  return memory;
-}
+      if (existingIndex > -1) {
+        updatedCart = currentCart.map((item, idx) =>
+          idx === existingIndex
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      } else {
+        updatedCart = [...currentCart, { dishId, quantity: 1 }];
+      }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  if (!hydratedOnce && typeof window !== "undefined") {
-    hydratedOnce = true;
-    memory = mergePersisted(loadPersisted());
-    queueMicrotask(emit);
+      return {
+        ...state,
+        cart: updatedCart,
+        cartRestaurantId: restaurantId,
+      };
+    }
+
+    case "REMOVE_FROM_CART": {
+      const updatedCart = state.cart.filter((i) => i.dishId !== action.payload.dishId);
+      return {
+        ...state,
+        cart: updatedCart,
+        cartRestaurantId: updatedCart.length === 0 ? null : state.cartRestaurantId,
+        appliedPromo: updatedCart.length === 0 ? null : state.appliedPromo,
+      };
+    }
+
+    case "UPDATE_QUANTITY": {
+      const { dishId, quantity } = action.payload;
+      if (quantity <= 0) {
+        return appReducer(state, { type: "REMOVE_FROM_CART", payload: { dishId } });
+      }
+      return {
+        ...state,
+        cart: state.cart.map((item) =>
+          item.dishId === dishId ? { ...item, quantity } : item
+        ),
+      };
+    }
+
+    case "CLEAR_CART":
+      return {
+        ...state,
+        cart: [],
+        cartRestaurantId: null,
+        appliedPromo: null,
+      };
+
+    case "APPLY_PROMO":
+      return {
+        ...state,
+        appliedPromo: action.payload,
+      };
+
+    case "REMOVE_PROMO":
+      return {
+        ...state,
+        appliedPromo: null,
+      };
+
+    case "CREATE_ORDER":
+      return {
+        ...state,
+        orders: [action.payload, ...state.orders],
+        cart: [],
+        cartRestaurantId: null,
+        appliedPromo: null,
+      };
+
+    case "ASSIGN_DRIVER":
+      return {
+        ...state,
+        orders: state.orders.map((ord) =>
+          ord.id === action.payload.orderId
+            ? { ...ord, driver: action.payload.driver, status: "OutForDelivery" }
+            : ord
+        ),
+      };
+
+    case "UPDATE_ORDER_STATUS":
+      return {
+        ...state,
+        orders: state.orders.map((ord) =>
+          ord.id === action.payload.orderId
+            ? { ...ord, status: action.payload.status }
+            : ord
+        ),
+      };
+
+    case "UPDATE_USER_PROFILE":
+      return {
+        ...state,
+        user: { ...state.user, ...action.payload },
+      };
+
+    default:
+      return state;
   }
-  return () => listeners.delete(listener);
 }
 
-function patch(updater: (prev: RuntimeState) => RuntimeState) {
-  memory = updater(memory);
-  if (memory.hydrated) {
-    const err = persist(memory);
-    if (err) memory = { ...memory, storageError: err };
-  }
-  emit();
-}
+// ==========================================
+// 6. CONTEXT & PROVIDER
+// ==========================================
 
-type AppContextValue = {
-  hydrated: boolean;
-  storageError: string | null;
-  restaurants: Restaurant[];
-  dishes: Dish[];
-  cart: CartItem[];
-  cartRestaurantId: string | null;
+interface AppContextType {
+  state: AppState;
   cartRestaurant: Restaurant | null;
-  cartCount: number;
   subtotal: number;
   discount: number;
+  deliveryFee: number;
   total: number;
-  appliedPromo: string | null;
-  unlockedPromos: string[];
-  promoCodes: PromoCode[];
-  orders: Order[];
-  activeOrder: Order | null;
-  scratchRevealed: boolean;
-  cartPopKey: number;
-  fly: FlyPayload | null;
-  cartConflict: CartConflict | null;
-  user: UserProfile | null;
-  isAuthenticated: boolean;
-  adminUnlocked: boolean;
-  loginUser: (fullName: string, phone: string) => { ok: boolean; message: string };
-  logoutUser: () => void;
-  updateUserLocation: (patch: Partial<UserProfile>) => { ok: boolean; message: string };
-  unlockAdmin: (pin: string) => boolean;
-  lockAdmin: () => void;
-  addToCart: (dishId: string, fromRect?: DOMRect) => { ok: boolean; message?: string };
-  confirmClearCartAndAdd: () => void;
-  dismissCartConflict: () => void;
-  updateQuantity: (dishId: string, quantity: number) => void;
+  addToCart: (dishId: string, restaurantId: string) => void;
   removeFromCart: (dishId: string) => void;
+  updateQuantity: (dishId: string, quantity: number) => void;
   clearCart: () => void;
   applyPromo: (code: string) => { ok: boolean; message: string };
-  unlockPromoFromScratch: () => void;
-  placeOrder: () => { ok: true; order: Order } | { ok: false; message: string };
+  removePromo: () => void;
+  placeOrder: () => { ok: boolean; orderId?: string; message?: string };
+  assignDriverToOrder: (orderId: string, driverId: string) => boolean;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  upsertRestaurant: (restaurant: Restaurant) => { ok: boolean; message: string };
-  deleteRestaurant: (id: string) => void;
-  upsertDish: (dish: Dish) => { ok: boolean; message: string };
-  deleteDish: (id: string) => void;
-  upsertPromo: (promo: PromoCode) => { ok: boolean; message: string };
-  deletePromoCode: (code: string) => void;
-  clearFly: () => void;
-  getDish: (id: string) => Dish | undefined;
+  updateUserProfile: (profile: Partial<UserProfile>) => void;
+  getDish: (dishId: string) => Dish | undefined;
   getRestaurant: (id: string) => Restaurant | undefined;
   getDishesByRestaurant: (restaurantId: string) => Dish[];
-  createRestaurantId: () => string;
-  createDishId: () => string;
-};
+}
 
-const AppContext = createContext<AppContextValue | null>(null);
+const AppContext = createContext<AppContextType | null>(null);
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const stateRef = useRef(state);
-  stateRef.current = state;
+const emptySubscribe = () => () => {};
 
-  const cartRestaurant = useMemo(
-    () =>
-      state.restaurants.find((r) => r.id === state.cartRestaurantId) ?? null,
-    [state.restaurants, state.cartRestaurantId],
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(appReducer, INITIAL_STATE);
+  
+  // منع مشاكل SSR/Hydration
+  const isServer = useSyncExternalStore(
+    emptySubscribe,
+    () => false,
+    () => true
   );
 
-  const { subtotal, discount, total } = useMemo(
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const cartRestaurant = useMemo(() => {
+    if (!state.cartRestaurantId) return null;
+    return state.restaurants.find((r) => r.id === state.cartRestaurantId) || null;
+  }, [state.cartRestaurantId, state.restaurants]);
+
+  const { subtotal, discount, deliveryFee, total } = useMemo(
     () =>
       calcTotals(
         state.cart,
         state.dishes,
         state.appliedPromo,
         state.promoCodes,
+        cartRestaurant?.deliveryFee ?? 0
       ),
-    [state.cart, state.dishes, state.appliedPromo, state.promoCodes],
+    [state.cart, state.dishes, state.appliedPromo, state.promoCodes, cartRestaurant]
   );
 
-  const cartCount = useMemo(
-    () =>
-      state.cart.reduce((n, i) => {
-        if (!state.dishes.some((d) => d.id === i.dishId)) return n;
-        return n + i.quantity;
-      }, 0),
-    [state.cart, state.dishes],
-  );
+  // --- ACTIONS ---
 
-  const activeOrder = useMemo(
-    () => state.orders.find((o) => o.id === state.activeOrderId) ?? null,
-    [state.orders, state.activeOrderId],
-  );
-
-  const getDish = useCallback(
-    (id: string) => stateRef.current.dishes.find((d) => d.id === id),
-    [],
-  );
-  const getRestaurant = useCallback(
-    (id: string) => stateRef.current.restaurants.find((r) => r.id === id),
-    [],
-  );
-  const getDishesByRestaurant = useCallback(
-    (restaurantId: string) =>
-      stateRef.current.dishes.filter((d) => d.restaurantId === restaurantId),
-    [],
-  );
-
-  const createRestaurantId = useCallback(
-    () => `rest-${Date.now().toString(36)}`,
-    [],
-  );
-  const createDishId = useCallback(
-    () => `dish-${Date.now().toString(36)}`,
-    [],
-  );
-
-  const loginUser = useCallback((fullName: string, phone: string) => {
-    const name = fullName.trim();
-    const phoneTrim = phone.trim();
-    if (name.length < 2) return { ok: false, message: "أدخل الاسم الكامل" };
-    if (!isValidPhone(phoneTrim)) {
-      return { ok: false, message: "رقم الجوال غير صالح" };
-    }
-    patch((prev) => ({
-      ...prev,
-      user: {
-        fullName: name,
-        phone: phoneTrim,
-        address: prev.user?.address ?? "",
-        lat: prev.user?.lat ?? null,
-        lng: prev.user?.lng ?? null,
-        locationLabel: prev.user?.locationLabel ?? "",
-      },
-    }));
-    return { ok: true, message: "تم تسجيل الدخول" };
-  }, []);
-
-  const logoutUser = useCallback(() => {
-    patch((prev) => ({ ...prev, user: null }));
-  }, []);
-
-  const updateUserLocation = useCallback((patchLoc: Partial<UserProfile>) => {
-    const prev = stateRef.current;
-    if (!isLoggedIn(prev.user)) {
-      return {
-        ok: false,
-        message: "سجّل الدخول أولاً قبل حفظ العنوان",
-      };
-    }
-    patch((s) => ({
-      ...s,
-      user: s.user ? { ...s.user, ...patchLoc } : s.user,
-    }));
-    return { ok: true, message: "تم حفظ العنوان" };
-  }, []);
-
-  const unlockAdmin = useCallback((pin: string) => {
-    if (pin.trim() !== ADMIN_PIN) return false;
-    sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
-    patch((prev) => ({ ...prev, adminUnlocked: true }));
-    return true;
-  }, []);
-
-  const lockAdmin = useCallback(() => {
-    sessionStorage.removeItem(ADMIN_SESSION_KEY);
-    patch((prev) => ({ ...prev, adminUnlocked: false }));
-  }, []);
-
-  const triggerFly = useCallback((dish: Dish, fromRect?: DOMRect | null) => {
-    const cartEl = document.getElementById("cart-icon");
-    if (fromRect && cartEl) {
-      const to = cartEl.getBoundingClientRect();
-      patch((prev) => ({
-        ...prev,
-        fly: {
-          id: `${dish.id}-${Date.now()}`,
-          gradient: dish.gradient,
-          from: {
-            x: fromRect.left + fromRect.width / 2,
-            y: fromRect.top + fromRect.height / 2,
-          },
-          to: { x: to.left + to.width / 2, y: to.top + to.height / 2 },
-        },
-      }));
-    } else {
-      patch((prev) => ({ ...prev, cartPopKey: prev.cartPopKey + 1 }));
-    }
-  }, []);
-
-  const pushToCart = useCallback(
-    (dish: Dish, fromRect?: DOMRect | null) => {
-      patch((prev) => {
-        const existing = prev.cart.find((i) => i.dishId === dish.id);
-        const cart = existing
-          ? prev.cart.map((i) =>
-              i.dishId === dish.id
-                ? { ...i, quantity: i.quantity + 1 }
-                : i,
-            )
-          : [...prev.cart, { dishId: dish.id, quantity: 1 }];
-        return { ...prev, cartRestaurantId: dish.restaurantId, cart };
-      });
-      triggerFly(dish, fromRect);
-    },
-    [triggerFly],
-  );
-
-  const addToCart = useCallback(
-    (dishId: string, fromRect?: DOMRect) => {
-      const { dishes, restaurants, cart, cartRestaurantId } = stateRef.current;
-      const dish = dishes.find((d) => d.id === dishId);
-      if (!dish?.available) {
-        return { ok: false, message: "هذا الصنف غير متوفر" };
-      }
-      const restaurant = restaurants.find((r) => r.id === dish.restaurantId);
-      if (!restaurant?.active) {
-        return { ok: false, message: "هذا المطعم غير متاح حالياً" };
-      }
-      if (
-        cart.length > 0 &&
-        cartRestaurantId &&
-        cartRestaurantId !== dish.restaurantId
-      ) {
-        patch((prev) => ({
-          ...prev,
-          cartConflict: {
-            dishId,
-            from: rectPayload(fromRect),
-            currentRestaurantId: cartRestaurantId,
-            nextRestaurantId: dish.restaurantId,
-          },
-        }));
-        return { ok: false, message: "conflict" };
-      }
-      pushToCart(dish, fromRect ?? null);
-      return { ok: true };
-    },
-    [pushToCart],
-  );
-
-  const confirmClearCartAndAdd = useCallback(() => {
-    const conflict = stateRef.current.cartConflict;
-    if (!conflict) return;
-    const dish = stateRef.current.dishes.find((d) => d.id === conflict.dishId);
-    patch((prev) => ({
-      ...prev,
-      cart: [],
-      appliedPromo: null,
-      cartRestaurantId: null,
-      cartConflict: null,
-    }));
-    if (!dish?.available) return;
-    const from = conflict.from
-      ? new DOMRect(
-          conflict.from.x,
-          conflict.from.y,
-          conflict.from.w,
-          conflict.from.h,
-        )
-      : null;
-    pushToCart(dish, from);
-  }, [pushToCart]);
-
-  const dismissCartConflict = useCallback(() => {
-    patch((prev) => ({ ...prev, cartConflict: null }));
-  }, []);
-
-  const clearFly = useCallback(() => {
-    patch((prev) => ({
-      ...prev,
-      fly: null,
-      cartPopKey: prev.cartPopKey + 1,
-    }));
-  }, []);
-
-  const updateQuantity = useCallback((dishId: string, quantity: number) => {
-    patch((prev) => {
-      const cart =
-        quantity <= 0
-          ? prev.cart.filter((i) => i.dishId !== dishId)
-          : prev.cart.map((i) =>
-              i.dishId === dishId ? { ...i, quantity } : i,
-            );
-      return {
-        ...prev,
-        cart,
-        cartRestaurantId: cart.length ? prev.cartRestaurantId : null,
-      };
-    });
+  const addToCart = useCallback((dishId: string, restaurantId: string) => {
+    dispatch({ type: "ADD_TO_CART", payload: { dishId, restaurantId } });
   }, []);
 
   const removeFromCart = useCallback((dishId: string) => {
-    patch((prev) => {
-      const cart = prev.cart.filter((i) => i.dishId !== dishId);
-      return {
-        ...prev,
-        cart,
-        cartRestaurantId: cart.length ? prev.cartRestaurantId : null,
-      };
-    });
+    dispatch({ type: "REMOVE_FROM_CART", payload: { dishId } });
+  }, []);
+
+  const updateQuantity = useCallback((dishId: string, quantity: number) => {
+    dispatch({ type: "UPDATE_QUANTITY", payload: { dishId, quantity } });
   }, []);
 
   const clearCart = useCallback(() => {
-    patch((prev) => ({
-      ...prev,
-      cart: [],
-      cartRestaurantId: null,
-      appliedPromo: null,
-    }));
+    dispatch({ type: "CLEAR_CART" });
   }, []);
 
   const applyPromo = useCallback((code: string) => {
-    const normalized = code.trim().toUpperCase();
-    const promo = stateRef.current.promoCodes.find(
-      (p) => p.code === normalized && p.active,
+    const cleanCode = code.trim().toUpperCase();
+    const found = stateRef.current.promoCodes.find(
+      (p) => p.code === cleanCode && p.active
     );
-    if (!promo) return { ok: false, message: "كود غير صالح أو غير مفعّل" };
-    patch((prev) => ({ ...prev, appliedPromo: normalized }));
-    return { ok: true, message: `${promo.percentOff}% off applied` };
+    if (!found) {
+      return { ok: false, message: "كوبون الخصم غير فعال أو غير صحيح" };
+    }
+    dispatch({ type: "APPLY_PROMO", payload: cleanCode });
+    return { ok: true, message: `تم تطبيق خصم ${found.percentOff}%` };
   }, []);
 
-  const unlockPromoFromScratch = useCallback(() => {
-    patch((prev) => {
-      const has = prev.promoCodes.some((p) => p.code === "ZEST30");
-      const promoCodes = has
-        ? prev.promoCodes.map((p) =>
-            p.code === "ZEST30" ? { ...p, active: true } : p,
-          )
-        : [...prev.promoCodes, { code: "ZEST30", percentOff: 30, active: true }];
-      return {
-        ...prev,
-        scratchRevealed: true,
-        unlockedPromos: prev.unlockedPromos.includes("ZEST30")
-          ? prev.unlockedPromos
-          : [...prev.unlockedPromos, "ZEST30"],
-        promoCodes,
-        appliedPromo: "ZEST30",
-      };
-    });
+  const removePromo = useCallback(() => {
+    dispatch({ type: "REMOVE_PROMO" });
   }, []);
 
   const placeOrder = useCallback(() => {
     const s = stateRef.current;
     if (s.cart.length === 0 || !s.cartRestaurantId) {
-      return { ok: false as const, message: "السلة فارغة" };
-    }
-    if (!isLoggedIn(s.user)) {
-      return { ok: false as const, message: "سجّل الدخول أولاً" };
-    }
-    if (!hasDeliveryLocation(s.user)) {
-      return { ok: false as const, message: "أضف عنوان التوصيل" };
-    }
-    const restaurant = s.restaurants.find((r) => r.id === s.cartRestaurantId);
-    if (!restaurant?.active) {
-      return { ok: false as const, message: "المطعم غير متاح" };
+      return { ok: false, message: "السلة فارغة" };
     }
 
-    const lines: OrderLineItem[] = [];
+    const restaurant = s.restaurants.find((r) => r.id === s.cartRestaurantId);
+    if (!restaurant) {
+      return { ok: false, message: "المطعم غير متاح حالياً" };
+    }
+
+    const lines: OrderItem[] = [];
     for (const item of s.cart) {
       const dish = s.dishes.find((d) => d.id === item.dishId);
-      if (!dish) continue;
-      lines.push({
-        dishId: dish.id,
-        name: dish.name,
-        price: dish.price,
-        quantity: item.quantity,
-      });
-    }
-    if (lines.length === 0) {
-      return { ok: false as const, message: "لا توجد أصناف صالحة في السلة" };
+      if (dish) {
+        lines.push({
+          dishId: dish.id,
+          dishName: dish.name,
+          price: dish.price,
+          quantity: item.quantity,
+        });
+      }
     }
 
-    const totals = calcTotals(s.cart, s.dishes, s.appliedPromo, s.promoCodes);
-    const order: Order = {
+    const totals = calcTotals(
+      s.cart,
+      s.dishes,
+      s.appliedPromo,
+      s.promoCodes,
+      restaurant.deliveryFee
+    );
+
+    // اختيار سائق عشوائي تلقائياً للطلب لتجربة السيستم
+    const randomDriver =
+      s.drivers.length > 0
+        ? s.drivers[Math.floor(Math.random() * s.drivers.length)]
+        : null;
+
+    const newOrder: Order = {
       id: `ord-${Date.now().toString(36)}`,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
       items: lines,
       subtotal: totals.subtotal,
       discount: totals.discount,
-      total: totals.total + restaurant.deliveryFee,
+      deliveryFee: totals.deliveryFee,
+      total: totals.total,
       promoCode: s.appliedPromo,
       status: "Pending",
       createdAt: Date.now(),
@@ -689,184 +536,115 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deliveryAddress: s.user.address || s.user.locationLabel,
       deliveryLat: s.user.lat,
       deliveryLng: s.user.lng,
+      driver: randomDriver, // ربط السائق بالطلب عند إنشائه
     };
 
-    patch((prev) => ({
-      ...prev,
-      orders: [order, ...prev.orders],
-      activeOrderId: order.id,
-      cart: [],
-      cartRestaurantId: null,
-      appliedPromo: null,
-    }));
-
-    return { ok: true as const, order };
+    dispatch({ type: "CREATE_ORDER", payload: newOrder });
+    return { ok: true, orderId: newOrder.id };
   }, []);
 
-  const updateOrderStatus = useCallback(
-    (orderId: string, status: OrderStatus) => {
-      patch((prev) => ({
-        ...prev,
-        orders: prev.orders.map((o) =>
-          o.id === orderId ? { ...o, status } : o,
-        ),
-      }));
-    },
-    [],
+  const assignDriverToOrder = useCallback((orderId: string, driverId: string) => {
+    const s = stateRef.current;
+    const driver = s.drivers.find((d) => d.id === driverId);
+    if (!driver) return false;
+
+    dispatch({
+      type: "ASSIGN_DRIVER",
+      payload: { orderId, driver },
+    });
+    return true;
+  }, []);
+
+  const updateOrderStatus = useCallback((orderId: string, status: OrderStatus) => {
+    dispatch({ type: "UPDATE_ORDER_STATUS", payload: { orderId, status } });
+  }, []);
+
+  const updateUserProfile = useCallback((profile: Partial<UserProfile>) => {
+    dispatch({ type: "UPDATE_USER_PROFILE", payload: profile });
+  }, []);
+
+  // --- GETTERS ---
+
+  const getDish = useCallback(
+    (dishId: string) => state.dishes.find((d) => d.id === dishId),
+    [state.dishes]
   );
 
-  const upsertRestaurant = useCallback((restaurant: Restaurant) => {
-    const name = restaurant.name.trim();
-    if (!name) return { ok: false, message: "اسم المطعم مطلوب" };
-    const clean = normalizeRestaurant({ ...restaurant, name });
-    patch((prev) => {
-      const exists = prev.restaurants.some((r) => r.id === clean.id);
-      return {
-        ...prev,
-        restaurants: exists
-          ? prev.restaurants.map((r) => (r.id === clean.id ? clean : r))
-          : [clean, ...prev.restaurants],
-      };
-    });
-    return { ok: true, message: "Saved" };
-  }, []);
+  const getRestaurant = useCallback(
+    (id: string) => state.restaurants.find((r) => r.id === id),
+    [state.restaurants]
+  );
 
-  const deleteRestaurant = useCallback((id: string) => {
-    patch((prev) => {
-      const dishes = prev.dishes.filter((d) => d.restaurantId !== id);
-      const dishIds = new Set(dishes.map((d) => d.id));
-      const cart = prev.cart.filter((i) => dishIds.has(i.dishId));
-      return {
-        ...prev,
-        restaurants: prev.restaurants.filter((r) => r.id !== id),
-        dishes,
-        cart,
-        cartRestaurantId:
-          prev.cartRestaurantId === id || cart.length === 0
-            ? null
-            : prev.cartRestaurantId,
-      };
-    });
-  }, []);
+  const getDishesByRestaurant = useCallback(
+    (restaurantId: string) =>
+      state.dishes.filter((d) => d.restaurantId === restaurantId),
+    [state.dishes]
+  );
 
-  const upsertDish = useCallback((dish: Dish) => {
-    const name = dish.name.trim();
-    if (!name) return { ok: false, message: "اسم الصنف مطلوب" };
-    if (!dish.restaurantId) return { ok: false, message: "اختر مطعماً" };
-    if (!Number.isFinite(dish.price) || dish.price < 0) {
-      return { ok: false, message: "السعر غير صالح" };
-    }
-    const clean = normalizeDish({ ...dish, name });
-    patch((prev) => {
-      const exists = prev.dishes.some((d) => d.id === clean.id);
-      return {
-        ...prev,
-        dishes: exists
-          ? prev.dishes.map((d) => (d.id === clean.id ? clean : d))
-          : [clean, ...prev.dishes],
-      };
-    });
-    return { ok: true, message: "Saved" };
-  }, []);
+  const contextValue = useMemo(
+    () => ({
+      state,
+      cartRestaurant,
+      subtotal,
+      discount,
+      deliveryFee,
+      total,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      applyPromo,
+      removePromo,
+      placeOrder,
+      assignDriverToOrder,
+      updateOrderStatus,
+      updateUserProfile,
+      getDish,
+      getRestaurant,
+      getDishesByRestaurant,
+    }),
+    [
+      state,
+      cartRestaurant,
+      subtotal,
+      discount,
+      deliveryFee,
+      total,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      applyPromo,
+      removePromo,
+      placeOrder,
+      assignDriverToOrder,
+      updateOrderStatus,
+      updateUserProfile,
+      getDish,
+      getRestaurant,
+      getDishesByRestaurant,
+    ]
+  );
 
-  const deleteDish = useCallback((id: string) => {
-    patch((prev) => {
-      const cart = prev.cart.filter((i) => i.dishId !== id);
-      return {
-        ...prev,
-        dishes: prev.dishes.filter((d) => d.id !== id),
-        cart,
-        cartRestaurantId: cart.length ? prev.cartRestaurantId : null,
-      };
-    });
-  }, []);
+  if (isServer) {
+    return null;
+  }
 
-  const upsertPromo = useCallback((promo: PromoCode) => {
-    const code = promo.code.trim().toUpperCase();
-    if (!code) return { ok: false, message: "الكود مطلوب" };
-    if (!Number.isFinite(promo.percentOff) || promo.percentOff < 1) {
-      return { ok: false, message: "النسبة غير صالحة" };
-    }
-    const clean = normalizePromo({ ...promo, code });
-    patch((prev) => {
-      const exists = prev.promoCodes.some((p) => p.code === code);
-      return {
-        ...prev,
-        promoCodes: exists
-          ? prev.promoCodes.map((p) => (p.code === code ? clean : p))
-          : [...prev.promoCodes, clean],
-      };
-    });
-    return { ok: true, message: "Saved" };
-  }, []);
-
-  const deletePromoCode = useCallback((code: string) => {
-    patch((prev) => ({
-      ...prev,
-      promoCodes: prev.promoCodes.filter((p) => p.code !== code),
-      appliedPromo: prev.appliedPromo === code ? null : prev.appliedPromo,
-      unlockedPromos: prev.unlockedPromos.filter((c) => c !== code),
-    }));
-  }, []);
-
-  const value: AppContextValue = {
-    hydrated: state.hydrated,
-    storageError: state.storageError,
-    restaurants: state.restaurants,
-    dishes: state.dishes,
-    cart: state.cart,
-    cartRestaurantId: state.cartRestaurantId,
-    cartRestaurant,
-    cartCount,
-    subtotal,
-    discount,
-    total,
-    appliedPromo: state.appliedPromo,
-    unlockedPromos: state.unlockedPromos,
-    promoCodes: state.promoCodes,
-    orders: state.orders,
-    activeOrder,
-    scratchRevealed: state.scratchRevealed,
-    cartPopKey: state.cartPopKey,
-    fly: state.fly,
-    cartConflict: state.cartConflict,
-    user: state.user,
-    isAuthenticated: isLoggedIn(state.user),
-    adminUnlocked: state.adminUnlocked,
-    loginUser,
-    logoutUser,
-    updateUserLocation,
-    unlockAdmin,
-    lockAdmin,
-    addToCart,
-    confirmClearCartAndAdd,
-    dismissCartConflict,
-    updateQuantity,
-    removeFromCart,
-    clearCart,
-    applyPromo,
-    unlockPromoFromScratch,
-    placeOrder,
-    updateOrderStatus,
-    upsertRestaurant,
-    deleteRestaurant,
-    upsertDish,
-    deleteDish,
-    upsertPromo,
-    deletePromoCode,
-    clearFly,
-    getDish,
-    getRestaurant,
-    getDishesByRestaurant,
-    createRestaurantId,
-    createDishId,
-  };
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={contextValue}>
+      {children}
+    </AppContext.Provider>
+  );
 }
 
+// ==========================================
+// 7. CUSTOM HOOK
+// ==========================================
+
 export function useApp() {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useApp must be used within AppProvider");
-  return ctx;
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error("useApp must be used within an AppProvider");
+  }
+  return context;
 }
