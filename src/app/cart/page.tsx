@@ -30,9 +30,7 @@ export default function CartPage() {
   const [checkoutError, setCheckoutError] = useState("");
 
   const isAuthenticated = Boolean(user);
-  const hasLocation = Boolean(
-    user && (user.address?.trim() || user.locationLabel?.trim()),
-  );
+  const hasLocation = Boolean(user && user.address?.trim());
   const canCheckout = Boolean(isAuthenticated && hasLocation && cart.length > 0);
 
   const handleConfirm = () => {
@@ -170,7 +168,7 @@ export default function CartPage() {
             ) : (
               <>
                 <p className="text-sm text-foreground">
-                  {user?.address || user?.locationLabel || "لم يتم تحديد عنوان"}
+                  {user?.address || "لم يتم تحديد عنوان"}
                 </p>
                 {user?.lat != null && (
                   <p className="mt-1 text-xs text-foreground-muted">
