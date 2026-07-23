@@ -14,13 +14,13 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useApp } from "@/context/AppContext";
-import { ORDER_STATUSES, type OrderStatus } from "@/data/mockData";
+import { INITIAL_DRIVERS, ORDER_STATUSES, type OrderStatus } from "@/data/mockData";
 
 const DRIVER_SESSION_KEY = "zest-active-driver-id";
 
 export default function DriverDashboard() {
   const router = useRouter();
-  const { drivers, orders, updateOrderStatus, updateOrderDriver } = useApp();
+  const { orders, updateOrderStatus } = useApp();
 
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
   const [activeDriverId, setActiveDriverId] = useState<string | null>(null);
@@ -35,19 +35,13 @@ export default function DriverDashboard() {
   }, []);
 
   const currentDriver = useMemo(
-    () => drivers.find((d) => d.id === activeDriverId),
-    [drivers, activeDriverId]
+    () => INITIAL_DRIVERS.find((d) => d.id === activeDriverId),
+    [activeDriverId]
   );
 
-  // الطلبات الخاصة بالمندوب حالياً
-  const myOrders = useMemo(
-    () => orders.filter((o) => o.driverId === activeDriverId),
-    [orders, activeDriverId]
-  );
-
-  // الطلبات المتاحة للقبول (التي تم تأكيدها ولم يُعين لها مندوب بعد)
-  const availableOrders = useMemo(
-    () => orders.filter((o) => !o.driverId && o.status !== "Delivered" && o.status !== "Cancelled"),
+  // جميع الطلبات غير المكتملة
+  const activeOrders = useMemo(
+    () => orders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled"),
     [orders]
   );
 
@@ -64,9 +58,7 @@ export default function DriverDashboard() {
   };
 
   const handleAcceptOrder = (orderId: string) => {
-    if (!activeDriverId) return;
-    updateOrderDriver(orderId, activeDriverId);
-    updateOrderStatus(orderId, "Preparing");
+    updateOrderStatus(orderId, "OutForDelivery");
   };
 
   // شاشة تسجيل دخول المندوب
@@ -98,7 +90,7 @@ export default function DriverDashboard() {
                 className="w-full rounded-2xl border border-glass-border bg-secondary px-4 py-3.5 text-sm font-bold outline-none"
               >
                 <option value="">-- اختر المندوب --</option>
-                {drivers.map((d) => (
+                {INITIAL_DRIVERS.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} ({d.vehicle})
                   </option>
@@ -151,101 +143,61 @@ export default function DriverDashboard() {
             tab === "my-orders" ? "bg-primary text-white" : "text-foreground-muted"
           }`}
         >
-          طلباتي الحالية ({myOrders.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("available")}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
-            tab === "available" ? "bg-primary text-white" : "text-foreground-muted"
-          }`}
-        >
-          طلبات متاحة ({availableOrders.length})
+          الطلبات النشطة ({activeOrders.length})
         </button>
       </div>
 
-      {/* قائمة طلبات المندوب الحالية */}
-      {tab === "my-orders" && (
-        <section className="space-y-3 pb-8">
-          {myOrders.length === 0 ? (
-            <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
-              <CheckCircle2 className="mx-auto size-10 mb-2 opacity-30" />
-              <p className="text-sm font-bold">ليس لديك طلبات نشطة حالياً</p>
-            </div>
-          ) : (
-            myOrders.map((order) => (
-              <div key={order.id} className="glass rounded-2xl p-4 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-xs font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-md font-bold">
-                      #{order.id.slice(-6)}
-                    </span>
-                    <h3 className="font-bold text-base mt-1">{order.customerName}</h3>
-                  </div>
+      {/* قائمة طلبات التوصيل */}
+      <section className="space-y-3 pb-8">
+        {activeOrders.length === 0 ? (
+          <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+            <CheckCircle2 className="mx-auto size-10 mb-2 opacity-30" />
+            <p className="text-sm font-bold">لا يوجد طلبات جاهزة للتوصيل حالياً</p>
+          </div>
+        ) : (
+          activeOrders.map((order) => (
+            <div key={order.id} className="glass rounded-2xl p-4 space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-xs font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-md font-bold">
+                    #{order.id.slice(-6)}
+                  </span>
+                  <h3 className="font-bold text-base mt-1">{order.customerName}</h3>
+                </div>
+                {order.customerPhone && (
                   <a
                     href={`tel:${order.customerPhone}`}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/20 text-accent text-xs font-bold"
                   >
                     <Phone className="size-3.5" /> اتصال
                   </a>
-                </div>
-
-                <div className="flex items-start gap-2 text-xs text-foreground-muted">
-                  <MapPin className="size-4 shrink-0 text-primary mt-0.5" />
-                  <span>عنوان التوصيل: {order.deliveryAddress}</span>
-                </div>
-
-                {/* تحديث حالة التوصيل */}
-                <div className="border-t border-glass-border pt-3 flex items-center justify-between gap-2">
-                  <span className="text-xs text-foreground-muted font-bold">تحديث الحالة:</span>
-                  <select
-                    value={order.status}
-                    onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
-                    className="rounded-xl border border-glass-border bg-secondary px-3 py-1.5 text-xs font-bold outline-none text-primary"
-                  >
-                    {ORDER_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                )}
               </div>
-            ))
-          )}
-        </section>
-      )}
 
-      {/* قائمة الطلبات المتاحة للقبول */}
-      {tab === "available" && (
-        <section className="space-y-3 pb-8">
-          {availableOrders.length === 0 ? (
-            <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
-              <Clock className="mx-auto size-10 mb-2 opacity-30" />
-              <p className="text-sm font-bold">لا يوجد طلبات جديدة متاحة الآن</p>
-            </div>
-          ) : (
-            availableOrders.map((order) => (
-              <div key={order.id} className="glass rounded-2xl p-4 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-md font-bold">
-                    #{order.id.slice(-6)}
-                  </span>
-                  <h4 className="font-bold text-sm mt-1">{order.customerName}</h4>
-                  <p className="text-xs text-foreground-muted">${order.total.toFixed(2)}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleAcceptOrder(order.id)}
-                  className="no-select touch-target flex items-center gap-1.5 bg-primary px-4 py-2 rounded-xl text-xs font-bold text-white"
+              <div className="flex items-start gap-2 text-xs text-foreground-muted">
+                <MapPin className="size-4 shrink-0 text-primary mt-0.5" />
+                <span>عنوان التوصيل: {order.deliveryAddress || "غير محدد"}</span>
+              </div>
+
+              {/* تحديث حالة التوصيل */}
+              <div className="border-t border-glass-border pt-3 flex items-center justify-between gap-2">
+                <span className="text-xs text-foreground-muted font-bold">حالة الطلب:</span>
+                <select
+                  value={order.status}
+                  onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
+                  className="rounded-xl border border-glass-border bg-secondary px-3 py-1.5 text-xs font-bold outline-none text-primary"
                 >
-                  <Navigation className="size-3.5" /> استلام الطلب
-                </button>
+                  {ORDER_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ))
-          )}
-        </section>
-      )}
+            </div>
+          ))
+        )}
+      </section>
     </AppShell>
   );
 }
