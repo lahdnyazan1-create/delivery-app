@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Trash2, MapPin } from "lucide-react";
@@ -21,19 +20,18 @@ export default function CartPage() {
     removeFromCart,
     subtotal,
     discount,
-    deliveryFee,
     total,
     placeOrder,
     applyPromo,
-    removePromo,
   } = useApp();  
 
   const [promoInput, setPromoInput] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
 
+  const isAuthenticated = Boolean(user);
   const hasLocation = Boolean(
-    user && (user.address.trim() || user.locationLabel.trim()),
+    user && (user.address?.trim() || user.locationLabel?.trim()),
   );
   const canCheckout = Boolean(isAuthenticated && hasLocation && cart.length > 0);
 
