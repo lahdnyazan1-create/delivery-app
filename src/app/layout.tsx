@@ -2,8 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
-import { useEffect } from "react";
-import { useAppStore } from "@/store/useAppStore";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -52,13 +50,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  useEffect(() => {
-    const load = async () => {
-      await useAppStore.getState().loadInitialData();
-    };
-    load();
-  }, []);
-
   return (
     <html lang="en" className={`${cairo.variable} h-full antialiased`}>
       <body className="min-h-full font-sans text-foreground">
