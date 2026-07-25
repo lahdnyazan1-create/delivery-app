@@ -1,4 +1,4 @@
-k"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { Search as SearchIcon } from "lucide-react";
