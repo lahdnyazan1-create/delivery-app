@@ -3,11 +3,8 @@
 import React, { useEffect } from 'react';
 import { Order } from "@/types/database";
 import { useAppStore } from '@/store/useAppStore';
-import { Order } from "@/types/database";
 import { playSound, triggerHaptic } from '@/lib/sound-haptics';
-import { Order } from "@/types/database";
 import { RotateCcw, PackageCheck } from 'lucide-react';
-import { Order } from "@/types/database";
 
 export default function OrderHistory() {
   const { orders, loading, addToCart, clearCart, getDish } = useAppStore();

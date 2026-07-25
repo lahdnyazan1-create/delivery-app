@@ -1,15 +1,18 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CUISINES, type CuisineId } from "@/constants/cuisines";
+import { CUISINES, type CuisineOption } from "@/constants/cuisines";
 
 type CuisineSliderProps = {
-  value: CuisineId | "all";
-  onChange: (value: CuisineId | "all") => void;
+  value: CuisineOption;
+  onChange: (value: CuisineOption) => void;
 };
 
 export function CuisineSlider({ value, onChange }: CuisineSliderProps) {
-  const options = [{ id: "all" as const, label: "All" }, ...CUISINES];
+  const options: { id: CuisineOption; label: string }[] = [
+    { id: "all", label: "All" },
+    ...CUISINES.map((c) => ({ id: c.id, label: c.label })),
+  ];
 
   return (
     <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

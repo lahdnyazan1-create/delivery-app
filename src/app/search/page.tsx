@@ -1,4 +1,4 @@
-"use client";
+k"use client";
 
 import { useMemo, useState } from "react";
 import { Search as SearchIcon } from "lucide-react";
@@ -6,11 +6,11 @@ import { AppShell } from "@/components/layout/AppShell";
 import { CuisineSlider } from "@/components/home/CuisineSlider";
 import { RestaurantCard } from "@/components/home/RestaurantCard";
 import { useAppStore } from "@/store/useAppStore";
-import type { CuisineId } from "@/constants/cuisines";
+import type { CuisineOption } from "@/constants/cuisines";
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
-  const [cuisine, setCuisine] = useState<CuisineId | "all">("all");
+  const [cuisine, setCuisine] = useState<CuisineOption>("all");
   const { restaurants, dishes } = useAppStore();
 
   const filtered = useMemo(() => {
