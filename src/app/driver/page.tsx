@@ -7,19 +7,19 @@ import {
   LogOut, 
   MapPin, 
   CheckCircle2, 
-  Clock, 
   ArrowLeft,
-  Navigation,
   Phone
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
-import { useApp } from "@/context/AppContext";
-import { INITIAL_DRIVERS, ORDER_STATUSES, type OrderStatus } from "@/data/mockData";
+import { useAppStore } from "@/store/useAppStore";
+import { ORDER_STATUSES } from "@/constants/orderStatuses";
+import type { OrderStatus } from "@/types/database";
+
 const DRIVER_SESSION_KEY = "zest-active-driver-id";
 
 export default function DriverDashboard() {
   const router = useRouter();
-  const { orders, updateOrderStatus } = useApp();
+  const { orders, updateOrderStatus, drivers } = useAppStore();
 
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
   const [activeDriverId, setActiveDriverId] = useState<string | null>(null);
@@ -34,8 +34,8 @@ export default function DriverDashboard() {
   }, []);
 
   const currentDriver = useMemo(
-    () => INITIAL_DRIVERS.find((d) => d.id === activeDriverId),
-    [activeDriverId]
+    () => drivers.find((d) => d.id === activeDriverId),
+    [drivers, activeDriverId]
   );
 
   // جميع الطلبات غير المكتملة
@@ -54,10 +54,6 @@ export default function DriverDashboard() {
   const handleLogout = () => {
     sessionStorage.removeItem(DRIVER_SESSION_KEY);
     setActiveDriverId(null);
-  };
-
-  const handleAcceptOrder = (orderId: string) => {
-    updateOrderStatus(orderId, "OutForDelivery");
   };
 
   // شاشة تسجيل دخول المندوب
@@ -89,7 +85,7 @@ export default function DriverDashboard() {
                 className="w-full rounded-2xl border border-glass-border bg-secondary px-4 py-3.5 text-sm font-bold outline-none"
               >
                 <option value="">-- اختر المندوب --</option>
-                {INITIAL_DRIVERS.map((d) => (
+                {drivers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} ({d.vehicle})
                   </option>

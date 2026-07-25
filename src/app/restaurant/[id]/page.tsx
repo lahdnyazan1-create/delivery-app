@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock, Star, ShoppingBag } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { LivingCard } from "@/components/menu/LivingCard";
-import { useApp } from "@/context/AppContext";
-import { CUISINES } from "@/data/mockData";
+import { useAppStore } from "@/store/useAppStore";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -16,13 +15,11 @@ type PageProps = {
 export default function RestaurantMenuPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
-  const { getRestaurant, getDishesByRestaurant, cartCount } = useApp();
+  const { getRestaurant, getDishesByRestaurant, cart } = useAppStore();
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const restaurant = getRestaurant(id);
   const menu = getDishesByRestaurant(id);
-  const cuisine = restaurant
-    ? CUISINES.find((c) => c.id === restaurant.cuisineId)
-    : null;
 
   if (!restaurant) {
     return (
@@ -41,7 +38,7 @@ export default function RestaurantMenuPage({ params }: PageProps) {
     <AppShell hideHeader>
       <div className="relative -mx-4 mb-5 overflow-hidden">
         <div
-          className={`aspect-[16/8] bg-gradient-to-br ${restaurant.coverGradient}`}
+          className={`aspect-[16/8] bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
         />
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-safe">
           <button
@@ -69,7 +66,7 @@ export default function RestaurantMenuPage({ params }: PageProps) {
 
         <div className="relative -mt-8 px-4">
           <div
-            className={`mb-3 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br ${restaurant.logoGradient} text-xl font-extrabold text-white shadow-lg ring-4 ring-background`}
+            className={`mb-3 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br ${restaurant.logoGradient || "from-primary to-orange-600"} text-xl font-extrabold text-white shadow-lg ring-4 ring-background`}
           >
             {restaurant.name.slice(0, 1)}
           </div>
@@ -82,8 +79,7 @@ export default function RestaurantMenuPage({ params }: PageProps) {
             </p>
           )}
           <p className="mt-1 text-sm text-foreground-muted">
-            {restaurant.tagline}
-            {cuisine ? ` · ${cuisine.label}` : ""}
+            {restaurant.tagline || restaurant.cuisine || ""}
           </p>
           <div className="mt-2 flex items-center gap-3 text-xs font-semibold text-foreground-muted">
             <span className="inline-flex items-center gap-1 text-accent-soft">

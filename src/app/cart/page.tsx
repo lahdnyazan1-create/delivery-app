@@ -7,23 +7,26 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/layout/AppShell";
 import { ScratchCard } from "@/components/promo/ScratchCard";
 import { SwipeButton } from "@/components/checkout/SwipeButton";
-import { useApp } from "@/context/AppContext";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function CartPage() {
   const router = useRouter();
   const {
-    state: { cart, appliedPromo, user },
-    cartRestaurant,
+    cart,
+    cartRestaurantId,
+    appliedPromo,
+    user,
     getDish,
+    getRestaurant,
     updateQuantity,
-    deliveryFee,
     removeFromCart,
-    subtotal,
-    discount,
-    total,
-    placeOrder,
     applyPromo,
-  } = useApp();  
+    placeOrder,
+    getCartTotal,
+  } = useAppStore();
+
+  const { subtotal, discount, deliveryFee, total } = getCartTotal();
+  const grandTotal = total; // total already includes delivery fee
 
   const [promoInput, setPromoInput] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
@@ -32,19 +35,18 @@ export default function CartPage() {
   const isAuthenticated = Boolean(user);
   const hasLocation = Boolean(user && user.address?.trim());
   const canCheckout = Boolean(isAuthenticated && hasLocation && cart.length > 0);
+  const cartRestaurant = getRestaurant(cartRestaurantId || "");
 
-  const handleConfirm = () => {
-    const result = placeOrder();
+  const handleConfirm = async () => {
+    const result = await placeOrder();
     if (!result.ok) {
-      setCheckoutError(result.message);
+      setCheckoutError(result.message || "");
       return false;
     }
     setCheckoutError("");
-    window.setTimeout(() => router.push("/order-tracking"), 650);
+    router.push("/order-tracking");
     return true;
   };
-
-  const grandTotal = total + deliveryFee;
 
   const visibleCart = cart.filter((item) => getDish(item.dishId));
 
@@ -94,7 +96,7 @@ export default function CartPage() {
                     className="glass flex gap-3 rounded-3xl p-3"
                   >
                     <div
-                      className={`size-16 shrink-0 rounded-2xl bg-gradient-to-br ${dish.gradient}`}
+                      className={`size-16 shrink-0 rounded-2xl bg-gradient-to-br ${dish.gradient || "from-gray-600 to-gray-800"}`}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
@@ -158,9 +160,7 @@ export default function CartPage() {
             {!isAuthenticated ? (
               <button
                 type="button"
-                onClick={() =>
-                  router.push("/login?next=/cart")
-                }
+                onClick={() => router.push("/login?next=/cart")}
                 className="no-select touch-target w-full rounded-xl bg-primary/15 py-3 text-sm font-bold text-primary"
               >
                 سجّل الدخول لإتمام الطلب

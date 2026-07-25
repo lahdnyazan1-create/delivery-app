@@ -1,0 +1,4785 @@
+================================================================================
+PROJECT STRUCTURE
+================================================================================
+
+.
+├── next.config.ts
+├── next-env.d.ts
+├── tsconfig.json
+├── firestore.rules
+├── fix.sh
+├── firestore.indexes.json
+├── package.json
+├── .gitignore
+├── .env.local
+├── eslint.config.mjs
+├── project_context_report.txt
+├── postcss.config.mjs
+├── .env
+├── src/
+│   ├── constants/
+│   │   ├── cuisines.ts
+│   │   ├── orderStatuses.ts
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── BottomNav.tsx
+│   │   │   ├── AppShell.tsx
+│   │   │   ├── Header.tsx
+│   │   ├── checkout/
+│   │   │   ├── SwipeButton.tsx
+│   │   ├── profile/
+│   │   │   ├── OrderHistory.tsx
+│   │   ├── promo/
+│   │   │   ├── ScratchCard.tsx
+│   │   ├── tracking/
+│   │   │   ├── OrderStageTracker.tsx
+│   │   ├── menu/
+│   │   │   ├── LivingCard.tsx
+│   │   ├── home/
+│   │   │   ├── RestaurantCard.tsx
+│   │   │   ├── CuisineSlider.tsx
+│   ├── data/
+│   ├── store/
+│   │   ├── useAppStore.ts
+│   ├── lib/
+│   │   ├── feedback.ts
+│   │   ├── firebase.ts
+│   │   ├── firestore.ts
+│   │   ├── calcTotals.ts
+│   │   ├── sound-haptics.ts
+│   ├── app/
+│   │   ├── not-found.tsx
+│   │   ├── manifest.ts
+│   │   ├── error.tsx
+│   │   ├── page.tsx
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── cart/
+│   │   │   ├── page.tsx
+│   │   ├── profile/
+│   │   │   ├── page.tsx
+│   │   ├── order-tracking/
+│   │   │   ├── page.tsx
+│   │   ├── search/
+│   │   │   ├── page.tsx
+│   │   ├── admin/
+│   │   │   ├── page.tsx
+│   │   ├── driver/
+│   │   │   ├── page.tsx
+│   │   ├── login/
+│   │   │   ├── page.tsx
+│   │   ├── restaurant/
+│   │   │   ├── page.tsx
+│   │   │   ├── [id]/
+│   │   │   │   ├── page.tsx
+│   ├── types/
+│   │   ├── database.ts
+├── public/
+│   ├── manifest.json
+│   ├── sw.js
+│   ├── icons/
+
+
+================================================================================
+PROJECT FILES CONTENT
+================================================================================
+
+
+################################################################################
+FILE: next.config.ts
+################################################################################
+
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+
+
+
+################################################################################
+FILE: next-env.d.ts
+################################################################################
+
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+import "./.next/types/routes.d.ts";
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+
+
+
+################################################################################
+FILE: tsconfig.json
+################################################################################
+
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+
+
+################################################################################
+FILE: firestore.rules
+################################################################################
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // This rule allows anyone with your Firestore database reference to view, edit,
+    // and delete all data in your Firestore database. It is useful for getting
+    // started, but it is configured to expire after 30 days because it
+    // leaves your app open to attackers. At that time, all client
+    // requests to your Firestore database will be denied.
+    //
+    // Make sure to write security rules for your app before that time, or else
+    // all client requests to your Firestore database will be denied until you Update
+    // your rules
+    match /{document=**} {
+      allow read, write: if request.time < timestamp.date(2026, 8, 22);
+    }
+  }
+}
+
+
+################################################################################
+FILE: fix.sh
+################################################################################
+
+#!/bin/bash
+
+# =============================================
+# 1. حذف الملفات والمجلدات غير المستخدمة
+# =============================================
+rm -f merge_files.py project_context_report.txt
+rm -rf src/components/cart
+
+# =============================================
+# 2. إنشاء مجلد constants ونقل الثوابت
+# =============================================
+mkdir -p src/constants
+
+# كتابة ملف cuisines.ts
+cat > src/constants/cuisines.ts << 'EOF'
+export type CuisineId = "all" | "pizza" | "burger" | "oriental" | "sushi" | "sweets";
+
+export const CUISINES = [
+  { id: "all" as const, label: "All", icon: "🍽️" },
+  { id: "pizza", label: "بيتزا", icon: "🍕" },
+  { id: "burger", label: "برغر", icon: "🍔" },
+  { id: "oriental", label: "شرقي", icon: "🥙" },
+  { id: "sushi", label: "سوشي", icon: "🍣" },
+  { id: "sweets", label: "حلويات", icon: "🍰" },
+];
+EOF
+
+# كتابة ملف orderStatuses.ts
+cat > src/constants/orderStatuses.ts << 'EOF'
+import { OrderStatus } from "@/types/database";
+
+export const ORDER_STATUSES: OrderStatus[] = [
+  "Pending",
+  "Preparing",
+  "OutForDelivery",
+  "Delivered",
+  "Cancelled",
+];
+EOF
+
+# =============================================
+# 3. تحديث imports في المكونات
+# =============================================
+
+# CuisineSlider
+sed -i 's|import { CUISINES, type CuisineId } from "@/data/mockData";|import { CUISINES, type CuisineId } from "@/constants/cuisines";|' src/components/home/CuisineSlider.tsx
+
+# page.tsx و search/page.tsx
+sed -i 's|import type { CuisineId } from "@/data/mockData";|import type { CuisineId } from "@/constants/cuisines";|' src/app/page.tsx
+sed -i 's|import type { CuisineId } from "@/data/mockData";|import type { CuisineId } from "@/constants/cuisines";|' src/app/search/page.tsx
+
+# OrderHistory - إضافة import مفقود
+sed -i '/^import.*from.*$/a import { Order } from "@/types/database";' src/components/profile/OrderHistory.tsx
+
+# OrderStageTracker - تغيير نوع OrderStatus وتصحيح OutForDelivery
+sed -i 's|import type { OrderStatus } from "@/data/mockData";|import type { OrderStatus } from "@/types/database";|' src/components/tracking/OrderStageTracker.tsx
+sed -i 's|"Out for Delivery"|"OutForDelivery"|g' src/components/tracking/OrderStageTracker.tsx
+
+# driver و restaurant - استخدام ORDER_STATUSES من constants
+sed -i 's|import { ORDER_STATUSES, type OrderStatus } from "@/types/database";|import { ORDER_STATUSES } from "@/constants/orderStatuses";\nimport type { OrderStatus } from "@/types/database";|' src/app/driver/page.tsx
+sed -i 's|import { ORDER_STATUSES, type OrderStatus } from "@/types/database";|import { ORDER_STATUSES } from "@/constants/orderStatuses";\nimport type { OrderStatus } from "@/types/database";|' src/app/restaurant/page.tsx
+
+# =============================================
+# 4. حذف mockData.ts بعد نقل كل ما يحتاجه
+# =============================================
+rm -f src/data/mockData.ts
+
+echo "✅ تم التنظيف والتعديلات الأساسية."
+echo "⚠️  يرجى تنفيذ التعديلات اليدوية المذكورة في التعليمات."
+
+
+
+################################################################################
+FILE: firestore.indexes.json
+################################################################################
+
+{
+  "indexes": [],
+  "fieldOverrides": []
+}
+
+
+################################################################################
+FILE: package.json
+################################################################################
+
+{
+  "name": "emotional-food-delivery",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "firebase": "^12.16.0",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.25.0",
+    "next": "16.2.11",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.11",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+
+
+
+################################################################################
+FILE: .gitignore
+################################################################################
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+
+
+################################################################################
+FILE: .env.local
+################################################################################
+
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCH7dj8F6_OuFDnt_7HN1XbBI8hu_-0HPg
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=zest-delivery-97e51.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=zest-delivery-97e51
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=zest-delivery-97e51.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=8135588188
+NEXT_PUBLIC_FIREBASE_APP_ID=1:8135588188:web:b176c5eed403d6846d6999
+
+
+
+################################################################################
+FILE: eslint.config.mjs
+################################################################################
+
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+
+
+
+################################################################################
+FILE: project_context_report.txt
+################################################################################
+
+================================================================================
+PROJECT STRUCTURE
+================================================================================
+
+.
+├── next.config.ts
+├── next-env.d.ts
+├── tsconfig.json
+├── firestore.rules
+├── fix.sh
+├── firestore.indexes.json
+├── package.json
+├── .gitignore
+├── .env.local
+├── eslint.config.mjs
+├── project_context_report.txt
+├── postcss.config.mjs
+├── .env
+├── src/
+│   ├── constants/
+│   │   ├── cuisines.ts
+│   │   ├── orderStatuses.ts
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── BottomNav.tsx
+│   │   │   ├── AppShell.tsx
+│   │   │   ├── Header.tsx
+│   │   ├── checkout/
+│   │   │   ├── SwipeButton.tsx
+│   │   ├── profile/
+│   │   │   ├── OrderHistory.tsx
+│   │   ├── promo/
+│   │   │   ├── ScratchCard.tsx
+│   │   ├── tracking/
+│   │   │   ├── OrderStageTracker.tsx
+│   │   ├── menu/
+│   │   │   ├── LivingCard.tsx
+│   │   ├── home/
+│   │   │   ├── RestaurantCard.tsx
+│   │   │   ├── CuisineSlider.tsx
+│   ├── data/
+│   ├── store/
+│   │   ├── useAppStore.ts
+│   ├── lib/
+│   │   ├── feedback.ts
+│   │   ├── firebase.ts
+│   │   ├── firestore.ts
+│   │   ├── calcTotals.ts
+│   │   ├── sound-haptics.ts
+│   ├── app/
+│   │   ├── not-found.tsx
+│   │   ├── manifest.ts
+│   │   ├── error.tsx
+│   │   ├── page.tsx
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── cart/
+│   │   │   ├── page.tsx
+│   │   ├── profile/
+│   │   │   ├── page.tsx
+│   │   ├── order-tracking/
+│   │   │   ├── page.tsx
+│   │   ├── search/
+│   │   │   ├── page.tsx
+│   │   ├── admin/
+│   │   │   ├── page.tsx
+│   │   ├── driver/
+│   │   │   ├── page.tsx
+│   │   ├── login/
+│   │   │   ├── page.tsx
+│   │   ├── restaurant/
+│   │   │   ├── page.tsx
+│   │   │   ├── [id]/
+│   │   │   │   ├── page.tsx
+│   ├── types/
+│   │   ├── database.ts
+├── public/
+│   ├── manifest.json
+│   ├── sw.js
+│   ├── icons/
+
+
+================================================================================
+PROJECT FILES CONTENT
+================================================================================
+
+
+################################################################################
+FILE: next.config.ts
+################################################################################
+
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+
+
+
+################################################################################
+FILE: next-env.d.ts
+################################################################################
+
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+import "./.next/types/routes.d.ts";
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+
+
+
+################################################################################
+FILE: tsconfig.json
+################################################################################
+
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+
+
+################################################################################
+FILE: firestore.rules
+################################################################################
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // This rule allows anyone with your Firestore database reference to view, edit,
+    // and delete all data in your Firestore database. It is useful for getting
+    // started, but it is configured to expire after 30 days because it
+    // leaves your app open to attackers. At that time, all client
+    // requests to your Firestore database will be denied.
+    //
+    // Make sure to write security rules for your app before that time, or else
+    // all client requests to your Firestore database will be denied until you Update
+    // your rules
+    match /{document=**} {
+      allow read, write: if request.time < timestamp.date(2026, 8, 22);
+    }
+  }
+}
+
+
+################################################################################
+FILE: fix.sh
+################################################################################
+
+#!/bin/bash
+
+# =============================================
+# 1. حذف الملفات والمجلدات غير المستخدمة
+# =============================================
+rm -f merge_files.py project_context_report.txt
+rm -rf src/components/cart
+
+# =============================================
+# 2. إنشاء مجلد constants ونقل الثوابت
+# =============================================
+mkdir -p src/constants
+
+# كتابة ملف cuisines.ts
+cat > src/constants/cuisines.ts << 'EOF'
+export type CuisineId = "all" | "pizza" | "burger" | "oriental" | "sushi" | "sweets";
+
+export const CUISINES = [
+  { id: "all" as const, label: "All", icon: "🍽️" },
+  { id: "pizza", label: "بيتزا", icon: "🍕" },
+  { id: "burger", label: "برغر", icon: "🍔" },
+  { id: "oriental", label: "شرقي", icon: "🥙" },
+  { id: "sushi", label: "سوشي", icon: "🍣" },
+  { id: "sweets", label: "حلويات", icon: "🍰" },
+];
+EOF
+
+# كتابة ملف orderStatuses.ts
+cat > src/constants/orderStatuses.ts << 'EOF'
+import { OrderStatus } from "@/types/database";
+
+export const ORDER_STATUSES: OrderStatus[] = [
+  "Pending",
+  "Preparing",
+  "OutForDelivery",
+  "Delivered",
+  "Cancelled",
+];
+EOF
+
+# =============================================
+# 3. تحديث imports في المكونات
+# =============================================
+
+# CuisineSlider
+sed -i 's|import { CUISINES, type CuisineId } from "@/data/mockData";|import { CUISINES, type CuisineId } from "@/constants/cuisines";|' src/components/home/CuisineSlider.tsx
+
+# page.tsx و search/page.tsx
+sed -i 's|import type { CuisineId } from "@/data/mockData";|import type { CuisineId } from "@/constants/cuisines";|' src/app/page.tsx
+sed -i 's|import type { CuisineId } from "@/data/mockData";|import type { CuisineId } from "@/constants/cuisines";|' src/app/search/page.tsx
+
+# OrderHistory - إضافة import مفقود
+sed -i '/^import.*from.*$/a import { Order } from "@/types/database";' src/components/profile/OrderHistory.tsx
+
+# OrderStageTracker - تغيير نوع OrderStatus وتصحيح OutForDelivery
+sed -i 's|import type { OrderStatus } from "@/data/mockData";|import type { OrderStatus } from "@/types/database";|' src/components/tracking/OrderStageTracker.tsx
+sed -i 's|"Out for Delivery"|"OutForDelivery"|g' src/components/tracking/OrderStageTracker.tsx
+
+# driver و restaurant - استخدام ORDER_STATUSES من constants
+sed -i 's|import { ORDER_STATUSES, type OrderStatus } from "@/types/database";|import { ORDER_STATUSES } from "@/constants/orderStatuses";\nimport type { OrderStatus } from "@/types/database";|' src/app/driver/page.tsx
+sed -i 's|import { ORDER_STATUSES, type OrderStatus } from "@/types/database";|import { ORDER_STATUSES } from "@/constants/orderStatuses";\nimport type { OrderStatus } from "@/types/database";|' src/app/restaurant/page.tsx
+
+# =============================================
+# 4. حذف mockData.ts بعد نقل كل ما يحتاجه
+# =============================================
+rm -f src/data/mockData.ts
+
+echo "✅ تم التنظيف والتعديلات الأساسية."
+echo "⚠️  يرجى تنفيذ التعديلات اليدوية المذكورة في التعليمات."
+
+
+
+################################################################################
+FILE: postcss.config.mjs
+################################################################################
+
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+
+
+
+################################################################################
+FILE: .env
+################################################################################
+
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCH7dj8F6_OuFDnt_7HN1XbBI8hu_-0HPg
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=zest-delivery-97e51.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=zest-delivery-97e51
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=zest-delivery-97e51.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=8135588188
+NEXT_PUBLIC_FIREBASE_APP_ID=1:8135588188:web:b176c5eed403d6846d6999
+
+
+
+################################################################################
+FILE: src/constants/cuisines.ts
+################################################################################
+
+export type CuisineId = "all" | "pizza" | "burger" | "oriental" | "sushi" | "sweets";
+
+export const CUISINES = [
+  { id: "all" as const, label: "All", icon: "🍽️" },
+  { id: "pizza", label: "بيتزا", icon: "🍕" },
+  { id: "burger", label: "برغر", icon: "🍔" },
+  { id: "oriental", label: "شرقي", icon: "🥙" },
+  { id: "sushi", label: "سوشي", icon: "🍣" },
+  { id: "sweets", label: "حلويات", icon: "🍰" },
+];
+
+
+
+################################################################################
+FILE: src/constants/orderStatuses.ts
+################################################################################
+
+import { OrderStatus } from "@/types/database";
+
+export const ORDER_STATUSES: OrderStatus[] = [
+  "Pending",
+  "Preparing",
+  "OutForDelivery",
+  "Delivered",
+  "Cancelled",
+];
+
+
+
+################################################################################
+FILE: src/components/layout/BottomNav.tsx
+################################################################################
+
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Home, Search, ShoppingBag, User } from "lucide-react";
+import { useAppStore } from "@/store/useAppStore";
+
+const tabs = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/search", label: "Search", icon: Search },
+  { href: "/cart", label: "Cart", icon: ShoppingBag },
+  { href: "/profile", label: "Profile", icon: User },
+] as const;
+
+export function BottomNav() {
+  const pathname = usePathname();
+  const cart = useAppStore((state) => state.cart);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  if (pathname.startsWith("/admin") || pathname.startsWith("/order-tracking") || pathname.startsWith("/driver") || pathname.startsWith("/restaurant")) {
+    return null;
+  }
+
+  return (
+    <nav
+      aria-label="Primary"
+      className="glass-strong fixed inset-x-0 bottom-0 z-40 border-t border-glass-border pb-safe"
+    >
+      <ul className="mx-auto flex max-w-lg items-stretch justify-around px-2 pt-2">
+        {tabs.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href;
+
+          return (
+            <li key={href} className="flex-1">
+              <Link
+                href={href}
+                className={`no-select touch-target relative flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 transition-colors ${
+                  active
+                    ? "text-primary"
+                    : "text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                <Icon
+                  className="size-5"
+                  strokeWidth={active ? 2.5 : 2}
+                  aria-hidden
+                />
+                {href === "/cart" && cartCount > 0 && (
+                  <span className="absolute right-[22%] top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">
+                    {cartCount}
+                  </span>
+                )}
+                <span className="text-[11px] font-semibold tracking-wide">
+                  {label}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/layout/AppShell.tsx
+################################################################################
+
+"use client";
+
+import { BottomNav } from "@/components/layout/BottomNav";
+import { Header } from "@/components/layout/Header";
+import { usePathname } from "next/navigation";
+
+type AppShellProps = {
+  children: React.ReactNode;
+  hideHeader?: boolean;
+  hideNav?: boolean;
+};
+
+export function AppShell({
+  children,
+  hideHeader = false,
+  hideNav = false,
+}: AppShellProps) {
+  const pathname = usePathname();
+  // إخفاء الهيدر في صفحات معينة
+  const shouldHideHeader = hideHeader || pathname.startsWith('/admin') || pathname.startsWith('/driver') || pathname.startsWith('/restaurant');
+  const shouldHideNav = hideNav || pathname.startsWith('/admin') || pathname.startsWith('/driver') || pathname.startsWith('/restaurant');
+
+  return (
+    <div className="app-gradient relative mx-auto flex min-h-dvh w-full max-w-lg flex-col">
+      {!shouldHideHeader && <Header />}
+      <main
+        className={`flex flex-1 flex-col px-4 pt-4 ${
+          shouldHideNav ? "pb-8" : "pb-28"
+        }`}
+      >
+        {children}
+      </main>
+      {!shouldHideNav && <BottomNav />}
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/layout/Header.tsx
+################################################################################
+
+"use client";
+
+import Link from "next/link";
+import { MapPin, ShoppingBag } from "lucide-react";
+import { motion } from "framer-motion";
+import { useAppStore } from "@/store/useAppStore";
+
+export function Header() {
+  const { user, activeOrder, cart } = useAppStore();
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const locationText =
+    user?.address?.trim() ||
+    user?.locationLabel?.trim() ||
+    "Set your delivery address";
+
+  return (
+    <header className="sticky top-0 z-40 pt-safe">
+      <div className="glass mx-3 mt-3 flex items-center gap-3 rounded-2xl px-3 py-2.5">
+        <Link
+          href="/profile"
+          className="flex min-w-0 flex-1 items-center gap-2 px-1"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <MapPin className="size-5" aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[11px] font-medium uppercase tracking-wider text-foreground-muted">
+              Deliver to
+            </span>
+            <span className="block truncate text-sm font-bold text-foreground">
+              {locationText}
+            </span>
+          </span>
+        </Link>
+
+        {activeOrder && activeOrder.status !== "Delivered" && (
+          <Link
+            href="/order-tracking"
+            className="no-select touch-target rounded-xl bg-accent/15 px-2.5 py-2 text-[11px] font-bold text-accent"
+          >
+            Track
+          </Link>
+        )}
+
+        <Link href="/cart" aria-label={`Cart, ${cartCount} items`}>
+          <motion.span
+            key={cartCount}
+            initial={{ scale: 1 }}
+            animate={{ scale: [1, 1.22, 1] }}
+            transition={{ duration: 0.35 }}
+            className="no-select touch-target relative flex size-11 items-center justify-center rounded-xl bg-primary text-white shadow-[0_8px_24px_rgb(255_107_53_/_0.35)]"
+          >
+            <ShoppingBag className="size-5" aria-hidden />
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-secondary">
+                {cartCount}
+              </span>
+            )}
+          </motion.span>
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/checkout/SwipeButton.tsx
+################################################################################
+
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useTransform,
+} from "framer-motion";
+import { ChevronRight, Check } from "lucide-react";
+import { playSuccessChime, vibrate } from "@/lib/feedback";
+
+type SwipeButtonProps = {
+  disabled?: boolean;
+  label?: string;
+  onConfirm: () => boolean | void | Promise<boolean | void>;
+};
+
+export function SwipeButton({
+  disabled = false,
+  label = "Swipe to confirm",
+  onConfirm,
+}: SwipeButtonProps) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const [maxX, setMaxX] = useState(0);
+  const [complete, setComplete] = useState(false);
+  const [burst, setBurst] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const confirmed = useRef(false);
+
+  useEffect(() => {
+    const measure = () => {
+      if (!trackRef.current) return;
+      setMaxX(Math.max(0, trackRef.current.offsetWidth - 56));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  const progress = useTransform(x, (v) =>
+    maxX <= 0 ? 0 : Math.min(1, Math.max(0, v / maxX)),
+  );
+  const bg = useTransform(
+    progress,
+    [0, 1],
+    ["rgb(42, 63, 102)", "rgb(0, 200, 83)"],
+  );
+
+  const reset = () => {
+    confirmed.current = false;
+    setComplete(false);
+    setBurst(false);
+    setBusy(false);
+    void animate(x, 0, { type: "spring", stiffness: 400, damping: 32 });
+  };
+
+  const onDragEnd = () => {
+    if (confirmed.current || disabled || busy) {
+      reset();
+      return;
+    }
+    if (x.get() > maxX * 0.82) {
+      setBusy(true);
+      void animate(x, maxX, { type: "spring", stiffness: 420, damping: 30 });
+      void Promise.resolve(onConfirm()).then((ok) => {
+        if (ok === false) {
+          reset();
+          return;
+        }
+        confirmed.current = true;
+        setComplete(true);
+        setBurst(true);
+        setBusy(false);
+        vibrate([40, 40, 100]);
+        playSuccessChime();
+      });
+    } else {
+      reset();
+    }
+  };
+
+  return (
+    <div className="relative">
+      {burst && (
+        <div className="pointer-events-none absolute inset-0 z-10 overflow-visible">
+          {Array.from({ length: 12 }).map((_, i) => {
+            const angle = (i / 12) * Math.PI * 2;
+            return (
+              <motion.span
+                key={i}
+                className="absolute left-1/2 top-1/2 size-2 rounded-full bg-accent"
+                initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+                animate={{
+                  opacity: 0,
+                  x: Math.cos(angle) * 70,
+                  y: Math.sin(angle) * 50,
+                  scale: 0,
+                }}
+                transition={{ duration: 0.7, ease: "easeOut" }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      <motion.div
+        ref={trackRef}
+        style={{ backgroundColor: bg }}
+        className={`no-select relative flex h-14 items-center overflow-hidden rounded-full px-1 touch-pan-y ${
+          disabled ? "opacity-50" : ""
+        }`}
+      >
+        <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold text-white/90">
+          {complete ? "Order placed!" : busy ? "Confirming…" : label}
+        </p>
+
+        <motion.button
+          type="button"
+          drag={disabled || complete || busy ? false : "x"}
+          dragConstraints={{ left: 0, right: maxX }}
+          dragElastic={0.04}
+          dragMomentum={false}
+          dragDirectionLock
+          style={{ x }}
+          onDragEnd={onDragEnd}
+          disabled={disabled || complete || busy}
+          className="touch-target relative z-10 flex size-12 items-center justify-center rounded-full bg-white text-secondary shadow-md"
+          aria-label={label}
+        >
+          {complete ? (
+            <Check className="size-5 text-accent" aria-hidden />
+          ) : (
+            <ChevronRight className="size-5" aria-hidden />
+          )}
+        </motion.button>
+      </motion.div>
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/profile/OrderHistory.tsx
+################################################################################
+
+'use client';
+
+import React, { useEffect } from 'react';
+import { Order } from "@/types/database";
+import { useAppStore } from '@/store/useAppStore';
+import { Order } from "@/types/database";
+import { playSound, triggerHaptic } from '@/lib/sound-haptics';
+import { Order } from "@/types/database";
+import { RotateCcw, PackageCheck } from 'lucide-react';
+import { Order } from "@/types/database";
+
+export default function OrderHistory() {
+  const { orders, loading, addToCart, clearCart, getDish } = useAppStore();
+
+  // دالة الطلب بنقرة واحدة (Quick Re-Order)
+  const handleQuickReOrder = (orderItems: Order['items'], restaurantId: string) => {
+    playSound('add');
+    triggerHaptic('medium');
+
+    // مسح السلة الحالية وإضافة عناصر الطلب المحدد إليها
+    clearCart();
+
+    orderItems.forEach((item) => {
+      const dish = getDish(item.dishId || '');
+      if (dish) {
+        addToCart(dish.id, restaurantId);
+      }
+    });
+
+    alert('تم إضافة مكونات الطلب إلى سلتك بنجاح! 🚀');
+  };
+
+  if (loading) {
+    return (
+      <div className="p-4 text-center text-xs text-foreground-muted">
+        جاري تحميل سجل الطلبات...
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="glass rounded-2xl p-6 text-center" dir="rtl">
+        <PackageCheck className="mx-auto mb-2 size-8 text-foreground-muted opacity-50" />
+        <p className="text-sm font-bold">لا توجد طلبات سابقة حتى الآن</p>
+        <p className="text-xs text-foreground-muted">اطلب وجبتك الأولى لتظهر هنا!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3" dir="rtl">
+      <h3 className="text-sm font-bold px-1">سجل الطلبات وإعادة الطلب السريع 📜</h3>
+      {orders.map((order) => (
+        <div
+          key={order.id}
+          className="glass rounded-2xl p-4 transition-all hover:bg-white/5"
+        >
+          {/* رأس الكرت */}
+          <div className="flex items-center justify-between border-b border-glass-border pb-2 mb-3">
+            <div>
+              <span className="text-xs font-bold text-primary block">
+                طلب #{order.id?.slice(0, 6) ?? ''}
+              </span>
+              <span className="text-[10px] text-foreground-muted">
+                {order.createdAt
+                  ? new Date(order.createdAt).toLocaleDateString('ar-EG')
+                  : 'مؤخراً'}
+              </span>
+            </div>
+            <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-bold text-primary">
+              {order.status}
+            </span>
+          </div>
+
+          {/* تفاصيل العناصر */}
+          <ul className="mb-3 space-y-1">
+            {order.items.map((item, idx) => (
+              <li key={idx} className="flex justify-between text-xs text-foreground-muted">
+                <span>
+                  {item.quantity}x {item.name}
+                </span>
+                <span>{(item.price * item.quantity).toFixed(2)} ₪</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* أسفل الكرت مع زر إعادة الطلب السريع */}
+          <div className="flex items-center justify-between border-t border-glass-border pt-2">
+            <div>
+              <span className="text-[10px] text-foreground-muted block">المجموع</span>
+              <span className="text-sm font-extrabold text-foreground">
+                {order.total.toFixed(2)} ₪
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleQuickReOrder(order.items, order.restaurantId)}
+              className="no-select touch-target flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-all"
+            >
+              <RotateCcw className="size-3.5" />
+              <span>إعادة الطلب ⚡</span>
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/promo/ScratchCard.tsx
+################################################################################
+
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { playScratchNoise, vibrate } from "@/lib/feedback";
+import { useAppStore } from "@/store/useAppStore";
+
+type ScratchCardProps = {
+  className?: string;
+};
+
+export function ScratchCard({ className = "" }: ScratchCardProps) {
+  const { appliedPromo, applyPromo } = useAppStore();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scratching = useRef(false);
+  const lastSound = useRef(0);
+  const [localCleared, setLocalCleared] = useState(() => {
+    // استرجاع الحالة من localStorage
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("scratch_revealed") === "true";
+    }
+    return false;
+  });
+
+  const done = localCleared || appliedPromo === "ZEST30";
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || done) return;
+
+    const parent = canvas.parentElement;
+    if (!parent) return;
+
+    const rect = parent.getBoundingClientRect();
+    const w = Math.max(1, Math.floor(rect.width));
+    const h = Math.max(1, Math.floor(rect.height));
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, "#c0c7d1");
+    grad.addColorStop(0.5, "#e8ecf1");
+    grad.addColorStop(1, "#9aa3b2");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(26,43,76,0.55)";
+    ctx.font = "bold 14px Cairo, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Scratch for offer", w / 2, h / 2);
+  }, [done]);
+
+  const checkReveal = (
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+  ) => {
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let cleared = 0;
+    const step = 32;
+    for (let i = 3; i < data.length; i += step) {
+      if (data[i] < 40) cleared++;
+    }
+    const samples = Math.ceil(data.length / step);
+    if (cleared / samples > 0.42) {
+      setLocalCleared(true);
+      localStorage.setItem("scratch_revealed", "true");
+      applyPromo("ZEST30"); // تطبيق الكود تلقائياً
+      vibrate([20, 30, 40]);
+    }
+  };
+
+  const scratchAt = (clientX: number, clientY: number) => {
+    if (done) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * canvas.width;
+    const y = ((clientY - rect.top) / rect.height) * canvas.height;
+
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath();
+    ctx.arc(x, y, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    vibrate(5);
+    const now = Date.now();
+    if (now - lastSound.current > 45) {
+      playScratchNoise(30);
+      lastSound.current = now;
+    }
+    checkReveal(ctx, canvas);
+  };
+
+  return (
+    <div className={`glass overflow-hidden rounded-3xl ${className}`}>
+      <div className="flex items-center justify-between px-4 pt-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+            Limited offer
+          </p>
+          <h3 className="text-base font-bold text-foreground">Scratch & save</h3>
+        </div>
+        {appliedPromo === "ZEST30" && (
+          <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-bold text-accent">
+            Applied
+          </span>
+        )}
+      </div>
+
+      <div className="relative m-4 h-28 overflow-hidden rounded-2xl bg-secondary">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+          <p className="text-xs font-medium text-foreground-muted">Your code</p>
+          <p className="text-2xl font-extrabold tracking-[0.2em] text-primary">
+            {done ? "ZEST30" : "••••••"}
+          </p>
+          <p className="text-xs font-semibold text-accent">30% off checkout</p>
+        </div>
+
+        {!done && (
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 h-full w-full touch-none cursor-crosshair"
+            onPointerDown={(e) => {
+              scratching.current = true;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              scratchAt(e.clientX, e.clientY);
+            }}
+            onPointerMove={(e) => {
+              if (!scratching.current) return;
+              scratchAt(e.clientX, e.clientY);
+            }}
+            onPointerUp={() => {
+              scratching.current = false;
+            }}
+            onPointerCancel={() => {
+              scratching.current = false;
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/tracking/OrderStageTracker.tsx
+################################################################################
+
+"use client";
+
+import { motion } from "framer-motion";
+import type { OrderStatus } from "@/types/database";
+
+const STAGES: {
+  status: OrderStatus;
+  titleAr: string;
+  titleEn: string;
+  icon: string;
+}[] = [
+  {
+    status: "Pending",
+    titleAr: "تم استلام الطلب",
+    titleEn: "Order Received",
+    icon: "📝",
+  },
+  {
+    status: "Preparing",
+    titleAr: "المطبخ يجهز طلبك",
+    titleEn: "Kitchen Preparing",
+    icon: "🍳",
+  },
+  {
+    status: "OutForDelivery",
+    titleAr: "السائق في الطريق إليك",
+    titleEn: "OutForDelivery",
+    icon: "🛵",
+  },
+  {
+    status: "Delivered",
+    titleAr: "وصل طلبك!",
+    titleEn: "Delivered",
+    icon: "🎉",
+  },
+];
+
+type OrderStageTrackerProps = {
+  status: OrderStatus;
+};
+
+function ScooterCartoon() {
+  return (
+    <motion.div
+      className="relative mx-auto mt-4 flex h-24 w-full max-w-[220px] items-end justify-center"
+      aria-hidden
+    >
+      <div className="absolute bottom-3 h-2 w-full rounded-full bg-white/10" />
+      <motion.div
+        className="relative z-10 text-5xl"
+        animate={{ y: [0, -8, 0], x: [0, 6, 0] }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+      >
+        🛵
+      </motion.div>
+      <motion.span
+        className="absolute bottom-6 left-6 size-2 rounded-full bg-primary/70"
+        animate={{ opacity: [0.2, 0.8, 0.2], x: [-4, 8] }}
+        transition={{ duration: 0.9, repeat: Infinity }}
+      />
+      <motion.span
+        className="absolute bottom-8 left-10 size-1.5 rounded-full bg-primary/50"
+        animate={{ opacity: [0.1, 0.6, 0.1], x: [-2, 10] }}
+        transition={{ duration: 1.1, repeat: Infinity, delay: 0.2 }}
+      />
+    </motion.div>
+  );
+}
+
+export function OrderStageTracker({ status }: OrderStageTrackerProps) {
+  const activeIndex = Math.max(
+    0,
+    STAGES.findIndex((s) => s.status === status),
+  );
+  const progress = activeIndex / (STAGES.length - 1);
+
+  return (
+    <div className="glass overflow-hidden rounded-3xl p-5" dir="rtl">
+      <p className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+        حالة الطلب
+      </p>
+      <h2 className="mt-1 text-xl font-extrabold text-foreground">
+        {STAGES[activeIndex]?.titleAr}
+      </h2>
+      <p className="text-sm text-foreground-muted">
+        {STAGES[activeIndex]?.titleEn}
+      </p>
+
+      {status === "OutForDelivery" && <ScooterCartoon />}
+      {status === "Delivered" && (
+        <motion.div
+          className="mt-4 text-center text-5xl"
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 320, damping: 18 }}
+        >
+          🎉
+        </motion.div>
+      )}
+
+      <div className="relative mt-6 mb-2 px-1">
+        <div className="absolute top-4 right-4 left-4 h-1 rounded-full bg-white/10" />
+        <motion.div
+          className="absolute top-4 right-4 h-1 origin-right rounded-full bg-accent"
+          initial={false}
+          animate={{ width: `calc(${progress * 100}% - 0px)` }}
+          transition={{ type: "spring", stiffness: 180, damping: 24 }}
+          style={{ left: "auto" }}
+        />
+        <ul className="relative grid grid-cols-4 gap-1">
+          {STAGES.map((stage, i) => {
+            const done = i <= activeIndex;
+            const current = i === activeIndex;
+            return (
+              <li key={stage.status} className="flex flex-col items-center gap-2">
+                <motion.span
+                  animate={{
+                    scale: current ? 1.12 : 1,
+                    backgroundColor: done
+                      ? "rgb(0, 200, 83)"
+                      : "rgba(255,255,255,0.08)",
+                  }}
+                  className="flex size-9 items-center justify-center rounded-full text-sm shadow-sm"
+                >
+                  {stage.icon}
+                </motion.span>
+                <span
+                  className={`text-center text-[10px] font-bold leading-tight ${
+                    current ? "text-primary" : "text-foreground-muted"
+                  }`}
+                >
+                  {stage.titleAr}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/menu/LivingCard.tsx
+################################################################################
+
+"use client";
+
+import { useRef, useState } from "react";
+import { Flame, Plus } from "lucide-react";
+import { motion } from "framer-motion";
+import type { Dish } from "@/types/database";
+import { useAppStore } from "@/store/useAppStore";
+
+type LivingCardProps = {
+  dish: Dish;
+  index?: number;
+};
+
+function Steam() {
+  return (
+    <svg
+      className="pointer-events-none absolute inset-x-0 top-2 mx-auto h-10 w-16 opacity-70"
+      viewBox="0 0 64 40"
+      aria-hidden
+    >
+      {[18, 32, 46].map((x, i) => (
+        <motion.path
+          key={x}
+          d={`M${x} 36 C${x - 4} 24 ${x + 4} 16 ${x} 4`}
+          fill="none"
+          stroke="white"
+          strokeWidth="2"
+          strokeLinecap="round"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: [0, 1], opacity: [0, 0.7, 0] }}
+          transition={{
+            duration: 1.8,
+            repeat: Infinity,
+            delay: i * 0.35,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </svg>
+  );
+}
+
+export function LivingCard({ dish, index = 0 }: LivingCardProps) {
+  const { addToCart, getRestaurant } = useAppStore();
+  const mediaRef = useRef<HTMLDivElement>(null);
+  const [hint, setHint] = useState("");
+  const restaurant = getRestaurant(dish.restaurantId);
+  const canAdd = Boolean(dish.available && restaurant?.active);
+  const price = Number.isFinite(dish.price) ? dish.price : 0;
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 320,
+        damping: 28,
+        delay: index * 0.05,
+      }}
+      whileHover={canAdd ? { scale: 1.02 } : undefined}
+      whileTap={canAdd ? { scale: 0.985 } : undefined}
+      className={`no-select glass overflow-hidden rounded-3xl ${
+        !canAdd ? "opacity-60" : ""
+      }`}
+    >
+      <div
+        ref={mediaRef}
+        className={`relative aspect-[4/3] bg-gradient-to-br ${dish.gradient || 'from-gray-600 to-gray-800'}`}
+      >
+        {dish.isHot && canAdd && <Steam />}
+        {dish.isHot && (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2.5 py-1 text-[11px] font-semibold text-primary-soft backdrop-blur-md">
+            <Flame className="size-3.5" aria-hidden />
+            Hot
+          </span>
+        )}
+        {!canAdd && (
+          <span className="absolute inset-0 flex items-center justify-center bg-secondary/50 text-sm font-bold uppercase tracking-wide text-foreground backdrop-blur-[2px]">
+            {!restaurant?.active ? "Restaurant closed" : "Out of stock"}
+          </span>
+        )}
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-secondary/80 to-transparent" />
+      </div>
+
+      <div className="space-y-3 p-4">
+        <div>
+          <h3 className="truncate text-base font-bold text-foreground">
+            {dish.name}
+          </h3>
+          <p className="mt-0.5 text-xs font-semibold text-foreground-muted">
+            {dish.category}
+          </p>
+          <p className="mt-1 line-clamp-2 text-sm text-foreground-muted">
+            {dish.description}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-lg font-extrabold text-primary">
+            ${price.toFixed(2)}
+          </p>
+          <motion.button
+            type="button"
+            whileTap={canAdd ? { scale: 0.9 } : undefined}
+            disabled={!canAdd}
+            onClick={() => {
+              const result = addToCart(dish.id, dish.restaurantId);
+              if (!result.ok && result.message) {
+                setHint(result.message);
+                window.setTimeout(() => setHint(""), 2200);
+              }
+            }}
+            className="no-select touch-target inline-flex items-center gap-1.5 rounded-2xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_rgb(255_107_53_/_0.3)] disabled:cursor-not-allowed disabled:bg-secondary-muted disabled:shadow-none"
+            aria-label={`Add ${dish.name} to cart`}
+          >
+            <Plus className="size-4" aria-hidden />
+            Add
+          </motion.button>
+        </div>
+        {hint && (
+          <p className="text-xs font-semibold text-primary" role="status">
+            {hint}
+          </p>
+        )}
+      </div>
+    </motion.article>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/home/RestaurantCard.tsx
+################################################################################
+
+"use client";
+
+import Link from "next/link";
+import { Clock, Star } from "lucide-react";
+import { motion } from "framer-motion";
+import type { Restaurant } from "@/types/database";
+
+type RestaurantCardProps = {
+  restaurant: Restaurant;
+  index?: number;
+};
+
+export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
+  return (
+    <motion.li
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 320,
+        damping: 28,
+        delay: index * 0.05,
+      }}
+    >
+      <Link
+        href={`/restaurant/${restaurant.id}`}
+        className="no-select glass block overflow-hidden rounded-3xl transition-transform active:scale-[0.985]"
+      >
+        <div
+          className={`relative aspect-[16/7] bg-gradient-to-br ${restaurant.coverGradient || 'from-gray-700 to-gray-900'}`}
+        >
+          <div
+            className={`absolute -bottom-5 left-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br ${restaurant.logoGradient || 'from-primary to-orange-600'} text-lg font-extrabold text-white shadow-lg ring-2 ring-background`}
+          >
+            {restaurant.name.slice(0, 1)}
+          </div>
+          <span className="absolute right-3 top-3 rounded-full bg-secondary/70 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur-md">
+            {restaurant.cuisine || 'مطبخ'}
+          </span>
+        </div>
+
+        <div className="space-y-2 px-4 pb-4 pt-7">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-extrabold text-foreground">
+                {restaurant.name}
+              </h3>
+              <p className="truncate text-sm text-foreground-muted">
+                {restaurant.tagline || ''}
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-xs font-bold text-accent-soft">
+              <Star className="size-3 fill-current" aria-hidden />
+              {restaurant.rating.toFixed(1)}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 text-xs font-semibold text-foreground-muted">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3.5" aria-hidden />
+              {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} min
+            </span>
+            <span>·</span>
+            <span>
+              {restaurant.deliveryFee === 0
+                ? "Free delivery"
+                : `$${restaurant.deliveryFee.toFixed(2)} delivery`}
+            </span>
+          </div>
+        </div>
+      </Link>
+    </motion.li>
+  );
+}
+
+
+
+################################################################################
+FILE: src/components/home/CuisineSlider.tsx
+################################################################################
+
+"use client";
+
+import { motion } from "framer-motion";
+import { CUISINES, type CuisineId } from "@/constants/cuisines";
+
+type CuisineSliderProps = {
+  value: CuisineId | "all";
+  onChange: (value: CuisineId | "all") => void;
+};
+
+export function CuisineSlider({ value, onChange }: CuisineSliderProps) {
+  const options = [{ id: "all" as const, label: "All" }, ...CUISINES];
+
+  return (
+    <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <ul className="flex w-max gap-2 pb-1">
+        {options.map((item) => {
+          const active = value === item.id;
+          return (
+            <li key={item.id}>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.96 }}
+                onClick={() => onChange(item.id)}
+                className={`no-select touch-target rounded-full px-4 py-2.5 text-sm font-semibold ${
+                  active
+                    ? "bg-primary text-white shadow-[0_6px_20px_rgb(255_107_53_/_0.35)]"
+                    : "glass text-foreground-muted"
+                }`}
+              >
+                {item.label}
+              </motion.button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/store/useAppStore.ts
+################################################################################
+
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { 
+  UserProfile, 
+  Restaurant, 
+  Dish, 
+  Driver, 
+  CartItem, 
+  Order, 
+  OrderStatus, 
+  PromoCode,
+  ActiveOrder
+} from '@/types/database';
+import { 
+  fetchDrivers, 
+  subscribeOrders,
+  updateOrderStatus as updateOrderStatusFirestore,
+  createOrder as createOrderFirestore,
+  fetchPromoCodes,
+  updateUserProfile as updateUserProfileFirestore,
+  addRestaurant as addRestaurantFirestore,
+  toggleRestaurantActive as toggleRestaurantActiveFirestore,
+} from '@/lib/firestore';
+import { db } from '@/lib/firebase';
+import { 
+  doc, setDoc, getDoc, 
+  collection, onSnapshot, 
+  updateDoc, serverTimestamp 
+} from 'firebase/firestore';
+import { calcTotals } from '@/lib/calcTotals';
+
+interface AppState {
+  // بيانات أساسية
+  restaurants: Restaurant[];
+  dishes: Dish[];
+  drivers: Driver[];
+  promoCodes: PromoCode[];
+  user: UserProfile | null;
+  isAuthenticated: boolean;
+  
+  // السلة
+  cart: CartItem[];
+  cartRestaurantId: string | null;
+  appliedPromo: string | null;
+  
+  // الطلبات
+  orders: Order[];
+  activeOrder: ActiveOrder | null;
+  
+  // حالة التحميل
+  loading: boolean;
+  error: string | null;
+  
+  // الإجراءات
+  loadInitialData: () => Promise<void>;
+  loginUser: (fullName: string, phone: string) => Promise<{ ok: boolean; message: string }>;
+  logoutUser: () => void;
+  updateUserProfile: (profile: Partial<UserProfile>) => Promise<{ ok: boolean; message: string }>;
+  updateUserLocation: (location: { address?: string; locationLabel?: string; lat?: number; lng?: number }) => Promise<{ ok: boolean; message: string }>;
+  addToCart: (dishId: string, restaurantId: string) => { ok: boolean; message?: string };
+  removeFromCart: (dishId: string) => void;
+  updateQuantity: (dishId: string, quantity: number) => void;
+  clearCart: () => void;
+  applyPromo: (code: string) => { ok: boolean; message: string };
+  removePromo: () => void;
+  placeOrder: () => Promise<{ ok: boolean; orderId?: string; message?: string }>;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<{ ok: boolean; message?: string }>;
+  assignDriverToOrder: (orderId: string, driverId: string) => Promise<{ ok: boolean; message?: string }>;
+  setActiveOrder: (order: ActiveOrder | null) => void;
+  getDish: (dishId: string) => Dish | undefined;
+  getRestaurant: (id: string) => Restaurant | undefined;
+  getDishesByRestaurant: (restaurantId: string) => Dish[];
+  getCartTotal: () => { subtotal: number; discount: number; deliveryFee: number; total: number };
+  updateActiveOrderStatus: (status: OrderStatus) => void;
+  toggleRestaurantActive: (id: string) => Promise<void>;
+  addRestaurant: (restaurant: Omit<Restaurant, 'id'>) => Promise<string>;
+}
+
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      restaurants: [],
+      dishes: [],
+      drivers: [],
+      promoCodes: [],
+      user: null,
+      isAuthenticated: false,
+      cart: [],
+      cartRestaurantId: null,
+      appliedPromo: null,
+      orders: [],
+      activeOrder: null,
+      loading: false,
+      error: null,
+
+      loadInitialData: async () => {
+        set({ loading: true, error: null });
+        try {
+          // جلب السائقين وأكواد الخصم مرة واحدة (لأنها قليلة التغيير)
+          const [drivers, promos] = await Promise.all([
+            fetchDrivers(),
+            fetchPromoCodes()
+          ]);
+          set({ drivers, promoCodes, loading: false });
+
+          // الاشتراك في التحديثات الفورية للمطاعم
+          const unsubRestaurants = onSnapshot(collection(db, 'restaurants'), (snapshot) => {
+            const restaurants = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant));
+            set({ restaurants });
+          });
+
+          // الاشتراك في التحديثات الفورية للأطباق
+          const unsubDishes = onSnapshot(collection(db, 'dishes'), (snapshot) => {
+            const dishes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dish));
+            set({ dishes });
+          });
+
+          // الاشتراك في الطلبات (موجود مسبقاً في الدالة)
+          subscribeOrders((orders) => {
+            set({ orders });
+            const { activeOrder } = get();
+            if (activeOrder) {
+              const updated = orders.find(o => o.id === activeOrder.id);
+              if (updated) set({ activeOrder: updated });
+            }
+          });
+
+          // تخزين دوال إلغاء الاشتراك (اختياري)
+          // يمكنك إضافتها إلى state إذا أردت تنظيفها عند الخروج
+          // لكننا سنكتفي بهذا.
+        } catch (error: any) {
+          set({ error: error.message, loading: false });
+        }
+      },
+
+      loginUser: async (fullName, phone) => {
+        try {
+          const userRef = doc(db, 'users', phone);
+          const userSnap = await getDoc(userRef);
+          let userData: UserProfile;
+          if (userSnap.exists()) {
+            userData = userSnap.data() as UserProfile;
+          } else {
+            const newUser: UserProfile = {
+              uid: phone,
+              phone,
+              displayName: fullName,
+              role: 'customer',
+              address: '',
+              createdAt: Date.now()
+            };
+            await setDoc(userRef, newUser);
+            userData = newUser;
+          }
+          set({ user: userData, isAuthenticated: true });
+          return { ok: true, message: 'تم تسجيل الدخول بنجاح' };
+        } catch (error: any) {
+          return { ok: false, message: error.message };
+        }
+      },
+
+      logoutUser: () => {
+        set({ user: null, isAuthenticated: false, activeOrder: null });
+      },
+
+      updateUserProfile: async (profile) => {
+        const { user } = get();
+        if (!user) return { ok: false, message: 'يجب تسجيل الدخول أولاً' };
+        try {
+          const updated = { ...user, ...profile };
+          await updateUserProfileFirestore(user.uid, profile);
+          set({ user: updated });
+          return { ok: true, message: 'تم تحديث الملف الشخصي' };
+        } catch (error: any) {
+          return { ok: false, message: error.message };
+        }
+      },
+
+      updateUserLocation: async (location) => {
+        const { user } = get();
+        if (!user) return { ok: false, message: 'يجب تسجيل الدخول أولاً' };
+        try {
+          const updated = { ...user, ...location };
+          await updateUserProfileFirestore(user.uid, location);
+          set({ user: updated });
+          return { ok: true, message: 'تم تحديث الموقع' };
+        } catch (error: any) {
+          return { ok: false, message: error.message };
+        }
+      },
+
+      addToCart: (dishId, restaurantId) => {
+        const state = get();
+        if (state.cartRestaurantId && state.cartRestaurantId !== restaurantId) {
+          return { ok: false, message: 'لا يمكن إضافة أطباق من مطعم آخر' };
+        }
+        const existing = state.cart.find(item => item.dishId === dishId);
+        let newCart;
+        if (existing) {
+          newCart = state.cart.map(item =>
+            item.dishId === dishId ? { ...item, quantity: item.quantity + 1 } : item
+          );
+        } else {
+          newCart = [...state.cart, { dishId, quantity: 1 }];
+        }
+        set({ cart: newCart, cartRestaurantId: restaurantId });
+        return { ok: true };
+      },
+
+      removeFromCart: (dishId) => {
+        const { cart } = get();
+        const newCart = cart.filter(item => item.dishId !== dishId);
+        set({
+          cart: newCart,
+          cartRestaurantId: newCart.length === 0 ? null : get().cartRestaurantId
+        });
+      },
+
+      updateQuantity: (dishId, quantity) => {
+        if (quantity <= 0) {
+          get().removeFromCart(dishId);
+          return;
+        }
+        const { cart } = get();
+        const newCart = cart.map(item =>
+          item.dishId === dishId ? { ...item, quantity } : item
+        );
+        set({ cart: newCart });
+      },
+
+      clearCart: () => {
+        set({ cart: [], cartRestaurantId: null, appliedPromo: null });
+      },
+
+      applyPromo: (code) => {
+        const { promoCodes } = get();
+        const promo = promoCodes.find(p => p.code === code && p.active);
+        if (!promo) return { ok: false, message: 'كود غير صالح' };
+        set({ appliedPromo: code });
+        return { ok: true, message: `تم تطبيق خصم ${promo.percentOff}%` };
+      },
+
+      removePromo: () => set({ appliedPromo: null }),
+
+      placeOrder: async () => {
+        const { cart, cartRestaurantId, appliedPromo, user, restaurants, dishes, promoCodes } = get();
+        if (cart.length === 0) return { ok: false, message: 'السلة فارغة' };
+        if (!cartRestaurantId) return { ok: false, message: 'لم يتم تحديد مطعم' };
+        if (!user) return { ok: false, message: 'يجب تسجيل الدخول' };
+        const restaurant = restaurants.find(r => r.id === cartRestaurantId);
+        if (!restaurant || !restaurant.active) return { ok: false, message: 'المطعم غير متاح' };
+        
+        const { subtotal, discount, deliveryFee, total } = calcTotals(
+          cart,
+          dishes,
+          appliedPromo,
+          promoCodes,
+          restaurant.deliveryFee
+        );
+
+        const items = cart.map(c => {
+          const dish = dishes.find(d => d.id === c.dishId);
+          return {
+            dishId: c.dishId,
+            name: dish?.name || 'غير معروف',
+            price: dish?.price || 0,
+            quantity: c.quantity
+          };
+        });
+
+        const newOrder: Omit<Order, 'id'> = {
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          items,
+          subtotal,
+          discount,
+          deliveryFee,
+          total,
+          promoCode: appliedPromo,
+          status: 'Pending',
+          createdAt: Date.now(),
+          customerName: user.displayName || user.phone,
+          customerPhone: user.phone,
+          deliveryAddress: user.address || 'عنوان غير محدد',
+          userId: user.uid,
+        };
+
+        try {
+          const result = await createOrderFirestore(newOrder);
+          if (!result.success) return { ok: false, message: 'فشل إنشاء الطلب' };
+          const orderWithId: Order = { ...newOrder, id: result.id! };
+          set(state => ({
+            orders: [orderWithId, ...state.orders],
+            activeOrder: orderWithId,
+            cart: [],
+            cartRestaurantId: null,
+            appliedPromo: null
+          }));
+          return { ok: true, orderId: result.id };
+        } catch (error: any) {
+          return { ok: false, message: error.message };
+        }
+      },
+
+      updateOrderStatus: async (orderId, status) => {
+        try {
+          const result = await updateOrderStatusFirestore(orderId, status);
+          if (!result.success) return { ok: false, message: 'فشل التحديث' };
+          set(state => ({
+            orders: state.orders.map(o =>
+              o.id === orderId ? { ...o, status, updatedAt: Date.now() } : o
+            )
+          }));
+          const { activeOrder } = get();
+          if (activeOrder && activeOrder.id === orderId) {
+            set({ activeOrder: { ...activeOrder, status, updatedAt: Date.now() } });
+          }
+          return { ok: true };
+        } catch (error: any) {
+          return { ok: false, message: error.message };
+        }
+      },
+
+      assignDriverToOrder: async (orderId, driverId) => {
+        try {
+          const driver = get().drivers.find(d => d.id === driverId);
+          if (!driver) return { ok: false, message: 'السائق غير موجود' };
+
+          // تحديث في Firestore
+          const ref = doc(db, 'orders', orderId);
+          await updateDoc(ref, {
+            courierId: driverId,
+            driver: driver,
+            status: 'OutForDelivery',
+            updatedAt: serverTimestamp()
+          });
+
+          // تحديث الحالة المحلية
+          set(state => ({
+            orders: state.orders.map(o =>
+              o.id === orderId
+                ? { ...o, courierId: driverId, driver, status: 'OutForDelivery' }
+                : o
+            )
+          }));
+
+          const { activeOrder } = get();
+          if (activeOrder && activeOrder.id === orderId) {
+            set({
+              activeOrder: { ...activeOrder, courierId: driverId, driver, status: 'OutForDelivery' }
+            });
+          }
+          return { ok: true };
+        } catch (error: any) {
+          return { ok: false, message: error.message };
+        }
+      },
+
+      setActiveOrder: (order) => set({ activeOrder: order }),
+
+      getDish: (dishId) => get().dishes.find(d => d.id === dishId),
+      getRestaurant: (id) => get().restaurants.find(r => r.id === id),
+      getDishesByRestaurant: (restaurantId) => get().dishes.filter(d => d.restaurantId === restaurantId),
+
+      getCartTotal: () => {
+        const { cart, dishes, appliedPromo, promoCodes, cartRestaurantId, restaurants } = get();
+        const restaurant = restaurants.find(r => r.id === cartRestaurantId);
+        const deliveryFee = restaurant ? restaurant.deliveryFee : 0;
+        return calcTotals(cart, dishes, appliedPromo, promoCodes, deliveryFee);
+      },
+
+      updateActiveOrderStatus: (status) => {
+        const { activeOrder } = get();
+        if (activeOrder) {
+          set({ activeOrder: { ...activeOrder, status } });
+        }
+      },
+
+      toggleRestaurantActive: async (id) => {
+        const restaurant = get().restaurants.find(r => r.id === id);
+        if (!restaurant) return;
+        await toggleRestaurantActiveFirestore(id, !restaurant.active);
+        // التحديث سيكون تلقائياً عبر onSnapshot
+      },
+
+      addRestaurant: async (restaurant) => {
+        const id = await addRestaurantFirestore(restaurant);
+        // التحديث سيكون تلقائياً عبر onSnapshot
+        return id;
+      },
+    }),
+    {
+      name: 'zest-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+        cart: state.cart,
+        cartRestaurantId: state.cartRestaurantId,
+        appliedPromo: state.appliedPromo,
+      }),
+    }
+  )
+);
+
+
+
+
+################################################################################
+FILE: src/lib/feedback.ts
+################################################################################
+
+let audioCtx: AudioContext | null = null;
+
+function getCtx(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (!audioCtx) {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    audioCtx = new Ctx();
+  }
+  return audioCtx;
+}
+
+export function vibrate(pattern: number | number[]) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch {
+      /* unsupported */
+    }
+  }
+}
+
+/** Soft white-noise burst for scratch interactions */
+export function playScratchNoise(durationMs = 40) {
+  const ctx = getCtx();
+  if (!ctx) return;
+  void ctx.resume();
+
+  const bufferSize = Math.floor(ctx.sampleRate * (durationMs / 1000));
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.08;
+  }
+
+  const source = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 1800;
+  filter.Q.value = 0.6;
+
+  source.buffer = buffer;
+  source.connect(filter);
+  filter.connect(ctx.destination);
+  source.start();
+}
+
+/** Ascending 2-tone success chime */
+export function playSuccessChime() {
+  const ctx = getCtx();
+  if (!ctx) return;
+  void ctx.resume();
+
+  const tones = [
+    { freq: 523.25, start: 0, dur: 0.12 },
+    { freq: 783.99, start: 0.11, dur: 0.22 },
+  ];
+
+  for (const tone of tones) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = tone.freq;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime + tone.start);
+    gain.gain.exponentialRampToValueAtTime(
+      0.18,
+      ctx.currentTime + tone.start + 0.02,
+    );
+    gain.gain.exponentialRampToValueAtTime(
+      0.0001,
+      ctx.currentTime + tone.start + tone.dur,
+    );
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + tone.start);
+    osc.stop(ctx.currentTime + tone.start + tone.dur + 0.02);
+  }
+}
+
+
+
+################################################################################
+FILE: src/lib/firebase.ts
+################################################################################
+
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+// منع إعادة تهيئة Firebase أثناء الـ Hot Reload في Next.js
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export default app;
+
+
+
+
+################################################################################
+FILE: src/lib/firestore.ts
+################################################################################
+
+import { db } from './firebase';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { Restaurant, Dish, Driver, Order, OrderStatus, PromoCode, UserProfile } from '@/types/database';
+
+export const fetchRestaurants = async (): Promise<Restaurant[]> => {
+  const snapshot = await getDocs(collection(db, 'restaurants'));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Restaurant));
+};
+
+export const fetchDishes = async (): Promise<Dish[]> => {
+  const snapshot = await getDocs(collection(db, 'dishes'));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dish));
+};
+
+export const fetchDrivers = async (): Promise<Driver[]> => {
+  const snapshot = await getDocs(collection(db, 'drivers'));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Driver));
+};
+
+export const fetchPromoCodes = async (): Promise<PromoCode[]> => {
+  const snapshot = await getDocs(collection(db, 'promoCodes'));
+  return snapshot.docs.map(doc => ({ code: doc.id, ...doc.data() } as PromoCode));
+};
+
+export const createOrder = async (orderData: Omit<Order, 'id'>): Promise<{ success: boolean; id?: string }> => {
+  try {
+    const docRef = await addDoc(collection(db, 'orders'), {
+      ...orderData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('Error creating order:', error);
+    return { success: false };
+  }
+};
+
+export const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<{ success: boolean }> => {
+  try {
+    const ref = doc(db, 'orders', orderId);
+    await updateDoc(ref, { status, updatedAt: serverTimestamp() });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    return { success: false };
+  }
+};
+
+export const subscribeOrders = (callback: (orders: Order[]) => void) => {
+  const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const orders = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toMillis?.() || data.createdAt,
+        updatedAt: data.updatedAt?.toMillis?.() || data.updatedAt,
+      } as Order;
+    });
+    callback(orders);
+  });
+};
+
+export const updateUserProfile = async (uid: string, profile: Partial<UserProfile>) => {
+  const ref = doc(db, 'users', uid);
+  await updateDoc(ref, { ...profile, updatedAt: serverTimestamp() });
+};
+
+// إضافات لإدارة المطاعم والأطباق (للأدمن)
+export const addRestaurant = async (restaurant: Omit<Restaurant, 'id'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'restaurants'), restaurant);
+  return ref.id;
+};
+
+export const toggleRestaurantActive = async (restaurantId: string, active: boolean) => {
+  const ref = doc(db, 'restaurants', restaurantId);
+  await updateDoc(ref, { active });
+};
+
+export const addDish = async (dish: Omit<Dish, 'id'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'dishes'), dish);
+  return ref.id;
+};
+
+export const updateDish = async (dishId: string, dish: Partial<Dish>) => {
+  const ref = doc(db, 'dishes', dishId);
+  await updateDoc(ref, { ...dish, updatedAt: serverTimestamp() });
+};
+
+export const addDriver = async (driver: Omit<Driver, 'id'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'drivers'), driver);
+  return ref.id;
+};
+
+export const updateDriver = async (driverId: string, driver: Partial<Driver>) => {
+  const ref = doc(db, 'drivers', driverId);
+  await updateDoc(ref, { ...driver, updatedAt: serverTimestamp() });
+};
+
+
+
+################################################################################
+FILE: src/lib/calcTotals.ts
+################################################################################
+
+import { CartItem, Dish, PromoCode } from '@/types/database';
+
+export function calcTotals(
+  cart: CartItem[],
+  dishes: Dish[],
+  appliedPromo: string | null,
+  promoCodes: PromoCode[],
+  deliveryFee: number
+) {
+  const subtotal = cart.reduce((sum, item) => {
+    const dish = dishes.find(d => d.id === item.dishId);
+    if (!dish) return sum;
+    return sum + dish.price * item.quantity;
+  }, 0);
+
+  const promo = appliedPromo
+    ? promoCodes.find(p => p.code === appliedPromo && p.active)
+    : null;
+  const discount = promo ? (subtotal * promo.percentOff) / 100 : 0;
+  const totalAfterDiscount = Math.max(0, subtotal - discount);
+  const finalDeliveryFee = cart.length > 0 ? deliveryFee : 0;
+
+  return {
+    subtotal,
+    discount,
+    deliveryFee: finalDeliveryFee,
+    total: totalAfterDiscount + finalDeliveryFee,
+  };
+}
+
+
+
+################################################################################
+FILE: src/lib/sound-haptics.ts
+################################################################################
+
+// src/lib/sound-haptics.ts
+'use client';
+
+// تشغيل اهتزاز الهاتف عند دعم الجهاز له
+export const triggerHaptic = (type: 'light' | 'medium' | 'success' = 'light') => {
+  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+    if (type === 'light') navigator.vibrate(10);
+    else if (type === 'medium') navigator.vibrate(25);
+    else if (type === 'success') navigator.vibrate([30, 50, 30]);
+  }
+};
+
+// توليد أصوات تفاعلية ناعمة باستخدام Web Audio API
+export const playSound = (type: 'add' | 'click' | 'success') => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
+    if (!AudioContext) return;
+
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+
+    if (type === 'add') {
+      // صوت نقرة ناعمة مرتفعة
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } else if (type === 'success') {
+      // نغمة نجاح عند تقديم الطلب
+      osc.frequency.setValueAtTime(523.25, now); // C5
+      osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    } else {
+      // صوت نبيطة خفيفة
+      osc.frequency.setValueAtTime(300, now);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+      osc.start(now);
+      osc.stop(now + 0.05);
+    }
+  } catch {
+    // تجاهل الأخطاء إذا كانت المتصفحات تمنع الصوت قبل التفاعل الأول
+  }
+};
+
+
+
+################################################################################
+FILE: src/app/not-found.tsx
+################################################################################
+
+import Link from "next/link";
+
+export default function NotFound() {
+  return (
+    <div className="app-gradient flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+      <h1 className="text-2xl font-extrabold">Page not found</h1>
+      <p className="mt-2 text-sm text-foreground-muted">
+        This route doesn&apos;t exist in Zest.
+      </p>
+      <Link
+        href="/"
+        className="mt-6 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white"
+      >
+        Back home
+      </Link>
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/manifest.ts
+################################################################################
+
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Zest — Food Delivery",
+    short_name: "Zest",
+    description:
+      "Order from local restaurants with living micro-interactions.",
+    start_url: "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#0F1729",
+    theme_color: "#FF6B35",
+    icons: [
+      {
+        src: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
+    ],
+  };
+}
+
+
+
+################################################################################
+FILE: src/app/error.tsx
+################################################################################
+
+"use client";
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return (
+    <div className="app-gradient flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+      <h1 className="text-2xl font-extrabold text-foreground">Something went wrong</h1>
+      <p className="mt-2 max-w-sm text-sm text-foreground-muted">
+        {error.message || "An unexpected error occurred."}
+      </p>
+      <button
+        type="button"
+        onClick={reset}
+        className="mt-6 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/page.tsx
+################################################################################
+
+"use client";
+
+import { useState } from "react";
+import { AppShell } from "@/components/layout/AppShell";
+import { CuisineSlider } from "@/components/home/CuisineSlider";
+import { RestaurantCard } from "@/components/home/RestaurantCard";
+import { ScratchCard } from "@/components/promo/ScratchCard";
+import { useAppStore } from "@/store/useAppStore";
+import type { CuisineId } from "@/constants/cuisines"; // سنحتفظ بالـ CuisineId من mockData مؤقتاً، أو ننشئ ملف خاص بالتصنيفات
+
+export default function HomePage() {
+  const restaurants = useAppStore((state) => state.restaurants);
+  const [cuisine, setCuisine] = useState<CuisineId | "all">("all");
+
+  // تصفية حسب التصنيف (سيتم تعديلها لاستخدام cuisineId حقيقي)
+  const filtered = restaurants.filter((r) => {
+    if (!r.active) return false;
+    if (cuisine === "all") return true;
+    return r.cuisineId === cuisine;
+  });
+
+  return (
+    <AppShell>
+      <section className="mb-4 space-y-1">
+        <p className="text-sm font-medium text-foreground-muted">
+          Delivering near you
+        </p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+          <span className="text-primary">Zest</span> restaurants
+        </h1>
+      </section>
+
+      <section className="mb-5">
+        <ScratchCard />
+      </section>
+
+      <section className="mb-5" aria-label="Cuisines">
+        <CuisineSlider value={cuisine} onChange={setCuisine} />
+      </section>
+
+      <section aria-labelledby="restaurants-heading" className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <h2
+            id="restaurants-heading"
+            className="text-lg font-bold text-foreground"
+          >
+            {cuisine === "all" ? "All restaurants" : "Matching restaurants"}
+          </h2>
+          <span className="text-xs font-semibold text-foreground-muted">
+            {filtered.length} open
+          </span>
+        </div>
+
+        {filtered.length === 0 ? (
+          <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-foreground-muted">
+            No restaurants in this category.
+          </p>
+        ) : (
+          <ul className="space-y-4">
+            {filtered.map((restaurant, index) => (
+              <RestaurantCard
+                key={restaurant.id}
+                restaurant={restaurant}
+                index={index}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/globals.css
+################################################################################
+
+@import "tailwindcss";
+
+:root {
+  /* Brand palette */
+  --color-primary: #ff6b35;
+  --color-primary-soft: #ff8f66;
+  --color-secondary: #1a2b4c;
+  --color-secondary-muted: #2a3f66;
+  --color-accent: #00c853;
+  --color-accent-soft: #69f0ae;
+
+  /* Surfaces */
+  --background: #0f1729;
+  --background-elevated: #1a2b4c;
+  --foreground: #f7f4ef;
+  --foreground-muted: #a8b3c7;
+  --glass: rgb(255 255 255 / 0.08);
+  --glass-border: rgb(255 255 255 / 0.14);
+  --glass-strong: rgb(255 255 255 / 0.12);
+
+  /* Safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+@theme inline {
+  --color-primary: var(--color-primary);
+  --color-primary-soft: var(--color-primary-soft);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-muted: var(--color-secondary-muted);
+  --color-accent: var(--color-accent);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-background: var(--background);
+  --color-background-elevated: var(--background-elevated);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-glass-strong: var(--glass-strong);
+  --font-sans: var(--font-cairo);
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    height: 100%;
+  }
+
+  body {
+    min-height: 100%;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-cairo), ui-sans-serif, sans-serif;
+    overscroll-behavior: none;
+  }
+
+  button,
+  [role="button"],
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-strong {
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, var(--safe-bottom));
+  }
+
+  .pt-safe {
+    padding-top: max(0.75rem, var(--safe-top));
+  }
+
+  .app-gradient {
+    background:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgb(255 107 53 / 0.28), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgb(0 200 83 / 0.12), transparent),
+      linear-gradient(180deg, #152238 0%, #0f1729 45%, #0c1322 100%);
+  }
+}
+
+
+
+################################################################################
+FILE: src/app/layout.tsx
+################################################################################
+
+import type { Metadata, Viewport } from "next";
+import { Cairo } from "next/font/google";
+import "./globals.css";
+import { AppShell } from "@/components/layout/AppShell";
+import { useEffect } from "react";
+import { useAppStore } from "@/store/useAppStore";
+
+const cairo = Cairo({
+  variable: "--font-cairo",
+  subsets: ["latin", "arabic"],
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://zest.app"),
+  title: {
+    default: "Zest — Food Delivery",
+    template: "%s · Zest",
+  },
+  description: "Order from local restaurants with living micro-interactions.",
+  applicationName: "Zest",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Zest",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    title: "Zest — Food Delivery",
+    description: "Local restaurants, tactile checkout, live order stages.",
+    type: "website",
+    locale: "en_US",
+  },
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#FF6B35",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  useEffect(() => {
+    const load = async () => {
+      await useAppStore.getState().loadInitialData();
+    };
+    load();
+  }, []);
+
+  return (
+    <html lang="en" className={`${cairo.variable} h-full antialiased`}>
+      <body className="min-h-full font-sans text-foreground">
+        <AppShell>{children}</AppShell>
+      </body>
+    </html>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/cart/page.tsx
+################################################################################
+
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Minus, Plus, Trash2, MapPin } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { AppShell } from "@/components/layout/AppShell";
+import { ScratchCard } from "@/components/promo/ScratchCard";
+import { SwipeButton } from "@/components/checkout/SwipeButton";
+import { useAppStore } from "@/store/useAppStore";
+
+export default function CartPage() {
+  const router = useRouter();
+  const {
+    cart,
+    cartRestaurantId,
+    appliedPromo,
+    user,
+    getDish,
+    getRestaurant,
+    updateQuantity,
+    removeFromCart,
+    applyPromo,
+    placeOrder,
+    getCartTotal,
+  } = useAppStore();
+
+  const { subtotal, discount, deliveryFee, total } = getCartTotal();
+  const grandTotal = total; // total already includes delivery fee
+
+  const [promoInput, setPromoInput] = useState("");
+  const [promoMsg, setPromoMsg] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
+
+  const isAuthenticated = Boolean(user);
+  const hasLocation = Boolean(user && user.address?.trim());
+  const canCheckout = Boolean(isAuthenticated && hasLocation && cart.length > 0);
+  const cartRestaurant = getRestaurant(cartRestaurantId || "");
+
+  const handleConfirm = async () => {
+    const result = await placeOrder();
+    if (!result.ok) {
+      setCheckoutError(result.message || "");
+      return false;
+    }
+    setCheckoutError("");
+    router.push("/order-tracking");
+    return true;
+  };
+
+  const visibleCart = cart.filter((item) => getDish(item.dishId));
+
+  return (
+    <AppShell>
+      <div className="mb-4">
+        <h1 className="text-2xl font-extrabold text-foreground">Cart</h1>
+        {cartRestaurant && (
+          <p className="mt-1 text-sm text-foreground-muted">
+            Ordering from{" "}
+            <span className="font-semibold text-primary">
+              {cartRestaurant.name}
+            </span>
+          </p>
+        )}
+      </div>
+
+      {visibleCart.length === 0 ? (
+        <div className="glass space-y-3 rounded-3xl px-5 py-10 text-center">
+          <p className="text-base font-semibold text-foreground">
+            Your cart is empty
+          </p>
+          <p className="text-sm text-foreground-muted">
+            Pick a restaurant, add dishes, then swipe to confirm.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="no-select touch-target mt-2 inline-flex rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white"
+          >
+            Browse restaurants
+          </button>
+        </div>
+      ) : (
+        <>
+          <ul className="mb-5 space-y-3">
+            <AnimatePresence initial={false}>
+              {visibleCart.map((item) => {
+                const dish = getDish(item.dishId)!;
+                return (
+                  <motion.li
+                    key={item.dishId}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -24 }}
+                    className="glass flex gap-3 rounded-3xl p-3"
+                  >
+                    <div
+                      className={`size-16 shrink-0 rounded-2xl bg-gradient-to-br ${dish.gradient || "from-gray-600 to-gray-800"}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-foreground">
+                            {dish.name}
+                          </p>
+                          <p className="text-xs text-foreground-muted">
+                            {dish.category}
+                          </p>
+                          <p className="text-sm text-primary">
+                            ${dish.price.toFixed(2)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.dishId)}
+                          className="no-select touch-target flex size-10 items-center justify-center rounded-xl text-foreground-muted hover:text-primary"
+                          aria-label={`Remove ${dish.name}`}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                      <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/5 p-1">
+                        <button
+                          type="button"
+                          className="no-select touch-target flex size-9 items-center justify-center rounded-full"
+                          onClick={() =>
+                            updateQuantity(item.dishId, item.quantity - 1)
+                          }
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="size-4" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-bold">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          className="no-select touch-target flex size-9 items-center justify-center rounded-full"
+                          onClick={() =>
+                            updateQuantity(item.dishId, item.quantity + 1)
+                          }
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.li>
+                );
+              })}
+            </AnimatePresence>
+          </ul>
+
+          <div className="glass mb-5 rounded-3xl p-4" dir="rtl">
+            <div className="mb-2 flex items-center gap-2">
+              <MapPin className="size-4 text-primary" />
+              <p className="text-sm font-bold">عنوان التوصيل</p>
+            </div>
+            {!isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => router.push("/login?next=/cart")}
+                className="no-select touch-target w-full rounded-xl bg-primary/15 py-3 text-sm font-bold text-primary"
+              >
+                سجّل الدخول لإتمام الطلب
+              </button>
+            ) : (
+              <>
+                <p className="text-sm text-foreground">
+                  {user?.address || "لم يتم تحديد عنوان"}
+                </p>
+                {user?.lat != null && (
+                  <p className="mt-1 text-xs text-foreground-muted">
+                    GPS: {user.lat.toFixed(5)}, {user.lng?.toFixed(5)}
+                  </p>
+                )}
+                {!hasLocation && (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/profile")}
+                    className="no-select touch-target mt-3 w-full rounded-xl bg-primary/15 py-3 text-sm font-bold text-primary"
+                  >
+                    أضف عنوان التوصيل من الملف الشخصي
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="mb-5">
+            <ScratchCard />
+          </div>
+
+          <div className="glass mb-5 flex gap-2 rounded-3xl p-3">
+            <input
+              value={promoInput}
+              onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+              placeholder="Promo code"
+              className="min-w-0 flex-1 rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const result = applyPromo(promoInput);
+                setPromoMsg(result.message);
+              }}
+              className="no-select touch-target rounded-xl bg-primary px-4 text-sm font-bold text-white"
+            >
+              Apply
+            </button>
+          </div>
+          {promoMsg && (
+            <p className="mb-4 text-center text-xs text-foreground-muted">
+              {promoMsg}
+            </p>
+          )}
+
+          <div className="glass mb-5 space-y-2 rounded-3xl p-4 text-sm">
+            <div className="flex justify-between text-foreground-muted">
+              <span>Subtotal</span>
+              <span>${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-foreground-muted">
+              <span>Delivery</span>
+              <span>${deliveryFee.toFixed(2)}</span>
+            </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-accent">
+                <span>Discount ({appliedPromo})</span>
+                <span>-${discount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-glass-border pt-2 text-base font-extrabold text-foreground">
+              <span>Total</span>
+              <span className="text-primary">${grandTotal.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {checkoutError && (
+            <p className="mb-3 text-center text-sm font-semibold text-primary">
+              {checkoutError}
+            </p>
+          )}
+
+          <SwipeButton
+            disabled={!canCheckout}
+            label={
+              !isAuthenticated
+                ? "Login required"
+                : !hasLocation
+                  ? "Add delivery address"
+                  : "Swipe to place order"
+            }
+            onConfirm={handleConfirm}
+          />
+        </>
+      )}
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/profile/page.tsx
+################################################################################
+
+"use client";
+import OrderHistory from "@/components/profile/OrderHistory";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ChevronRight,
+  MapPinned,
+  Package,
+  Shield,
+  Settings2,
+  LogIn,
+  LogOut,
+  LocateFixed,
+} from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { useAppStore } from "@/store/useAppStore";
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const {
+    user,
+    isAuthenticated,
+    orders,
+    activeOrder,
+    logoutUser,
+    updateUserLocation,
+    cart,
+  } = useAppStore();
+
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const [draftAddress, setDraftAddress] = useState<string | null>(null);
+  const [geoMsg, setGeoMsg] = useState("");
+  const address = draftAddress ?? user?.address ?? "";
+
+  const saveAddress = async () => {
+    const result = await updateUserLocation({
+      address,
+      locationLabel: address.trim() || user?.locationLabel || "",
+    });
+    setGeoMsg(result.message);
+    if (result.ok) setDraftAddress(null);
+  };
+
+  const locateMe = () => {
+    if (!isAuthenticated) {
+      setGeoMsg("سجّل الدخول أولاً قبل تحديد الموقع");
+      return;
+    }
+    if (!navigator.geolocation) {
+      setGeoMsg("المتصفح لا يدعم تحديد الموقع");
+      return;
+    }
+    setGeoMsg("جاري تحديد موقعك…");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const label = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        const nextAddress = address.trim() || `موقع تلقائي · ${label}`;
+        const result = await updateUserLocation({
+          lat: latitude,
+          lng: longitude,
+          locationLabel: label,
+          address: nextAddress,
+        });
+        setDraftAddress(null);
+        setGeoMsg(result.ok ? "تم تحديد موقعك الحالي" : result.message);
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoMsg(
+            "تم رفض إذن الموقع — اكتب العنوان يدوياً أو فعّل الموقع من إعدادات المتصفح",
+          );
+        } else {
+          setGeoMsg("تعذر الحصول على الموقع — اكتب العنوان يدوياً");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  };
+
+  return (
+    <AppShell>
+      <h1 className="mb-1 text-2xl font-extrabold">Profile</h1>
+      <p className="mb-6 text-sm text-foreground-muted">
+        {isAuthenticated && user
+          ? `${user.displayName} · ${user.phone}`
+          : "Guest · سجّل دخولك"}
+      </p>
+
+      {!isAuthenticated ? (
+        <button
+          type="button"
+          onClick={() => router.push("/login?next=/profile")}
+          className="no-select glass touch-target mb-5 flex w-full items-center gap-3 rounded-2xl p-4 text-left"
+        >
+          <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <LogIn className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">Login / تسجيل الدخول</span>
+            <span className="block text-xs text-foreground-muted">
+              Name + phone to place orders
+            </span>
+          </span>
+          <ChevronRight className="size-5 text-foreground-muted" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={logoutUser}
+          className="no-select glass touch-target mb-5 flex w-full items-center gap-3 rounded-2xl p-4 text-left"
+        >
+          <span className="flex size-11 items-center justify-center rounded-xl bg-white/5 text-foreground-muted">
+            <LogOut className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">Logout</span>
+            <span className="block text-xs text-foreground-muted">
+              Clear session from this device
+            </span>
+          </span>
+        </button>
+      )}
+
+      <div className="glass mb-5 space-y-3 rounded-2xl p-4" dir="rtl">
+        <p className="text-sm font-bold text-right">عنوان التوصيل</p>
+        <textarea
+          value={address}
+          onChange={(e) => setDraftAddress(e.target.value)}
+          rows={3}
+          placeholder="اكتب عنوانك بالتفصيل…"
+          className="w-full rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none disabled:opacity-50"
+          disabled={!isAuthenticated}
+        />
+        <button
+          type="button"
+          onClick={locateMe}
+          disabled={!isAuthenticated}
+          className="no-select touch-target flex w-full items-center justify-center gap-2 rounded-xl bg-accent/15 py-3 text-sm font-bold text-accent disabled:opacity-50"
+        >
+          <LocateFixed className="size-4" />
+          تحديد موقعي الحالي تلقائياً 📍
+        </button>
+        <button
+          type="button"
+          onClick={saveAddress}
+          disabled={!isAuthenticated}
+          className="no-select touch-target w-full rounded-xl bg-primary py-3 text-sm font-bold text-white disabled:opacity-50"
+        >
+          حفظ العنوان
+        </button>
+        {(user?.lat != null || user?.locationLabel) && (
+          <p className="text-xs text-foreground-muted">
+            GPS: {user.locationLabel || `${user.lat}, ${user.lng}`}
+          </p>
+        )}
+        {geoMsg && <p className="text-xs text-accent">{geoMsg}</p>}
+      </div>
+
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        {[
+          { label: "Orders", value: orders.length },
+          { label: "In cart", value: cartCount },
+          { label: "Promos", value: 0 }, // يمكن إضافة عداد لاحقاً
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="glass rounded-2xl px-3 py-4 text-center"
+          >
+            <p className="text-xl font-extrabold text-primary">{stat.value}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground-muted">
+              {stat.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-5 space-y-2">
+        {activeOrder && activeOrder.status !== "Delivered" ? (
+          <Link
+            href="/order-tracking"
+            className="glass no-select flex items-center gap-3 rounded-2xl p-4"
+          >
+            <span className="flex size-11 items-center justify-center rounded-xl bg-accent/15 text-accent">
+              <MapPinned className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold">Active order</span>
+              <span className="block text-xs text-foreground-muted">
+                {activeOrder.restaurantName} · {activeOrder.status}
+              </span>
+            </span>
+            <ChevronRight className="size-5 text-foreground-muted" />
+          </Link>
+        ) : (
+          <div className="glass flex items-center gap-3 rounded-2xl p-4">
+            <span className="flex size-11 items-center justify-center rounded-xl bg-white/5 text-foreground-muted">
+              <Package className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold">No active delivery</span>
+              <span className="block text-xs text-foreground-muted">
+                Place an order to track stages live.
+              </span>
+            </span>
+          </div>
+        )}
+
+        <OrderHistory />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => router.push("/admin")}
+        className="no-select glass touch-target flex w-full items-center gap-3 rounded-2xl p-4 text-left"
+      >
+        <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+          <Shield className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold">
+            Admin Dashboard / واجهة التحكم
+          </span>
+          <span className="block text-xs text-foreground-muted">
+            PIN protected · full CRUD
+          </span>
+        </span>
+        <Settings2 className="size-5 text-foreground-muted" />
+      </button>
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/order-tracking/page.tsx
+################################################################################
+
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Check } from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { OrderStageTracker } from "@/components/tracking/OrderStageTracker";
+import { useAppStore } from "@/store/useAppStore";
+import type { OrderStatus } from "@/types/database";
+
+const STEPS: OrderStatus[] = [
+  "Pending",
+  "Preparing",
+  "OutForDelivery",
+  "Delivered",
+];
+
+export default function OrderTrackingPage() {
+  const router = useRouter();
+  const { activeOrder } = useAppStore();
+
+  if (!activeOrder) {
+    return (
+      <AppShell hideNav>
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="no-select touch-target mb-4 inline-flex items-center gap-2 text-sm font-semibold text-foreground-muted"
+        >
+          <ArrowLeft className="size-4" /> Back home
+        </button>
+        <div className="glass rounded-3xl px-5 py-10 text-center">
+          <p className="font-bold">No active order</p>
+          <p className="mt-2 text-sm text-foreground-muted">
+            Place an order from your cart to start live tracking.
+          </p>
+          <Link
+            href="/cart"
+            className="mt-4 inline-flex rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white"
+          >
+            Go to cart
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const stepIndex = STEPS.indexOf(activeOrder.status);
+
+  return (
+    <AppShell hideNav>
+      <div className="mb-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="no-select touch-target flex size-11 items-center justify-center rounded-xl glass"
+          aria-label="Back"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+        <div>
+          <h1 className="text-xl font-extrabold">Order tracking</h1>
+          <p className="text-xs text-foreground-muted">
+            {activeOrder.restaurantName} · ETA ~{activeOrder.etaMinutes} min
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-5">
+        <OrderStageTracker status={activeOrder.status} />
+      </div>
+
+      <ol className="glass mb-5 space-y-0 rounded-3xl p-4">
+        {STEPS.map((step, i) => {
+          const done = i <= stepIndex;
+          const current = i === stepIndex;
+          return (
+            <li key={step} className="flex gap-3 pb-4 last:pb-0">
+              <div className="flex flex-col items-center">
+                <span
+                  className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${
+                    done
+                      ? "bg-accent text-secondary"
+                      : "bg-white/10 text-foreground-muted"
+                  }`}
+                >
+                  {done ? <Check className="size-4" /> : i + 1}
+                </span>
+                {i < STEPS.length - 1 && (
+                  <span
+                    className={`mt-1 min-h-4 w-0.5 flex-1 ${
+                      i < stepIndex ? "bg-accent" : "bg-white/10"
+                    }`}
+                  />
+                )}
+              </div>
+              <div className="pt-1">
+                <p
+                  className={`text-sm font-bold ${
+                    current ? "text-primary" : "text-foreground"
+                  }`}
+                >
+                  {step}
+                </p>
+                {current && (
+                  <p className="text-xs text-foreground-muted">
+                    Updates instantly when admin changes status.
+                  </p>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="glass mb-4 rounded-3xl p-4">
+        <p className="mb-1 text-sm font-bold">Delivery to</p>
+        <p className="text-sm text-foreground-muted">
+          {activeOrder.customerName} · {activeOrder.customerPhone}
+        </p>
+        <p className="mt-1 text-sm text-foreground">{activeOrder.deliveryAddress}</p>
+      </div>
+
+      <div className="glass rounded-3xl p-4">
+        <p className="mb-1 text-sm font-bold">Order details</p>
+        <p className="mb-3 text-xs text-foreground-muted">
+          From {activeOrder.restaurantName}
+        </p>
+        <ul className="mb-3 space-y-2">
+          {activeOrder.items.map((item) => (
+            <li
+              key={item.dishId || item.id}
+              className="flex justify-between text-sm text-foreground-muted"
+            >
+              <span>
+                {item.quantity}× {item.name}
+              </span>
+              <span>${(item.price * item.quantity).toFixed(2)}</span>
+            </li>
+          ))}
+        </ul>
+        {activeOrder.discount > 0 && (
+          <p className="mb-1 flex justify-between text-sm text-accent">
+            <span>Discount ({activeOrder.promoCode})</span>
+            <span>-${activeOrder.discount.toFixed(2)}</span>
+          </p>
+        )}
+        <p className="flex justify-between border-t border-glass-border pt-2 text-base font-extrabold">
+          <span>Total</span>
+          <span className="text-primary">${activeOrder.total.toFixed(2)}</span>
+        </p>
+      </div>
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/search/page.tsx
+################################################################################
+
+"use client";
+
+import { useMemo, useState } from "react";
+import { Search as SearchIcon } from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { CuisineSlider } from "@/components/home/CuisineSlider";
+import { RestaurantCard } from "@/components/home/RestaurantCard";
+import { useAppStore } from "@/store/useAppStore";
+import type { CuisineId } from "@/constants/cuisines";
+
+export default function SearchPage() {
+  const [query, setQuery] = useState("");
+  const [cuisine, setCuisine] = useState<CuisineId | "all">("all");
+  const { restaurants, dishes } = useAppStore();
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return restaurants.filter((r) => {
+      if (!r.active) return false;
+      const cuisineOk = cuisine === "all" || r.cuisineId === cuisine;
+      if (!cuisineOk) return false;
+      if (!q) return true;
+      const menuHit = dishes.some(
+        (d) =>
+          d.restaurantId === r.id &&
+          (d.name.toLowerCase().includes(q) ||
+            d.description.toLowerCase().includes(q)),
+      );
+      return (
+        r.name.toLowerCase().includes(q) ||
+        (r.tagline && r.tagline.toLowerCase().includes(q)) ||
+        menuHit
+      );
+    });
+  }, [restaurants, dishes, query, cuisine]);
+
+  return (
+    <AppShell>
+      <h1 className="mb-4 text-2xl font-extrabold">Search</h1>
+
+      <label className="glass mb-4 flex items-center gap-3 rounded-2xl px-3 py-2.5">
+        <SearchIcon className="size-5 text-foreground-muted" aria-hidden />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Restaurants or dishes…"
+          className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-muted"
+          aria-label="Search restaurants"
+        />
+      </label>
+
+      <div className="mb-5">
+        <CuisineSlider value={cuisine} onChange={setCuisine} />
+      </div>
+
+      <p className="mb-3 text-xs font-medium text-foreground-muted">
+        {filtered.length} restaurant{filtered.length === 1 ? "" : "s"}
+      </p>
+
+      {filtered.length === 0 ? (
+        <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-foreground-muted">
+          No matches. Try another cuisine or keyword.
+        </p>
+      ) : (
+        <ul className="space-y-4">
+          {filtered.map((restaurant, index) => (
+            <RestaurantCard
+              key={restaurant.id}
+              restaurant={restaurant}
+              index={index}
+            />
+          ))}
+        </ul>
+      )}
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/admin/page.tsx
+################################################################################
+
+"use client";
+
+import React, { useState } from "react";
+import { useAppStore } from "@/store/useAppStore";
+import { Restaurant, OrderStatus } from "@/types/database";
+import { addRestaurant as addRestaurantFirestore, toggleRestaurantActive as toggleRestaurantActiveFirestore } from "@/lib/firestore";
+
+export default function AdminDashboard() {
+  const {
+    restaurants,
+    orders,
+    drivers,
+    updateOrderStatus,
+    assignDriverToOrder,
+  } = useAppStore();
+
+  const [activeTab, setActiveTab] = useState<"orders" | "restaurants" | "analytics">("orders");
+
+  // نموذج إضافة مطعم جديد
+  const [restForm, setRestForm] = useState({
+    name: "",
+    cuisine: "وجبات سريعة",
+    deliveryFee: 5,
+    etaMinutes: 30,
+    address: "",
+  });
+
+  const handleAddRestaurant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restForm.name) return;
+
+    const newRest: Omit<Restaurant, "id"> = {
+      name: restForm.name,
+      cuisine: restForm.cuisine,
+      rating: 5.0,
+      deliveryFee: Number(restForm.deliveryFee),
+      etaMinutes: Number(restForm.etaMinutes),
+      address: restForm.address,
+      active: true,
+      coverGradient: "from-amber-500 to-red-600",
+      logoGradient: "from-primary to-orange-600",
+    };
+
+    try {
+      await addRestaurantFirestore(newRest);
+      // سيتم تحديث القائمة تلقائياً عبر الـ listener في loadInitialData
+      setRestForm({ name: "", cuisine: "وجبات سريعة", deliveryFee: 5, etaMinutes: 30, address: "" });
+    } catch (error) {
+      console.error("Failed to add restaurant", error);
+    }
+  };
+
+  const handleToggleActive = async (id: string, currentActive: boolean) => {
+    try {
+      await toggleRestaurantActiveFirestore(id, !currentActive);
+    } catch (error) {
+      console.error("Failed to toggle restaurant", error);
+    }
+  };
+
+  // إحصائيات سريعة
+  const totalRevenue = orders
+    .filter((o) => o.status === "Delivered")
+    .reduce((acc, curr) => acc + curr.total, 0);
+
+  const activeOrders = orders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled");
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 dir-rtl">
+      <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+            لوحة تحكم الإدارة
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">إدارة المطاعم، الطلبات، والعمليات المباشرة</p>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+          <button
+            onClick={() => setActiveTab("orders")}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+              activeTab === "orders" ? "bg-amber-500 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            الطلبات ({orders.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("restaurants")}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+              activeTab === "restaurants" ? "bg-amber-500 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            المطاعم ({restaurants.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+              activeTab === "analytics" ? "bg-amber-500 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            الإحصائيات
+          </button>
+        </div>
+      </header>
+
+      {/* --- TAB 1: ORDERS --- */}
+      {activeTab === "orders" && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold mb-4">متابعة الطلبات المباشرة</h2>
+          {orders.length === 0 ? (
+            <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 text-center text-slate-400">
+              لا يوجد طلبات حالية
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {orders.map((order) => (
+                <div key={order.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                  <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+                    <div>
+                      <span className="text-xs text-amber-400 font-mono">#{order.id.slice(-6)}</span>
+                      <h3 className="font-bold text-lg">{order.restaurantName}</h3>
+                    </div>
+                    <span
+                      className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+                        order.status === "Delivered"
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : order.status === "Cancelled"
+                          ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                      }`}
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+
+                  <div className="text-sm space-y-1 text-slate-300">
+                    <p><span className="text-slate-500">العميل:</span> {order.customerName} ({order.customerPhone})</p>
+                    <p><span className="text-slate-500">العنوان:</span> {order.deliveryAddress}</p>
+                    <p><span className="text-slate-500">المجموع:</span> <strong className="text-amber-400">{order.total} ₪</strong></p>
+                  </div>
+
+                  {/* عناصر الطلب */}
+                  <div className="bg-slate-950 p-3 rounded-xl text-xs space-y-1 text-slate-400">
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between">
+                        <span>{item.quantity}x {item.name}</span>
+                        <span>{item.price * item.quantity} ₪</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* تعيين سائق وتغيير الحالة */}
+                  <div className="pt-2 space-y-2 border-t border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-slate-400 w-20">السائق:</label>
+                      <select
+                        value={order.courierId || ""}
+                        onChange={(e) => assignDriverToOrder(order.id, e.target.value)}
+                        className="bg-slate-950 border border-slate-800 text-xs rounded-lg p-2 w-full text-slate-200"
+                      >
+                        <option value="">اختر سائق...</option>
+                        {drivers.map((d) => (
+                          <option key={d.id} value={d.id}>{d.name} ({d.vehicle})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-slate-400 w-20">الحالة:</label>
+                      <select
+                        value={order.status}
+                        onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
+                        className="bg-slate-950 border border-slate-800 text-xs rounded-lg p-2 w-full text-slate-200"
+                      >
+                        <option value="Pending">قيد الانتظار (Pending)</option>
+                        <option value="Preparing">قيد التحضير (Preparing)</option>
+                        <option value="OutForDelivery">خرج للتوصيل (OutForDelivery)</option>
+                        <option value="Delivered">تم التسليم (Delivered)</option>
+                        <option value="Cancelled">ملغي (Cancelled)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- TAB 2: RESTAURANTS --- */}
+      {activeTab === "restaurants" && (
+        <div className="grid md:grid-cols-3 gap-8">
+          {/* نموذج الإضافة */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit">
+            <h2 className="text-lg font-bold mb-4 text-amber-400">إضافة مطعم جديد</h2>
+            <form onSubmit={handleAddRestaurant} className="space-y-4">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">اسم المطعم</label>
+                <input
+                  type="text"
+                  required
+                  value={restForm.name}
+                  onChange={(e) => setRestForm({ ...restForm, name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm"
+                  placeholder="مثال: بيتزا الخليل"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">المطبخ / التصنيف</label>
+                <input
+                  type="text"
+                  value={restForm.cuisine}
+                  onChange={(e) => setRestForm({ ...restForm, cuisine: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">أجرة التوصيل (₪)</label>
+                  <input
+                    type="number"
+                    value={restForm.deliveryFee}
+                    onChange={(e) => setRestForm({ ...restForm, deliveryFee: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">الوقت المتوقع (دقيقة)</label>
+                  <input
+                    type="number"
+                    value={restForm.etaMinutes}
+                    onChange={(e) => setRestForm({ ...restForm, etaMinutes: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">العنوان</label>
+                <input
+                  type="text"
+                  value={restForm.address}
+                  onChange={(e) => setRestForm({ ...restForm, address: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl transition mt-2"
+              >
+                إضافة المطعم
+              </button>
+            </form>
+          </div>
+
+          {/* قائمة المطاعم */}
+          <div className="md:col-span-2 space-y-4">
+            <h2 className="text-lg font-bold">المطاعم المسجلة ({restaurants.length})</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {restaurants.map((rest) => (
+                <div key={rest.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-base">{rest.name}</h3>
+                    <p className="text-xs text-slate-400">{rest.cuisine || "وجبات"} • {rest.deliveryFee} ₪ توصيل</p>
+                  </div>
+                  <button
+                    onClick={() => handleToggleActive(rest.id, rest.active)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      rest.active
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                        : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+                    }`}
+                  >
+                    {rest.active ? "نشط" : "متوقف"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB 3: ANALYTICS --- */}
+      {activeTab === "analytics" && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <p className="text-slate-400 text-sm">إجمالي المبيعات المكتملة</p>
+            <p className="text-3xl font-extrabold text-amber-400 mt-2">{totalRevenue} ₪</p>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <p className="text-slate-400 text-sm">الطلبات النشطة حالياً</p>
+            <p className="text-3xl font-extrabold text-sky-400 mt-2">{activeOrders.length}</p>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <p className="text-slate-400 text-sm">إجمالي الطلبات الكلي</p>
+            <p className="text-3xl font-extrabold text-emerald-400 mt-2">{orders.length}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/driver/page.tsx
+################################################################################
+
+"use client";
+
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { 
+  Bike, 
+  LogOut, 
+  MapPin, 
+  CheckCircle2, 
+  ArrowLeft,
+  Phone
+} from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { useAppStore } from "@/store/useAppStore";
+import { ORDER_STATUSES } from "@/constants/orderStatuses";
+import type { OrderStatus } from "@/types/database";
+
+const DRIVER_SESSION_KEY = "zest-active-driver-id";
+
+export default function DriverDashboard() {
+  const router = useRouter();
+  const { orders, updateOrderStatus, drivers } = useAppStore();
+
+  const [selectedDriverId, setSelectedDriverId] = useState<string>("");
+  const [activeDriverId, setActiveDriverId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"my-orders" | "available">("my-orders");
+
+  // استرجاع جلسة المندوب
+  useEffect(() => {
+    const saved = sessionStorage.getItem(DRIVER_SESSION_KEY);
+    if (saved) {
+      setActiveDriverId(saved);
+    }
+  }, []);
+
+  const currentDriver = useMemo(
+    () => drivers.find((d) => d.id === activeDriverId),
+    [drivers, activeDriverId]
+  );
+
+  // جميع الطلبات غير المكتملة
+  const activeOrders = useMemo(
+    () => orders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled"),
+    [orders]
+  );
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDriverId) return;
+    sessionStorage.setItem(DRIVER_SESSION_KEY, selectedDriverId);
+    setActiveDriverId(selectedDriverId);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(DRIVER_SESSION_KEY);
+    setActiveDriverId(null);
+  };
+
+  // شاشة تسجيل دخول المندوب
+  if (!activeDriverId || !currentDriver) {
+    return (
+      <AppShell hideNav hideHeader>
+        <div className="flex flex-1 flex-col justify-center pt-safe">
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="no-select touch-target mb-6 inline-flex items-center gap-2 text-sm text-foreground-muted"
+          >
+            <ArrowLeft className="size-4" /> العودة للرئيسية
+          </button>
+
+          <div className="glass mx-auto w-full max-w-sm rounded-3xl p-6 text-center">
+            <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+              <Bike className="size-7" />
+            </span>
+            <h1 className="text-xl font-extrabold">بوابة الكابتن / المندوب</h1>
+            <p className="mt-1 text-sm text-foreground-muted">
+              اختر اسمك لتسجيل الدخول وبدء استلام وتوصيل الطلبات
+            </p>
+
+            <form onSubmit={handleLogin} className="mt-6 space-y-4">
+              <select
+                value={selectedDriverId}
+                onChange={(e) => setSelectedDriverId(e.target.value)}
+                className="w-full rounded-2xl border border-glass-border bg-secondary px-4 py-3.5 text-sm font-bold outline-none"
+              >
+                <option value="">-- اختر المندوب --</option>
+                {drivers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.vehicle})
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="submit"
+                disabled={!selectedDriverId}
+                className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                دخول لوحة التوصيل
+              </button>
+            </form>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell hideNav hideHeader>
+      {/* الهيدر */}
+      <div className="mb-4 flex items-center justify-between pt-safe">
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/20 text-primary font-bold">
+            <Bike className="size-6" />
+          </div>
+          <div>
+            <h1 className="text-lg font-extrabold">{currentDriver.name}</h1>
+            <p className="text-xs text-foreground-muted">المركبة: {currentDriver.vehicle}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="no-select touch-target glass flex size-11 items-center justify-center rounded-xl text-foreground-muted hover:text-primary"
+          title="تسجيل الخروج"
+        >
+          <LogOut className="size-5" />
+        </button>
+      </div>
+
+      {/* التبويبات */}
+      <div className="mb-5 flex rounded-2xl bg-secondary p-1 border border-glass-border">
+        <button
+          type="button"
+          onClick={() => setTab("my-orders")}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+            tab === "my-orders" ? "bg-primary text-white" : "text-foreground-muted"
+          }`}
+        >
+          الطلبات النشطة ({activeOrders.length})
+        </button>
+      </div>
+
+      {/* قائمة طلبات التوصيل */}
+      <section className="space-y-3 pb-8">
+        {activeOrders.length === 0 ? (
+          <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+            <CheckCircle2 className="mx-auto size-10 mb-2 opacity-30" />
+            <p className="text-sm font-bold">لا يوجد طلبات جاهزة للتوصيل حالياً</p>
+          </div>
+        ) : (
+          activeOrders.map((order) => (
+            <div key={order.id} className="glass rounded-2xl p-4 space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-xs font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-md font-bold">
+                    #{order.id.slice(-6)}
+                  </span>
+                  <h3 className="font-bold text-base mt-1">{order.customerName}</h3>
+                </div>
+                {order.customerPhone && (
+                  <a
+                    href={`tel:${order.customerPhone}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/20 text-accent text-xs font-bold"
+                  >
+                    <Phone className="size-3.5" /> اتصال
+                  </a>
+                )}
+              </div>
+
+              <div className="flex items-start gap-2 text-xs text-foreground-muted">
+                <MapPin className="size-4 shrink-0 text-primary mt-0.5" />
+                <span>عنوان التوصيل: {order.deliveryAddress || "غير محدد"}</span>
+              </div>
+
+              {/* تحديث حالة التوصيل */}
+              <div className="border-t border-glass-border pt-3 flex items-center justify-between gap-2">
+                <span className="text-xs text-foreground-muted font-bold">حالة الطلب:</span>
+                <select
+                  value={order.status}
+                  onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
+                  className="rounded-xl border border-glass-border bg-secondary px-3 py-1.5 text-xs font-bold outline-none text-primary"
+                >
+                  {ORDER_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ))
+        )}
+      </section>
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/login/page.tsx
+################################################################################
+
+"use client";
+
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { useAppStore } from "@/store/useAppStore";
+import { Suspense } from "react";
+
+function LoginForm() {
+  const router = useRouter();
+  const search = useSearchParams();
+  const next = search.get("next") || "/profile";
+  const { user, loginUser } = useAppStore();
+  const [fullName, setFullName] = useState(user?.displayName ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [error, setError] = useState("");
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const result = await loginUser(fullName, phone);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    router.replace(next.startsWith("/") ? next : "/profile");
+  };
+
+  return (
+    <div className="pt-safe" dir="rtl">
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="no-select touch-target mb-6 inline-flex items-center gap-2 text-sm text-foreground-muted"
+      >
+        <ArrowLeft className="size-4" /> رجوع
+      </button>
+
+      <h1 className="text-2xl font-extrabold">تسجيل الدخول</h1>
+      <p className="mt-1 text-sm text-foreground-muted">
+        أدخل اسمك ورقم جوالك للمتابعة
+      </p>
+
+      <form onSubmit={onSubmit} className="glass mt-6 space-y-3 rounded-3xl p-5">
+        <label className="block text-xs font-semibold text-foreground-muted">
+          الاسم الكامل
+          <input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-glass-border bg-secondary px-3 py-3 text-sm text-foreground outline-none"
+            placeholder="مثال: يزيد اللهالي"
+            autoComplete="name"
+            required
+          />
+        </label>
+        <label className="block text-xs font-semibold text-foreground-muted">
+          رقم الجوال
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-glass-border bg-secondary px-3 py-3 text-sm text-foreground outline-none"
+            placeholder="05XXXXXXXX"
+            inputMode="tel"
+            autoComplete="tel"
+            required
+          />
+        </label>
+        {error && <p className="text-xs text-primary">{error}</p>}
+        <button
+          type="submit"
+          className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white"
+        >
+          حفظ ومتابعة
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <AppShell hideNav hideHeader>
+      <Suspense
+        fallback={
+          <p className="pt-safe text-sm text-foreground-muted">Loading…</p>
+        }
+      >
+        <LoginForm />
+      </Suspense>
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/restaurant/page.tsx
+################################################################################
+
+"use client";
+
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { 
+  Utensils, 
+  LogOut, 
+  Package, 
+  Store, 
+  ChevronDown, 
+  ChevronUp, 
+  ToggleLeft, 
+  ToggleRight,
+  ArrowLeft
+} from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { useAppStore } from "@/store/useAppStore";
+import { ORDER_STATUSES } from "@/constants/orderStatuses";
+import type { OrderStatus } from "@/types/database";
+import { updateDish } from "@/lib/firestore";
+
+const RESTAURANT_SESSION_KEY = "zest-active-restaurant-id";
+
+export default function RestaurantDashboard() {
+  const router = useRouter();
+  const { restaurants, dishes, orders, updateOrderStatus } = useAppStore();
+
+  const [selectedRestId, setSelectedRestId] = useState<string>("");
+  const [activeRestId, setActiveRestId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"orders" | "menu">("orders");
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  // استرجاع الجلسة عند التحميل
+  useEffect(() => {
+    const saved = sessionStorage.getItem(RESTAURANT_SESSION_KEY);
+    if (saved) {
+      setActiveRestId(saved);
+    }
+  }, []);
+
+  const currentRestaurant = useMemo(
+    () => restaurants.find((r) => r.id === activeRestId),
+    [restaurants, activeRestId]
+  );
+
+  const restaurantOrders = useMemo(
+    () => orders.filter((o) => o.restaurantId === activeRestId),
+    [orders, activeRestId]
+  );
+
+  const restaurantDishes = useMemo(
+    () => dishes.filter((d) => d.restaurantId === activeRestId),
+    [dishes, activeRestId]
+  );
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRestId) return;
+    sessionStorage.setItem(RESTAURANT_SESSION_KEY, selectedRestId);
+    setActiveRestId(selectedRestId);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(RESTAURANT_SESSION_KEY);
+    setActiveRestId(null);
+  };
+
+  const toggleDishAvailability = async (dishId: string, currentAvailable: boolean) => {
+    try {
+      await updateDish(dishId, { available: !currentAvailable });
+      // سيتم تحديث القائمة تلقائياً عبر الـ listener
+    } catch (error) {
+      console.error("Failed to update dish", error);
+    }
+  };
+
+  // شاشة تسجيل الدخول
+  if (!activeRestId || !currentRestaurant) {
+    return (
+      <AppShell hideNav hideHeader>
+        <div className="flex flex-1 flex-col justify-center pt-safe">
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="no-select touch-target mb-6 inline-flex items-center gap-2 text-sm text-foreground-muted"
+          >
+            <ArrowLeft className="size-4" /> العودة للرئيسية
+          </button>
+
+          <div className="glass mx-auto w-full max-w-sm rounded-3xl p-6 text-center">
+            <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+              <Store className="size-7" />
+            </span>
+            <h1 className="text-xl font-extrabold">بوابة المطاعم</h1>
+            <p className="mt-1 text-sm text-foreground-muted">
+              اختر المطعم لتسجيل الدخول وإدارة الطلبات والوجبات
+            </p>
+
+            <form onSubmit={handleLogin} className="mt-6 space-y-4">
+              <select
+                value={selectedRestId}
+                onChange={(e) => setSelectedRestId(e.target.value)}
+                className="w-full rounded-2xl border border-glass-border bg-secondary px-4 py-3.5 text-sm font-bold outline-none"
+              >
+                <option value="">-- اختر المطعم --</option>
+                {restaurants.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="submit"
+                disabled={!selectedRestId}
+                className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                دخول لوحة التحكم
+              </button>
+            </form>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell hideNav hideHeader>
+      {/* الهيدر */}
+      <div className="mb-4 flex items-center justify-between pt-safe">
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/20 text-primary font-bold text-lg">
+            {currentRestaurant.name.charAt(0)}
+          </div>
+          <div>
+            <h1 className="text-lg font-extrabold">{currentRestaurant.name}</h1>
+            <p className="text-xs text-foreground-muted">لوحة إدارة المطبخ والطلبات</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="no-select touch-target glass flex size-11 items-center justify-center rounded-xl text-foreground-muted hover:text-primary"
+          title="تسجيل الخروج"
+        >
+          <LogOut className="size-5" />
+        </button>
+      </div>
+
+      {/* التبويبات */}
+      <div className="mb-5 flex rounded-2xl bg-secondary p-1 border border-glass-border">
+        <button
+          type="button"
+          onClick={() => setTab("orders")}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+            tab === "orders" ? "bg-primary text-white" : "text-foreground-muted"
+          }`}
+        >
+          الطلبات الواردة ({restaurantOrders.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("menu")}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+            tab === "menu" ? "bg-primary text-white" : "text-foreground-muted"
+          }`}
+        >
+          قائمة الوجبات ({restaurantDishes.length})
+        </button>
+      </div>
+
+      {/* تبويب الطلبات */}
+      {tab === "orders" && (
+        <section className="space-y-3 pb-8">
+          {restaurantOrders.length === 0 ? (
+            <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+              <Utensils className="mx-auto size-10 mb-2 opacity-30" />
+              <p className="text-sm font-bold">لا يوجد طلبات حالية للمطعم</p>
+            </div>
+          ) : (
+            restaurantOrders.map((order) => {
+              const isExpanded = expandedOrderId === order.id;
+              return (
+                <div key={order.id} className="glass rounded-2xl p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-xs font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-md font-bold">
+                        #{order.id.slice(-6)}
+                      </span>
+                      <h3 className="font-bold text-base mt-1">{order.customerName}</h3>
+                      <p className="text-xs text-foreground-muted">{order.customerPhone}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-base font-extrabold text-primary block">
+                        ${order.total.toFixed(2)}
+                      </span>
+                      <button
+                        onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                        className="mt-1 text-xs flex items-center gap-1 text-foreground-muted hover:text-white"
+                      >
+                        {isExpanded ? "إخفاء الأصناف" : "تفاصيل الوجبات"}
+                        {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* قائمة أصناف الطلب */}
+                  {isExpanded && (
+                    <div className="border-t border-glass-border pt-2 mt-2 space-y-1.5">
+                      <p className="text-xs font-bold text-foreground-muted">الوجبات المطلوب تحضيرها:</p>
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-xs py-1 border-b border-white/5 last:border-0">
+                          <span className="font-bold text-foreground">
+                            {item.quantity}x {item.name}
+                          </span>
+                          <span className="font-mono text-foreground-muted">${(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* تحديث حالة الطلب السريع من قبل المطعم */}
+                  <div className="border-t border-glass-border pt-3 flex items-center justify-between gap-2">
+                    <span className="text-xs text-foreground-muted font-bold">حالة الطلب:</span>
+                    <select
+                      value={order.status}
+                      onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
+                      className="rounded-xl border border-glass-border bg-secondary px-3 py-1.5 text-xs font-bold outline-none text-primary"
+                    >
+                      {ORDER_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </section>
+      )}
+
+      {/* تبويب التحكم بالوجبات */}
+      {tab === "menu" && (
+        <section className="space-y-3 pb-8">
+          {restaurantDishes.length === 0 ? (
+            <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+              <Package className="mx-auto size-10 mb-2 opacity-30" />
+              <p className="text-sm font-bold">لا يوجد وجبات مسجلة بهذا المطعم</p>
+            </div>
+          ) : (
+            restaurantDishes.map((dish) => (
+              <div key={dish.id} className="glass rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-sm">{dish.name}</h4>
+                  <p className="text-xs text-foreground-muted">${dish.price.toFixed(2)} · {dish.category}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleDishAvailability(dish.id, dish.available)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    dish.available 
+                      ? "bg-accent/20 text-accent border border-accent/30" 
+                      : "bg-primary/20 text-primary border border-primary/30"
+                  }`}
+                >
+                  {dish.available ? <ToggleRight className="size-4" /> : <ToggleLeft className="size-4" />}
+                  {dish.available ? "متوفر" : "غير متوفر"}
+                </button>
+              </div>
+            ))
+          )}
+        </section>
+      )}
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/app/restaurant/[id]/page.tsx
+################################################################################
+
+"use client";
+
+import { use } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Clock, Star, ShoppingBag } from "lucide-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { LivingCard } from "@/components/menu/LivingCard";
+import { useAppStore } from "@/store/useAppStore";
+
+type PageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default function RestaurantMenuPage({ params }: PageProps) {
+  const { id } = use(params);
+  const router = useRouter();
+  const { getRestaurant, getDishesByRestaurant, cart } = useAppStore();
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const restaurant = getRestaurant(id);
+  const menu = getDishesByRestaurant(id);
+
+  if (!restaurant) {
+    return (
+      <AppShell hideNav>
+        <p className="glass rounded-2xl px-4 py-8 text-center text-sm">
+          Restaurant not found.
+        </p>
+        <Link href="/" className="mt-4 block text-center text-primary">
+          Back home
+        </Link>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell hideHeader>
+      <div className="relative -mx-4 mb-5 overflow-hidden">
+        <div
+          className={`aspect-[16/8] bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
+        />
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-safe">
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="no-select touch-target glass mt-3 flex size-11 items-center justify-center rounded-xl"
+            aria-label="Back"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
+          <Link
+            href="/cart"
+            id="cart-icon"
+            className="no-select touch-target glass relative mt-3 flex size-11 items-center justify-center rounded-xl"
+            aria-label={`Cart, ${cartCount} items`}
+          >
+            <ShoppingBag className="size-5" />
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-secondary">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+        </div>
+
+        <div className="relative -mt-8 px-4">
+          <div
+            className={`mb-3 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br ${restaurant.logoGradient || "from-primary to-orange-600"} text-xl font-extrabold text-white shadow-lg ring-4 ring-background`}
+          >
+            {restaurant.name.slice(0, 1)}
+          </div>
+          <h1 className="text-2xl font-extrabold text-foreground">
+            {restaurant.name}
+          </h1>
+          {!restaurant.active && (
+            <p className="mt-2 rounded-xl bg-primary/15 px-3 py-2 text-sm font-bold text-primary">
+              This restaurant is currently inactive
+            </p>
+          )}
+          <p className="mt-1 text-sm text-foreground-muted">
+            {restaurant.tagline || restaurant.cuisine || ""}
+          </p>
+          <div className="mt-2 flex items-center gap-3 text-xs font-semibold text-foreground-muted">
+            <span className="inline-flex items-center gap-1 text-accent-soft">
+              <Star className="size-3.5 fill-current" />
+              {restaurant.rating.toFixed(1)}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3.5" />
+              {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} min
+            </span>
+            <span>${restaurant.deliveryFee.toFixed(2)} delivery</span>
+          </div>
+        </div>
+      </div>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-bold">Menu</h2>
+        {menu.length === 0 ? (
+          <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-foreground-muted">
+            No dishes listed yet. Check back soon.
+          </p>
+        ) : (
+          <ul className="grid grid-cols-1 gap-4">
+            {menu.map((dish, index) => (
+              <li key={dish.id}>
+                <LivingCard dish={dish} index={index} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </AppShell>
+  );
+}
+
+
+
+################################################################################
+FILE: src/types/database.ts
+################################################################################
+
+export type UserRole = "customer" | "admin" | "courier";
+
+export interface UserProfile {
+  uid: string;
+  phone: string;
+  displayName?: string;
+  role: UserRole;
+  address?: string;
+  locationLabel?: string;
+  lat?: number;
+  lng?: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  cuisineId?: string;
+  cuisine?: string;
+  rating: number;
+  deliveryFee: number;
+  etaMinutes: number;
+  coverGradient?: string;
+  logoGradient?: string;
+  image?: string;
+  tagline?: string;
+  address?: string;
+  active: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface Dish {
+  id: string;
+  restaurantId: string;
+  name: string;
+  description: string;
+  price: number;
+  image?: string;
+  category: string;
+  available: boolean;
+  isHot?: boolean;
+  gradient?: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface Driver {
+  id: string;
+  name: string;
+  phone: string;
+  vehicle: string;
+  plateNumber: string;
+  isAvailable?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export type OrderStatus =
+  | "Pending"
+  | "Preparing"
+  | "OutForDelivery"
+  | "Delivered"
+  | "Cancelled";
+
+export interface OrderItem {
+  dishId?: string;
+  id?: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export interface Order {
+  id: string;
+  userId?: string;
+  restaurantId: string;
+  restaurantName: string;
+  items: OrderItem[];
+  subtotal: number;
+  discount: number;
+  deliveryFee: number;
+  total: number;
+  promoCode?: string | null;
+  status: OrderStatus;
+  courierId?: string;
+  driver?: Driver | null;
+  createdAt: number;
+  updatedAt?: number;
+  etaMinutes?: number;
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string;
+}
+
+export interface PromoCode {
+  code: string;
+  percentOff: number;
+  active: boolean;
+}
+
+export interface CartItem {
+  dishId: string;
+  quantity: number;
+  notes?: string;
+}
+
+export type ActiveOrder = Order;
+
+
+
+################################################################################
+FILE: public/manifest.json
+################################################################################
+
+{
+  "short_name": "Zest",
+  "name": "Zest - Fast & Emotional Food Delivery",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#FF5722",
+  "display": "standalone",
+  "orientation": "portrait"
+}
+
+
+
+################################################################################
+FILE: public/sw.js
+################################################################################
+
+const CACHE = "zest-v1";
+const ASSETS = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  event.respondWith(
+    caches.match(req).then((cached) => {
+      const fetchPromise = fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          if (res.ok && new URL(req.url).origin === self.location.origin) {
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => cached);
+      return cached || fetchPromise;
+    })
+  );
+});
+
+

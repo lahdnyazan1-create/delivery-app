@@ -4,21 +4,21 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
-import { useApp } from "@/context/AppContext";
+import { useAppStore } from "@/store/useAppStore";
 import { Suspense } from "react";
 
 function LoginForm() {
   const router = useRouter();
   const search = useSearchParams();
   const next = search.get("next") || "/profile";
-  const { user, loginUser } = useApp();
-  const [fullName, setFullName] = useState(user?.fullName ?? "");
+  const { user, loginUser } = useAppStore();
+  const [fullName, setFullName] = useState(user?.displayName ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [error, setError] = useState("");
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = loginUser(fullName, phone);
+    const result = await loginUser(fullName, phone);
     if (!result.ok) {
       setError(result.message);
       return;

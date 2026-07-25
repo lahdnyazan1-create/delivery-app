@@ -1,18 +1,18 @@
-// src/types/database.ts
-
 export type UserRole = "customer" | "admin" | "courier";
 
-// 1. المستخدمين (Users / Profiles)
 export interface UserProfile {
   uid: string;
   phone: string;
   displayName?: string;
   role: UserRole;
   address?: string;
+  locationLabel?: string;
+  lat?: number;
+  lng?: number;
   createdAt: number;
+  updatedAt?: number;
 }
 
-// 2. المطاعم (Restaurants)
 export interface Restaurant {
   id: string;
   name: string;
@@ -27,9 +27,10 @@ export interface Restaurant {
   tagline?: string;
   address?: string;
   active: boolean;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
-// 3. الأطباق والوجبات (Dishes)
 export interface Dish {
   id: string;
   restaurantId: string;
@@ -41,9 +42,10 @@ export interface Dish {
   available: boolean;
   isHot?: boolean;
   gradient?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
-// 4. الشوفرية / الكباتن (Drivers / Couriers)
 export interface Driver {
   id: string;
   name: string;
@@ -51,9 +53,10 @@ export interface Driver {
   vehicle: string;
   plateNumber: string;
   isAvailable?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
-// 5. حالات الطلب (Order Statuses)
 export type OrderStatus =
   | "Pending"
   | "Preparing"
@@ -69,16 +72,15 @@ export interface OrderItem {
   quantity: number;
 }
 
-// 6. الطلبات (Orders)
 export interface Order {
   id: string;
   userId?: string;
-  restaurantId?: string;
+  restaurantId: string;
   restaurantName: string;
   items: OrderItem[];
-  subtotal?: number;
-  discount?: number;
-  deliveryFee?: number;
+  subtotal: number;
+  discount: number;
+  deliveryFee: number;
   total: number;
   promoCode?: string | null;
   status: OrderStatus;
@@ -92,9 +94,16 @@ export interface Order {
   deliveryAddress: string;
 }
 
-// 7. أكواد الخصم (Promo Codes)
 export interface PromoCode {
   code: string;
   percentOff: number;
   active: boolean;
 }
+
+export interface CartItem {
+  dishId: string;
+  quantity: number;
+  notes?: string;
+}
+
+export type ActiveOrder = Order;

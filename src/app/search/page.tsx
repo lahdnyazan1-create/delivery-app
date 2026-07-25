@@ -5,13 +5,13 @@ import { Search as SearchIcon } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { CuisineSlider } from "@/components/home/CuisineSlider";
 import { RestaurantCard } from "@/components/home/RestaurantCard";
-import { useApp } from "@/context/AppContext";
-import type { CuisineId } from "@/data/mockData";
+import { useAppStore } from "@/store/useAppStore";
+import type { CuisineId } from "@/constants/cuisines";
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [cuisine, setCuisine] = useState<CuisineId | "all">("all");
-  const { restaurants, dishes } = useApp();
+  const { restaurants, dishes } = useAppStore();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -28,7 +28,7 @@ export default function SearchPage() {
       );
       return (
         r.name.toLowerCase().includes(q) ||
-        r.tagline.toLowerCase().includes(q) ||
+        (r.tagline && r.tagline.toLowerCase().includes(q)) ||
         menuHit
       );
     });

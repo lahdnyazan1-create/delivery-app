@@ -3,8 +3,8 @@
 import { useRef, useState } from "react";
 import { Flame, Plus } from "lucide-react";
 import { motion } from "framer-motion";
-import type { Dish } from "@/data/mockData";
-import { useApp } from "@/context/AppContext";
+import type { Dish } from "@/types/database";
+import { useAppStore } from "@/store/useAppStore";
 
 type LivingCardProps = {
   dish: Dish;
@@ -41,7 +41,7 @@ function Steam() {
 }
 
 export function LivingCard({ dish, index = 0 }: LivingCardProps) {
-  const { addToCart, getRestaurant } = useApp();
+  const { addToCart, getRestaurant } = useAppStore();
   const mediaRef = useRef<HTMLDivElement>(null);
   const [hint, setHint] = useState("");
   const restaurant = getRestaurant(dish.restaurantId);
@@ -66,7 +66,7 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
     >
       <div
         ref={mediaRef}
-        className={`relative aspect-[4/3] bg-gradient-to-br ${dish.gradient}`}
+        className={`relative aspect-[4/3] bg-gradient-to-br ${dish.gradient || 'from-gray-600 to-gray-800'}`}
       >
         {dish.isHot && canAdd && <Steam />}
         {dish.isHot && (
@@ -105,9 +105,8 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
             whileTap={canAdd ? { scale: 0.9 } : undefined}
             disabled={!canAdd}
             onClick={() => {
-              const rect = mediaRef.current?.getBoundingClientRect();
-              const result = addToCart(dish.id, rect);
-              if (!result.ok && result.message && result.message !== "conflict") {
+              const result = addToCart(dish.id, dish.restaurantId);
+              if (!result.ok && result.message) {
                 setHint(result.message);
                 window.setTimeout(() => setHint(""), 2200);
               }

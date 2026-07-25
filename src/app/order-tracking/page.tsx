@@ -5,19 +5,19 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { OrderStageTracker } from "@/components/tracking/OrderStageTracker";
-import { useApp } from "@/context/AppContext";
-import type { OrderStatus } from "@/data/mockData";
+import { useAppStore } from "@/store/useAppStore";
+import type { OrderStatus } from "@/types/database";
 
 const STEPS: OrderStatus[] = [
   "Pending",
   "Preparing",
-  "Out for Delivery",
+  "OutForDelivery",
   "Delivered",
 ];
 
 export default function OrderTrackingPage() {
   const router = useRouter();
-  const { activeOrder } = useApp();
+  const { activeOrder } = useAppStore();
 
   if (!activeOrder) {
     return (
@@ -129,7 +129,7 @@ export default function OrderTrackingPage() {
         <ul className="mb-3 space-y-2">
           {activeOrder.items.map((item) => (
             <li
-              key={item.dishId}
+              key={item.dishId || item.id}
               className="flex justify-between text-sm text-foreground-muted"
             >
               <span>

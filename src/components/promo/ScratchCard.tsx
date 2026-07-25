@@ -2,19 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 import { playScratchNoise, vibrate } from "@/lib/feedback";
-import { useApp } from "@/context/AppContext";
+import { useAppStore } from "@/store/useAppStore";
 
 type ScratchCardProps = {
   className?: string;
 };
 
 export function ScratchCard({ className = "" }: ScratchCardProps) {
-  const { scratchRevealed, unlockPromoFromScratch, appliedPromo } = useApp();
+  const { appliedPromo, applyPromo } = useAppStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scratching = useRef(false);
   const lastSound = useRef(0);
-  const [localCleared, setLocalCleared] = useState(false);
-  const done = scratchRevealed || localCleared;
+  const [localCleared, setLocalCleared] = useState(() => {
+    // استرجاع الحالة من localStorage
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("scratch_revealed") === "true";
+    }
+    return false;
+  });
+
+  const done = localCleared || appliedPromo === "ZEST30";
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,7 +65,8 @@ export function ScratchCard({ className = "" }: ScratchCardProps) {
     const samples = Math.ceil(data.length / step);
     if (cleared / samples > 0.42) {
       setLocalCleared(true);
-      unlockPromoFromScratch();
+      localStorage.setItem("scratch_revealed", "true");
+      applyPromo("ZEST30"); // تطبيق الكود تلقائياً
       vibrate([20, 30, 40]);
     }
   };

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { OrderStatus } from "@/data/mockData";
+import type { OrderStatus } from "@/types/database";
 
 const STAGES: {
   status: OrderStatus;
@@ -22,9 +22,9 @@ const STAGES: {
     icon: "🍳",
   },
   {
-    status: "Out for Delivery",
+    status: "OutForDelivery",
     titleAr: "السائق في الطريق إليك",
-    titleEn: "Out for Delivery",
+    titleEn: "OutForDelivery",
     icon: "🛵",
   },
   {
@@ -86,7 +86,7 @@ export function OrderStageTracker({ status }: OrderStageTrackerProps) {
         {STAGES[activeIndex]?.titleEn}
       </p>
 
-      {status === "Out for Delivery" && <ScooterCartoon />}
+      {status === "OutForDelivery" && <ScooterCartoon />}
       {status === "Delivered" && (
         <motion.div
           className="mt-4 text-center text-5xl"

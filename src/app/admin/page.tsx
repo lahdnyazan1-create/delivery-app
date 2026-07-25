@@ -1,19 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppStore } from "@/store/useAppStore";
 import { Restaurant, OrderStatus } from "@/types/database";
+import { addRestaurant as addRestaurantFirestore, toggleRestaurantActive as toggleRestaurantActiveFirestore } from "@/lib/firestore";
 
 export default function AdminDashboard() {
   const {
     restaurants,
-    addRestaurant,
-    toggleRestaurantActive,
     orders,
-    updateOrderStatus,
     drivers,
+    updateOrderStatus,
     assignDriverToOrder,
-  } = useApp();
+  } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<"orders" | "restaurants" | "analytics">("orders");
 
@@ -26,12 +25,11 @@ export default function AdminDashboard() {
     address: "",
   });
 
-  const handleAddRestaurant = (e: React.FormEvent) => {
+  const handleAddRestaurant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!restForm.name) return;
 
-    const newRest: Restaurant = {
-      id: "rest-" + Date.now(),
+    const newRest: Omit<Restaurant, "id"> = {
       name: restForm.name,
       cuisine: restForm.cuisine,
       rating: 5.0,
@@ -40,10 +38,24 @@ export default function AdminDashboard() {
       address: restForm.address,
       active: true,
       coverGradient: "from-amber-500 to-red-600",
+      logoGradient: "from-primary to-orange-600",
     };
 
-    addRestaurant(newRest);
-    setRestForm({ name: "", cuisine: "وجبات سريعة", deliveryFee: 5, etaMinutes: 30, address: "" });
+    try {
+      await addRestaurantFirestore(newRest);
+      // سيتم تحديث القائمة تلقائياً عبر الـ listener في loadInitialData
+      setRestForm({ name: "", cuisine: "وجبات سريعة", deliveryFee: 5, etaMinutes: 30, address: "" });
+    } catch (error) {
+      console.error("Failed to add restaurant", error);
+    }
+  };
+
+  const handleToggleActive = async (id: string, currentActive: boolean) => {
+    try {
+      await toggleRestaurantActiveFirestore(id, !currentActive);
+    } catch (error) {
+      console.error("Failed to toggle restaurant", error);
+    }
   };
 
   // إحصائيات سريعة
@@ -252,7 +264,7 @@ export default function AdminDashboard() {
                     <p className="text-xs text-slate-400">{rest.cuisine || "وجبات"} • {rest.deliveryFee} ₪ توصيل</p>
                   </div>
                   <button
-                    onClick={() => toggleRestaurantActive(rest.id)}
+                    onClick={() => handleToggleActive(rest.id, rest.active)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                       rest.active
                         ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"

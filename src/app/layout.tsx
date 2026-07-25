@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
-import { Providers } from "@/components/Providers";
 import "./globals.css";
+import { AppShell } from "@/components/layout/AppShell";
+import { useEffect } from "react";
+import { useAppStore } from "@/store/useAppStore";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -15,8 +17,7 @@ export const metadata: Metadata = {
     default: "Zest — Food Delivery",
     template: "%s · Zest",
   },
-  description:
-    "Order from local restaurants with living micro-interactions. Zest PWA.",
+  description: "Order from local restaurants with living micro-interactions.",
   applicationName: "Zest",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -51,10 +52,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  useEffect(() => {
+    const load = async () => {
+      await useAppStore.getState().loadInitialData();
+    };
+    load();
+  }, []);
+
   return (
     <html lang="en" className={`${cairo.variable} h-full antialiased`}>
       <body className="min-h-full font-sans text-foreground">
-        <Providers>{children}</Providers>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

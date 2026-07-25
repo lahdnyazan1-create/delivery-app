@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { MapPin, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
-import { useApp } from "@/context/AppContext";
+import { useAppStore } from "@/store/useAppStore";
 
 export function Header() {
-  const { cartCount, cartPopKey, activeOrder, user } = useApp();
+  const { user, activeOrder, cart } = useAppStore();
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const locationText =
     user?.address?.trim() ||
@@ -44,8 +45,7 @@ export function Header() {
 
         <Link href="/cart" aria-label={`Cart, ${cartCount} items`}>
           <motion.span
-            key={cartPopKey}
-            id="cart-icon"
+            key={cartCount}
             initial={{ scale: 1 }}
             animate={{ scale: [1, 1.22, 1] }}
             transition={{ duration: 0.35 }}

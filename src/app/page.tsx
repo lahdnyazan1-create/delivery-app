@@ -5,13 +5,14 @@ import { AppShell } from "@/components/layout/AppShell";
 import { CuisineSlider } from "@/components/home/CuisineSlider";
 import { RestaurantCard } from "@/components/home/RestaurantCard";
 import { ScratchCard } from "@/components/promo/ScratchCard";
-import { useApp } from "@/context/AppContext";
-import type { CuisineId } from "@/data/mockData";
+import { useAppStore } from "@/store/useAppStore";
+import type { CuisineId } from "@/constants/cuisines"; // سنحتفظ بالـ CuisineId من mockData مؤقتاً، أو ننشئ ملف خاص بالتصنيفات
 
 export default function HomePage() {
-  const { restaurants } = useApp();
+  const restaurants = useAppStore((state) => state.restaurants);
   const [cuisine, setCuisine] = useState<CuisineId | "all">("all");
 
+  // تصفية حسب التصنيف (سيتم تعديلها لاستخدام cuisineId حقيقي)
   const filtered = restaurants.filter((r) => {
     if (!r.active) return false;
     if (cuisine === "all") return true;

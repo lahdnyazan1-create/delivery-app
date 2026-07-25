@@ -1,31 +1,19 @@
-// src/components/profile/OrderHistory.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useCartStore } from '@/lib/cart-store';
-import { subscribeToOrders } from '@/lib/orders';
+import React, { useEffect } from 'react';
+import { Order } from "@/types/database";
+import { useAppStore } from '@/store/useAppStore';
+import { Order } from "@/types/database";
 import { playSound, triggerHaptic } from '@/lib/sound-haptics';
-import { Order } from '@/types/database';
+import { Order } from "@/types/database";
 import { RotateCcw, PackageCheck } from 'lucide-react';
+import { Order } from "@/types/database";
 
 export default function OrderHistory() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const addItem = useCartStore((state) => state.addItem);
-  const clearCart = useCartStore((state) => state.clearCart);
-
-  useEffect(() => {
-    // جلب واستماع الطلبات الفورية من Firestore
-    const unsubscribe = subscribeToOrders((fetchedOrders) => {
-      setOrders(fetchedOrders);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const { orders, loading, addToCart, clearCart, getDish } = useAppStore();
 
   // دالة الطلب بنقرة واحدة (Quick Re-Order)
-  const handleQuickReOrder = (orderItems: Order['items']) => {
+  const handleQuickReOrder = (orderItems: Order['items'], restaurantId: string) => {
     playSound('add');
     triggerHaptic('medium');
 
@@ -33,13 +21,9 @@ export default function OrderHistory() {
     clearCart();
 
     orderItems.forEach((item) => {
-      // التكرار بحسب الكمية لإضافتها بشكل صحيح لـ Zustand
-      for (let i = 0; i < item.quantity; i++) {
-        addItem({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-        });
+      const dish = getDish(item.dishId || '');
+      if (dish) {
+        addToCart(dish.id, restaurantId);
       }
     });
 
@@ -106,13 +90,13 @@ export default function OrderHistory() {
             <div>
               <span className="text-[10px] text-foreground-muted block">المجموع</span>
               <span className="text-sm font-extrabold text-foreground">
-                {order.totalAmount.toFixed(2)} ₪
+                {order.total.toFixed(2)} ₪
               </span>
             </div>
 
             <button
               type="button"
-              onClick={() => handleQuickReOrder(order.items)}
+              onClick={() => handleQuickReOrder(order.items, order.restaurantId)}
               className="no-select touch-target flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-all"
             >
               <RotateCcw className="size-3.5" />

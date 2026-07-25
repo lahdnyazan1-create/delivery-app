@@ -14,27 +14,27 @@ import {
   LocateFixed,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
-import { useApp } from "@/context/AppContext";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function ProfilePage() {
   const router = useRouter();
   const {
-    orders,
-    activeOrder,
-    unlockedPromos,
-    cartCount,
     user,
     isAuthenticated,
+    orders,
+    activeOrder,
     logoutUser,
     updateUserLocation,
-  } = useApp();
+    cart,
+  } = useAppStore();
 
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const [draftAddress, setDraftAddress] = useState<string | null>(null);
   const [geoMsg, setGeoMsg] = useState("");
   const address = draftAddress ?? user?.address ?? "";
 
-  const saveAddress = () => {
-    const result = updateUserLocation({
+  const saveAddress = async () => {
+    const result = await updateUserLocation({
       address,
       locationLabel: address.trim() || user?.locationLabel || "",
     });
@@ -53,11 +53,11 @@ export default function ProfilePage() {
     }
     setGeoMsg("جاري تحديد موقعك…");
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const { latitude, longitude } = pos.coords;
         const label = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
         const nextAddress = address.trim() || `موقع تلقائي · ${label}`;
-        const result = updateUserLocation({
+        const result = await updateUserLocation({
           lat: latitude,
           lng: longitude,
           locationLabel: label,
@@ -84,7 +84,7 @@ export default function ProfilePage() {
       <h1 className="mb-1 text-2xl font-extrabold">Profile</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         {isAuthenticated && user
-          ? `${user.fullName} · ${user.phone}`
+          ? `${user.displayName} · ${user.phone}`
           : "Guest · سجّل دخولك"}
       </p>
 
@@ -162,7 +162,7 @@ export default function ProfilePage() {
         {[
           { label: "Orders", value: orders.length },
           { label: "In cart", value: cartCount },
-          { label: "Promos", value: unlockedPromos.length },
+          { label: "Promos", value: 0 }, // يمكن إضافة عداد لاحقاً
         ].map((stat) => (
           <div
             key={stat.label}

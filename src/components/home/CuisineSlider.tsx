@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CUISINES, type CuisineId } from "@/data/mockData";
+import { CUISINES, type CuisineId } from "@/constants/cuisines";
 
 type CuisineSliderProps = {
   value: CuisineId | "all";

@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { 
   Utensils, 
   LogOut, 
-  Clock, 
-  CheckCircle, 
   Package, 
   Store, 
   ChevronDown, 
@@ -16,14 +14,16 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
-import { useApp } from "@/context/AppContext";
-import { ORDER_STATUSES, type OrderStatus } from "@/data/mockData";
+import { useAppStore } from "@/store/useAppStore";
+import { ORDER_STATUSES } from "@/constants/orderStatuses";
+import type { OrderStatus } from "@/types/database";
+import { updateDish } from "@/lib/firestore";
 
 const RESTAURANT_SESSION_KEY = "zest-active-restaurant-id";
 
 export default function RestaurantDashboard() {
   const router = useRouter();
-  const { restaurants, dishes, orders, updateOrderStatus, upsertDish } = useApp();
+  const { restaurants, dishes, orders, updateOrderStatus } = useAppStore();
 
   const [selectedRestId, setSelectedRestId] = useState<string>("");
   const [activeRestId, setActiveRestId] = useState<string | null>(null);
@@ -63,6 +63,15 @@ export default function RestaurantDashboard() {
   const handleLogout = () => {
     sessionStorage.removeItem(RESTAURANT_SESSION_KEY);
     setActiveRestId(null);
+  };
+
+  const toggleDishAvailability = async (dishId: string, currentAvailable: boolean) => {
+    try {
+      await updateDish(dishId, { available: !currentAvailable });
+      // سيتم تحديث القائمة تلقائياً عبر الـ listener
+    } catch (error) {
+      console.error("Failed to update dish", error);
+    }
   };
 
   // شاشة تسجيل الدخول
@@ -125,7 +134,7 @@ export default function RestaurantDashboard() {
           </div>
           <div>
             <h1 className="text-lg font-extrabold">{currentRestaurant.name}</h1>
-            <p className="text-xs text-foreground-muted">لوحة إجارة المطبخ والطلبات</p>
+            <p className="text-xs text-foreground-muted">لوحة إدارة المطبخ والطلبات</p>
           </div>
         </div>
         <button
@@ -249,7 +258,7 @@ export default function RestaurantDashboard() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => upsertDish({ ...dish, available: !dish.available })}
+                  onClick={() => toggleDishAvailability(dish.id, dish.available)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     dish.available 
                       ? "bg-accent/20 text-accent border border-accent/30" 
