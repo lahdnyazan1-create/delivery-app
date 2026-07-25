@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { usePathname } from "next/navigation";
+import { useAppStore } from "@/store/useAppStore";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -16,6 +18,13 @@ export function AppShell({
   hideNav = false,
 }: AppShellProps) {
   const pathname = usePathname();
+  const loadInitialData = useAppStore((state) => state.loadInitialData);
+
+  // تحميل البيانات الأولية عند تحميل التطبيق داخل المكون العميل
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
   // إخفاء الهيدر في صفحات معينة
   const shouldHideHeader = hideHeader || pathname.startsWith('/admin') || pathname.startsWith('/driver') || pathname.startsWith('/restaurant');
   const shouldHideNav = hideNav || pathname.startsWith('/admin') || pathname.startsWith('/driver') || pathname.startsWith('/restaurant');
