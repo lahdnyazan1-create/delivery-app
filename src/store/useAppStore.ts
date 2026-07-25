@@ -97,7 +97,7 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         try {
           // جلب السائقين وأكواد الخصم مرة واحدة (لأنها قليلة التغيير)
-          const [drivers, promos] = await Promise.all([
+          const [drivers, promoCodes] = await Promise.all([
             fetchDrivers(),
             fetchPromoCodes()
           ]);
@@ -402,4 +402,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
