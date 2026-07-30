@@ -60,3 +60,4 @@ functions/lib/
 tsconfig.tsbuildinfo
 .env*.local
 functions/lib
+.env.local
