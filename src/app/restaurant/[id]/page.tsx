@@ -1,20 +1,17 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Clock, Star, ShoppingBag } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { LivingCard } from "@/components/menu/LivingCard";
 import { useAppStore } from "@/store/useAppStore";
 
-type PageProps = {
-  params: Promise<{ id: string }>;
-};
-
-export default function RestaurantMenuPage({ params }: PageProps) {
-  const { id } = use(params);
+export default function RestaurantMenuPage() {
   const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string;
+
   const { getRestaurant, getDishesByRestaurant, cart } = useAppStore();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -84,13 +81,15 @@ export default function RestaurantMenuPage({ params }: PageProps) {
           <div className="mt-2 flex items-center gap-3 text-xs font-semibold text-foreground-muted">
             <span className="inline-flex items-center gap-1 text-accent-soft">
               <Star className="size-3.5 fill-current" />
-              {restaurant.rating.toFixed(1)}
+              {restaurant.rating?.toFixed(1) ?? "0.0"}
             </span>
             <span className="inline-flex items-center gap-1">
               <Clock className="size-3.5" />
               {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} min
             </span>
-            <span>${restaurant.deliveryFee.toFixed(2)} delivery</span>
+            <span>
+              ₪{restaurant.deliveryFee?.toFixed(2) ?? "0.00"} delivery
+            </span>
           </div>
         </div>
       </div>

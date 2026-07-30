@@ -1,19 +1,91 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 8, 22);
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && role() == 'admin';
+    }
+
+    function isCourier() {
+      return isSignedIn() && role() == 'courier';
+    }
+
+    // ---------------- users ----------------
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+
+      // إنشاء ملف المستخدم لأول مرة: فقط لنفسه ودوره customer إجباريًا
+      allow create: if isSignedIn()
+                    && request.auth.uid == userId
+                    && request.resource.data.uid == userId
+                    && request.resource.data.role == 'customer';
+
+      // تعديل الملف: صاحبه فقط، وممنوع عليه تغيير حقل role بنفسه
+      allow update: if isAdmin()
+                    || (isSignedIn() && request.auth.uid == userId
+                        && request.resource.data.role == resource.data.role);
+
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- restaurants / dishes / promoCodes ----------------
+    // قراءة عامة (تصفح القوائم بدون تسجيل دخول)، الكتابة للأدمن فقط
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /dishes/{dishId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /promoCodes/{code} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------------- drivers ----------------
+    match /drivers/{driverId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------------- orders ----------------
+    match /orders/{orderId} {
+      allow read: if isSignedIn()
+                  && (resource.data.userId == request.auth.uid
+                      || isAdmin()
+                      || (isCourier() && (resource.data.courierId == request.auth.uid
+                                          || resource.data.courierId == null)));
+
+      // الإنشاء فقط عبر Cloud Function (placeOrder) التي تستخدم Admin SDK
+      // وتتجاوز هذه القواعد تلقائيًا — لذلك يُمنع الإنشاء من الكلاينت نهائيًا
+      allow create: if false;
+
+      // الأدمن: يعدّل أي شيء
+      allow update: if isAdmin()
+                    // المندوب: استلام طلب متاح (لم يُسند بعد)
+                    || (isCourier()
+                        && resource.data.courierId == null
+                        && request.resource.data.courierId == request.auth.uid
+                        && request.resource.data.diff(resource.data)
+                             .affectedKeys().hasOnly(['courierId', 'status', 'updatedAt']))
+                    // المندوب: تحديث حالة طلب مُسند له مسبقًا
+                    || (isCourier()
+                        && resource.data.courierId == request.auth.uid
+                        && request.resource.data.diff(resource.data)
+                             .affectedKeys().hasOnly(['status', 'updatedAt']));
+
+      allow delete: if isAdmin();
     }
   }
 }

@@ -5,6 +5,7 @@ import { Flame, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Dish } from "@/types/database";
 import { useAppStore } from "@/store/useAppStore";
+import { formatPrice } from "@/constants/currency";
 
 type LivingCardProps = {
   dish: Dish;
@@ -66,7 +67,9 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
     >
       <div
         ref={mediaRef}
-        className={`relative aspect-[4/3] bg-gradient-to-br ${dish.gradient || 'from-gray-600 to-gray-800'}`}
+        className={`relative aspect-[4/3] bg-gradient-to-br ${
+          dish.gradient || "from-gray-600 to-gray-800"
+        }`}
       >
         {dish.isHot && canAdd && <Steam />}
         {dish.isHot && (
@@ -98,7 +101,7 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-lg font-extrabold text-primary">
-            ${price.toFixed(2)}
+            {formatPrice(price)}
           </p>
           <motion.button
             type="button"

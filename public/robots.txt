@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /driver
+Disallow: /restaurant
+
+Sitemap: https://zest.app/sitemap.xml

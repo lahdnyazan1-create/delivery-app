@@ -1,110 +1,81 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Bike, 
-  LogOut, 
-  MapPin, 
-  CheckCircle2, 
-  ArrowLeft,
-  Phone
+import {
+  Bike,
+  LogOut,
+  MapPin,
+  CheckCircle2,
+  Phone,
+  PackageCheck,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { useAppStore } from "@/store/useAppStore";
 import { ORDER_STATUSES } from "@/constants/orderStatuses";
 import type { OrderStatus } from "@/types/database";
+import { formatPrice } from "@/constants/currency";
 
-const DRIVER_SESSION_KEY = "zest-active-driver-id";
-
-export default function DriverDashboard() {
+function DriverDashboardContent() {
   const router = useRouter();
-  const { orders, updateOrderStatus, drivers } = useAppStore();
-
-  const [selectedDriverId, setSelectedDriverId] = useState<string>("");
-  const [activeDriverId, setActiveDriverId] = useState<string | null>(null);
+  const { orders, updateOrderStatus, claimOrder, drivers, user, logoutUser } =
+    useAppStore();
   const [tab, setTab] = useState<"my-orders" | "available">("my-orders");
-
-  // استرجاع جلسة المندوب
-  useEffect(() => {
-    const saved = sessionStorage.getItem(DRIVER_SESSION_KEY);
-    if (saved) {
-      setActiveDriverId(saved);
-    }
-  }, []);
+  const [claiming, setClaiming] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const currentDriver = useMemo(
-    () => drivers.find((d) => d.id === activeDriverId),
-    [drivers, activeDriverId]
+    () => drivers.find((d) => d.id === user?.uid),
+    [drivers, user],
   );
 
-  // جميع الطلبات غير المكتملة
-  const activeOrders = useMemo(
-    () => orders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled"),
-    [orders]
+  const myOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) =>
+          o.courierId === user?.uid &&
+          o.status !== "Delivered" &&
+          o.status !== "Cancelled",
+      ),
+    [orders, user],
   );
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedDriverId) return;
-    sessionStorage.setItem(DRIVER_SESSION_KEY, selectedDriverId);
-    setActiveDriverId(selectedDriverId);
+  // تم تعديل مطابقة الحالات للتوافق مع OrderStatus (تأكد سواء كانت أرقام/حروف كبيرة أو صغيرة)
+  const availableOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) =>
+          !o.courierId &&
+          (o.status === "Ready" ||
+            o.status === "Preparing" ||
+            o.status === "Pending"),
+      ),
+    [orders],
+  );
+
+  const handleClaim = async (orderId: string) => {
+    if (!user) return;
+    setClaiming(orderId);
+
+    const result = await claimOrder(orderId);
+
+    setClaiming(null);
+    if (result?.ok) {
+      setTab("my-orders");
+    } else if (result?.message) {
+      alert(result.message);
+    }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem(DRIVER_SESSION_KEY);
-    setActiveDriverId(null);
+  const handleLogout = async () => {
+    await logoutUser();
+    router.push("/");
   };
 
-  // شاشة تسجيل دخول المندوب
-  if (!activeDriverId || !currentDriver) {
-    return (
-      <AppShell hideNav hideHeader>
-        <div className="flex flex-1 flex-col justify-center pt-safe">
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="no-select touch-target mb-6 inline-flex items-center gap-2 text-sm text-foreground-muted"
-          >
-            <ArrowLeft className="size-4" /> العودة للرئيسية
-          </button>
-
-          <div className="glass mx-auto w-full max-w-sm rounded-3xl p-6 text-center">
-            <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-              <Bike className="size-7" />
-            </span>
-            <h1 className="text-xl font-extrabold">بوابة الكابتن / المندوب</h1>
-            <p className="mt-1 text-sm text-foreground-muted">
-              اختر اسمك لتسجيل الدخول وبدء استلام وتوصيل الطلبات
-            </p>
-
-            <form onSubmit={handleLogin} className="mt-6 space-y-4">
-              <select
-                value={selectedDriverId}
-                onChange={(e) => setSelectedDriverId(e.target.value)}
-                className="w-full rounded-2xl border border-glass-border bg-secondary px-4 py-3.5 text-sm font-bold outline-none"
-              >
-                <option value="">-- اختر المندوب --</option>
-                {drivers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} ({d.vehicle})
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="submit"
-                disabled={!selectedDriverId}
-                className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-50"
-              >
-                دخول لوحة التوصيل
-              </button>
-            </form>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
+  const visibleOrders = tab === "my-orders" ? myOrders : availableOrders;
 
   return (
     <AppShell hideNav hideHeader>
@@ -115,8 +86,14 @@ export default function DriverDashboard() {
             <Bike className="size-6" />
           </div>
           <div>
-            <h1 className="text-lg font-extrabold">{currentDriver.name}</h1>
-            <p className="text-xs text-foreground-muted">المركبة: {currentDriver.vehicle}</p>
+            <h1 className="text-lg font-extrabold">
+              {user?.displayName || "المندوب"}
+            </h1>
+            <p className="text-xs text-foreground-muted">
+              {currentDriver
+                ? `المركبة: ${currentDriver.vehicle}`
+                : "لا يوجد بروفايل مركبة مرتبط بحسابك بعد"}
+            </p>
           </div>
         </div>
         <button
@@ -135,64 +112,157 @@ export default function DriverDashboard() {
           type="button"
           onClick={() => setTab("my-orders")}
           className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
-            tab === "my-orders" ? "bg-primary text-white" : "text-foreground-muted"
+            tab === "my-orders"
+              ? "bg-primary text-white"
+              : "text-foreground-muted"
           }`}
         >
-          الطلبات النشطة ({activeOrders.length})
+          طلباتي ({myOrders.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("available")}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+            tab === "available"
+              ? "bg-primary text-white"
+              : "text-foreground-muted"
+          }`}
+        >
+          طلبات متاحة ({availableOrders.length})
         </button>
       </div>
 
-      {/* قائمة طلبات التوصيل */}
+      {/* قائمة الطلبات */}
       <section className="space-y-3 pb-8">
-        {activeOrders.length === 0 ? (
+        {visibleOrders.length === 0 ? (
           <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
             <CheckCircle2 className="mx-auto size-10 mb-2 opacity-30" />
-            <p className="text-sm font-bold">لا يوجد طلبات جاهزة للتوصيل حالياً</p>
+            <p className="text-sm font-bold">
+              {tab === "my-orders"
+                ? "لا يوجد طلبات مسندة لك حالياً"
+                : "لا يوجد طلبات متاحة الآن"}
+            </p>
           </div>
         ) : (
-          activeOrders.map((order) => (
-            <div key={order.id} className="glass rounded-2xl p-4 space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-xs font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-md font-bold">
-                    #{order.id.slice(-6)}
-                  </span>
-                  <h3 className="font-bold text-base mt-1">{order.customerName}</h3>
+          visibleOrders.map((order) => {
+            const isExpanded = expandedOrderId === order.id;
+            return (
+              <div key={order.id} className="glass rounded-2xl p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-xs font-mono bg-primary/15 text-primary px-2 py-0.5 rounded-md font-bold">
+                      #{order.id.slice(-6)}
+                    </span>
+                    <h3 className="font-bold text-base mt-1">
+                      {order.customerName}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-extrabold text-primary">
+                      {formatPrice(order.total)}
+                    </span>
+                    {order.customerPhone && (
+                      <a
+                        href={`tel:${order.customerPhone}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/20 text-accent text-xs font-bold"
+                      >
+                        <Phone className="size-3.5" /> اتصال
+                      </a>
+                    )}
+                  </div>
                 </div>
-                {order.customerPhone && (
-                  <a
-                    href={`tel:${order.customerPhone}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/20 text-accent text-xs font-bold"
+
+                <div className="flex items-start gap-2 text-xs text-foreground-muted">
+                  <MapPin className="size-4 shrink-0 text-primary mt-0.5" />
+                  <span>
+                    عنوان التوصيل: {order.deliveryAddress || "غير محدد"}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedOrderId(isExpanded ? null : order.id)
+                  }
+                  className="text-xs flex items-center gap-1 text-foreground-muted hover:text-white"
+                >
+                  {isExpanded ? "إخفاء التفاصيل" : "عرض التفاصيل والأصناف"}
+                  {isExpanded ? (
+                    <ChevronUp className="size-3" />
+                  ) : (
+                    <ChevronDown className="size-3" />
+                  )}
+                </button>
+
+                {isExpanded && (
+                  <div className="border-t border-glass-border pt-2 space-y-1">
+                    <p className="text-xs font-bold text-foreground-muted">
+                      محتويات الطلب:
+                    </p>
+                    {order.items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between text-xs py-0.5"
+                      >
+                        <span className="text-foreground">
+                          {item.quantity}x {item.name}
+                        </span>
+                        <span className="font-mono text-foreground-muted">
+                          {formatPrice(item.price * item.quantity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {tab === "available" ? (
+                  <button
+                    type="button"
+                    onClick={() => handleClaim(order.id)}
+                    disabled={claiming === order.id}
+                    className="no-select touch-target w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-xs font-bold text-white disabled:opacity-60"
                   >
-                    <Phone className="size-3.5" /> اتصال
-                  </a>
+                    <PackageCheck className="size-4" />
+                    {claiming === order.id
+                      ? "جارِ الاستلام..."
+                      : "استلام الطلب"}
+                  </button>
+                ) : (
+                  <div className="border-t border-glass-border pt-3 flex items-center justify-between gap-2">
+                    <span className="text-xs text-foreground-muted font-bold">
+                      تحديث الحالة:
+                    </span>
+                    <select
+                      value={order.status}
+                      onChange={(e) =>
+                        updateOrderStatus(
+                          order.id,
+                          e.target.value as OrderStatus,
+                        )
+                      }
+                      className="rounded-xl border border-glass-border bg-secondary px-3 py-1.5 text-xs font-bold outline-none text-primary"
+                    >
+                      {ORDER_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
               </div>
-
-              <div className="flex items-start gap-2 text-xs text-foreground-muted">
-                <MapPin className="size-4 shrink-0 text-primary mt-0.5" />
-                <span>عنوان التوصيل: {order.deliveryAddress || "غير محدد"}</span>
-              </div>
-
-              {/* تحديث حالة التوصيل */}
-              <div className="border-t border-glass-border pt-3 flex items-center justify-between gap-2">
-                <span className="text-xs text-foreground-muted font-bold">حالة الطلب:</span>
-                <select
-                  value={order.status}
-                  onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
-                  className="rounded-xl border border-glass-border bg-secondary px-3 py-1.5 text-xs font-bold outline-none text-primary"
-                >
-                  {ORDER_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </section>
     </AppShell>
+  );
+}
+
+export default function DriverDashboard() {
+  return (
+    <RequireRole role="courier">
+      <DriverDashboardContent />
+    </RequireRole>
   );
 }

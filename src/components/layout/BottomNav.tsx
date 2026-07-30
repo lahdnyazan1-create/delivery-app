@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Search, ShoppingBag, User } from "lucide-react";
-import { useAppStore } from "@/store/useAppStore";
+import { useCartStore } from "@/store/useCartStore";
 
 const tabs = [
   { href: "/", label: "Home", icon: Home },
@@ -14,10 +14,15 @@ const tabs = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const cart = useAppStore((state) => state.cart);
+  const cart = useCartStore((state) => state.cart);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/order-tracking") || pathname.startsWith("/driver") || pathname.startsWith("/restaurant")) {
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/order-tracking") ||
+    pathname.startsWith("/driver") ||
+    pathname.startsWith("/restaurant")
+  ) {
     return null;
   }
 

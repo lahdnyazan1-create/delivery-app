@@ -4,8 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Zest — Food Delivery",
     short_name: "Zest",
-    description:
-      "Order from local restaurants with living micro-interactions.",
+    description: "Order from local restaurants with living micro-interactions.",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",

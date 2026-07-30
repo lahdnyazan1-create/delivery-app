@@ -15,6 +15,7 @@ export interface UserProfile {
 
 export interface Restaurant {
   id: string;
+  ownerId?: string; // ← ربط المطعم بمالكه من المستخدمين
   name: string;
   cuisineId?: string;
   cuisine?: string;
@@ -58,12 +59,7 @@ export interface Driver {
 }
 
 export type OrderStatus =
-  | "Pending"
-  | "Preparing"
-  | "OutForDelivery"
-  | "Delivered"
-  | "Cancelled";
-
+  "Pending" | "Preparing" | "Ready" | "OutForDelivery" | "Delivered" | "Cancelled";
 export interface OrderItem {
   dishId?: string;
   id?: string;

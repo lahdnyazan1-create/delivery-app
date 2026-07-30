@@ -8,6 +8,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { ScratchCard } from "@/components/promo/ScratchCard";
 import { SwipeButton } from "@/components/checkout/SwipeButton";
 import { useAppStore } from "@/store/useAppStore";
+import { formatPrice } from "@/constants/currency";
 
 export default function CartPage() {
   const router = useRouter();
@@ -26,7 +27,6 @@ export default function CartPage() {
   } = useAppStore();
 
   const { subtotal, discount, deliveryFee, total } = getCartTotal();
-  const grandTotal = total; // total already includes delivery fee
 
   const [promoInput, setPromoInput] = useState("");
   const [promoMsg, setPromoMsg] = useState("");
@@ -34,7 +34,9 @@ export default function CartPage() {
 
   const isAuthenticated = Boolean(user);
   const hasLocation = Boolean(user && user.address?.trim());
-  const canCheckout = Boolean(isAuthenticated && hasLocation && cart.length > 0);
+  const canCheckout = Boolean(
+    isAuthenticated && hasLocation && cart.length > 0,
+  );
   const cartRestaurant = getRestaurant(cartRestaurantId || "");
 
   const handleConfirm = async () => {
@@ -108,22 +110,23 @@ export default function CartPage() {
                             {dish.category}
                           </p>
                           <p className="text-sm text-primary">
-                            ${dish.price.toFixed(2)}
+                            {formatPrice(dish.price)}
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => removeFromCart(item.dishId)}
-                          className="no-select touch-target flex size-10 items-center justify-center rounded-xl text-foreground-muted hover:text-primary"
+                          className="no-select touch-target flex size-11 items-center justify-center rounded-xl text-foreground-muted hover:text-primary"
                           aria-label={`Remove ${dish.name}`}
                         >
                           <Trash2 className="size-4" />
                         </button>
                       </div>
+                      {/* ✅ Touch targets 44px */}
                       <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/5 p-1">
                         <button
                           type="button"
-                          className="no-select touch-target flex size-9 items-center justify-center rounded-full"
+                          className="no-select touch-target flex size-11 items-center justify-center rounded-full active:bg-white/10 transition-colors"
                           onClick={() =>
                             updateQuantity(item.dishId, item.quantity - 1)
                           }
@@ -131,12 +134,12 @@ export default function CartPage() {
                         >
                           <Minus className="size-4" />
                         </button>
-                        <span className="w-6 text-center text-sm font-bold">
+                        <span className="w-8 text-center text-sm font-bold">
                           {item.quantity}
                         </span>
                         <button
                           type="button"
-                          className="no-select touch-target flex size-9 items-center justify-center rounded-full"
+                          className="no-select touch-target flex size-11 items-center justify-center rounded-full active:bg-white/10 transition-colors"
                           onClick={() =>
                             updateQuantity(item.dishId, item.quantity + 1)
                           }
@@ -219,21 +222,21 @@ export default function CartPage() {
           <div className="glass mb-5 space-y-2 rounded-3xl p-4 text-sm">
             <div className="flex justify-between text-foreground-muted">
               <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
+              <span>{formatPrice(subtotal)}</span>
             </div>
             <div className="flex justify-between text-foreground-muted">
               <span>Delivery</span>
-              <span>${deliveryFee.toFixed(2)}</span>
+              <span>{formatPrice(deliveryFee)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-accent">
                 <span>Discount ({appliedPromo})</span>
-                <span>-${discount.toFixed(2)}</span>
+                <span>-{formatPrice(discount)}</span>
               </div>
             )}
             <div className="flex justify-between border-t border-glass-border pt-2 text-base font-extrabold text-foreground">
               <span>Total</span>
-              <span className="text-primary">${grandTotal.toFixed(2)}</span>
+              <span className="text-primary">{formatPrice(total)}</span>
             </div>
           </div>
 

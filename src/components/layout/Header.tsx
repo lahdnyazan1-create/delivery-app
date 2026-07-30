@@ -1,64 +1,75 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
-import { MapPin, ShoppingBag } from "lucide-react";
-import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 
 export function Header() {
-  const { user, activeOrder, cart } = useAppStore();
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const { user, isAuthenticated, cart } = useAppStore();
 
-  const locationText =
-    user?.address?.trim() ||
-    user?.locationLabel?.trim() ||
-    "Set your delivery address";
+  const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const displayAddress =
+    user?.address?.trim() || user?.locationLabel?.trim() || "حدد موقعك للتوصيل";
 
   return (
-    <header className="sticky top-0 z-40 pt-safe">
-      <div className="glass mx-3 mt-3 flex items-center gap-3 rounded-2xl px-3 py-2.5">
-        <Link
-          href="/profile"
-          className="flex min-w-0 flex-1 items-center gap-2 px-1"
-        >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <MapPin className="size-5" aria-hidden />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[11px] font-medium uppercase tracking-wider text-foreground-muted">
-              Deliver to
-            </span>
-            <span className="block truncate text-sm font-bold text-foreground">
-              {locationText}
-            </span>
+    <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 text-slate-100 px-4 py-3">
+      <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="text-xl font-black bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+            Zest Delivery
           </span>
         </Link>
 
-        {activeOrder && activeOrder.status !== "Delivered" && (
-          <Link
-            href="/order-tracking"
-            className="no-select touch-target rounded-xl bg-accent/15 px-2.5 py-2 text-[11px] font-bold text-accent"
-          >
-            Track
-          </Link>
-        )}
+        <div className="hidden sm:flex items-center text-xs text-slate-400 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800 truncate max-w-xs">
+          <span className="text-amber-400 ml-1">📍</span>
+          <span className="truncate">{displayAddress}</span>
+        </div>
 
-        <Link href="/cart" aria-label={`Cart, ${cartCount} items`}>
-          <motion.span
-            key={cartCount}
-            initial={{ scale: 1 }}
-            animate={{ scale: [1, 1.22, 1] }}
-            transition={{ duration: 0.35 }}
-            className="no-select touch-target relative flex size-11 items-center justify-center rounded-xl bg-primary text-white shadow-[0_8px_24px_rgb(255_107_53_/_0.35)]"
+        <div className="flex items-center gap-3 text-xs font-semibold">
+          {isAuthenticated && user ? (
+            <div className="flex items-center gap-2">
+              <span className="text-slate-300">
+                {user.displayName || "مستخدم"}
+              </span>
+              {user.role === "admin" && (
+                <Link
+                  href="/admin"
+                  className="text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20"
+                >
+                  لوحة الأدمن
+                </Link>
+              )}
+              {user.role === "courier" && (
+                <Link
+                  href="/driver"
+                  className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20"
+                >
+                  لوحة السائق
+                </Link>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl font-bold hover:bg-amber-400 transition"
+            >
+              تسجيل الدخول
+            </Link>
+          )}
+
+          <Link
+            href="/cart"
+            className="relative bg-slate-800 p-2 rounded-xl text-amber-400 hover:bg-slate-700 transition"
           >
-            <ShoppingBag className="size-5" aria-hidden />
-            {cartCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-secondary">
-                {cartCount}
+            🛒
+            {cartItemsCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                {cartItemsCount}
               </span>
             )}
-          </motion.span>
-        </Link>
+          </Link>
+        </div>
       </div>
     </header>
   );

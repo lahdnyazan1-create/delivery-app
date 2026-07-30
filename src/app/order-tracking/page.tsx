@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { OrderStageTracker } from "@/components/tracking/OrderStageTracker";
-import { useAppStore } from "@/store/useAppStore";
+import { useOrderStore } from "@/store/useOrderStore";
+import { formatPrice } from "@/constants/currency";
 import type { OrderStatus } from "@/types/database";
 
 const STEPS: OrderStatus[] = [
@@ -17,7 +18,7 @@ const STEPS: OrderStatus[] = [
 
 export default function OrderTrackingPage() {
   const router = useRouter();
-  const { activeOrder } = useAppStore();
+  const activeOrder = useOrderStore((state) => state.activeOrder);
 
   if (!activeOrder) {
     return (
@@ -118,7 +119,9 @@ export default function OrderTrackingPage() {
         <p className="text-sm text-foreground-muted">
           {activeOrder.customerName} · {activeOrder.customerPhone}
         </p>
-        <p className="mt-1 text-sm text-foreground">{activeOrder.deliveryAddress}</p>
+        <p className="mt-1 text-sm text-foreground">
+          {activeOrder.deliveryAddress}
+        </p>
       </div>
 
       <div className="glass rounded-3xl p-4">
@@ -135,19 +138,19 @@ export default function OrderTrackingPage() {
               <span>
                 {item.quantity}× {item.name}
               </span>
-              <span>${(item.price * item.quantity).toFixed(2)}</span>
+              <span>{formatPrice(item.price * item.quantity)}</span>
             </li>
           ))}
         </ul>
         {activeOrder.discount > 0 && (
           <p className="mb-1 flex justify-between text-sm text-accent">
             <span>Discount ({activeOrder.promoCode})</span>
-            <span>-${activeOrder.discount.toFixed(2)}</span>
+            <span>-{formatPrice(activeOrder.discount)}</span>
           </p>
         )}
         <p className="flex justify-between border-t border-glass-border pt-2 text-base font-extrabold">
           <span>Total</span>
-          <span className="text-primary">${activeOrder.total.toFixed(2)}</span>
+          <span className="text-primary">{formatPrice(activeOrder.total)}</span>
         </p>
       </div>
     </AppShell>

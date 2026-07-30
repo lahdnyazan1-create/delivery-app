@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Clock, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Restaurant } from "@/types/database";
+import { formatPrice } from "@/constants/currency";
 
 type RestaurantCardProps = {
   restaurant: Restaurant;
@@ -27,15 +28,15 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
         className="no-select glass block overflow-hidden rounded-3xl transition-transform active:scale-[0.985]"
       >
         <div
-          className={`relative aspect-[16/7] bg-gradient-to-br ${restaurant.coverGradient || 'from-gray-700 to-gray-900'}`}
+          className={`relative aspect-[16/7] bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
         >
           <div
-            className={`absolute -bottom-5 left-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br ${restaurant.logoGradient || 'from-primary to-orange-600'} text-lg font-extrabold text-white shadow-lg ring-2 ring-background`}
+            className={`absolute -bottom-5 left-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br ${restaurant.logoGradient || "from-primary to-orange-600"} text-lg font-extrabold text-white shadow-lg ring-2 ring-background`}
           >
             {restaurant.name.slice(0, 1)}
           </div>
           <span className="absolute right-3 top-3 rounded-full bg-secondary/70 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur-md">
-            {restaurant.cuisine || 'مطبخ'}
+            {restaurant.cuisine || "مطبخ"}
           </span>
         </div>
 
@@ -46,12 +47,12 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
                 {restaurant.name}
               </h3>
               <p className="truncate text-sm text-foreground-muted">
-                {restaurant.tagline || ''}
+                {restaurant.tagline || ""}
               </p>
             </div>
             <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-xs font-bold text-accent-soft">
               <Star className="size-3 fill-current" aria-hidden />
-              {restaurant.rating.toFixed(1)}
+              {restaurant.rating?.toFixed(1) ?? "0.0"}
             </span>
           </div>
 
@@ -64,7 +65,7 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
             <span>
               {restaurant.deliveryFee === 0
                 ? "Free delivery"
-                : `$${restaurant.deliveryFee.toFixed(2)} delivery`}
+                : `${formatPrice(restaurant.deliveryFee)} delivery`}
             </span>
           </div>
         </div>

@@ -9,9 +9,9 @@ type CuisineSliderProps = {
 };
 
 export function CuisineSlider({ value, onChange }: CuisineSliderProps) {
-  const options: { id: CuisineOption; label: string }[] = [
-    { id: "all", label: "All" },
-    ...CUISINES.map((c) => ({ id: c.id, label: c.label })),
+  const options: { id: CuisineOption; label: string; icon?: string }[] = [
+    { id: "all", label: "All", icon: "🍽️" },
+    ...CUISINES.map((c) => ({ id: c.id, label: c.label, icon: c.icon })),
   ];
 
   return (
@@ -25,13 +25,14 @@ export function CuisineSlider({ value, onChange }: CuisineSliderProps) {
                 type="button"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onChange(item.id)}
-                className={`no-select touch-target rounded-full px-4 py-2.5 text-sm font-semibold ${
+                className={`no-select touch-target flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
                   active
                     ? "bg-primary text-white shadow-[0_6px_20px_rgb(255_107_53_/_0.35)]"
-                    : "glass text-foreground-muted"
+                    : "glass text-foreground-muted hover:text-foreground"
                 }`}
               >
-                {item.label}
+                {item.icon && <span>{item.icon}</span>}
+                <span>{item.label}</span>
               </motion.button>
             </li>
           );

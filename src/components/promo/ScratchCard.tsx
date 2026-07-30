@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { playScratchNoise, vibrate } from "@/lib/feedback";
-import { useAppStore } from "@/store/useAppStore";
+import { useCartStore } from "@/store/useCartStore";
 
 type ScratchCardProps = {
   className?: string;
 };
 
 export function ScratchCard({ className = "" }: ScratchCardProps) {
-  const { appliedPromo, applyPromo } = useAppStore();
+  const { appliedPromo, applyPromo } = useCartStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scratching = useRef(false);
   const lastSound = useRef(0);
+  const rafId = useRef<number>(0);
+  const pendingChecks = useRef(0);
+
   const [localCleared, setLocalCleared] = useState(() => {
-    // استرجاع الحالة من localStorage
     if (typeof window !== "undefined") {
       return localStorage.getItem("scratch_revealed") === "true";
     }
@@ -22,6 +24,18 @@ export function ScratchCard({ className = "" }: ScratchCardProps) {
   });
 
   const done = localCleared || appliedPromo === "ZEST30";
+
+  // ✅ احترام إعدادات الحركة
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) =>
+      setPrefersReducedMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -52,49 +66,72 @@ export function ScratchCard({ className = "" }: ScratchCardProps) {
     ctx.fillText("Scratch for offer", w / 2, h / 2);
   }, [done]);
 
-  const checkReveal = (
-    ctx: CanvasRenderingContext2D,
-    canvas: HTMLCanvasElement,
-  ) => {
-    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let cleared = 0;
-    const step = 32;
-    for (let i = 3; i < data.length; i += step) {
-      if (data[i] < 40) cleared++;
-    }
-    const samples = Math.ceil(data.length / step);
-    if (cleared / samples > 0.42) {
-      setLocalCleared(true);
-      localStorage.setItem("scratch_revealed", "true");
-      applyPromo("ZEST30"); // تطبيق الكود تلقائياً
-      vibrate([20, 30, 40]);
-    }
-  };
+  // ✅ فحص الكشف باستخدام requestAnimationFrame (أداء أحسن)
+  const checkReveal = useCallback(
+    (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
+      if (pendingChecks.current > 0) return;
+      pendingChecks.current++;
 
-  const scratchAt = (clientX: number, clientY: number) => {
-    if (done) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+      rafId.current = requestAnimationFrame(() => {
+        pendingChecks.current = 0;
+        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let cleared = 0;
+        const step = 64; // ✅ فحص كل 64 بكسل بدل 32 (أقل استهلاك)
+        for (let i = 3; i < data.length; i += step * 4) {
+          if (data[i] < 40) cleared++;
+        }
+        const samples = Math.ceil(data.length / (step * 4));
+        if (cleared / samples > 0.42) {
+          setLocalCleared(true);
+          localStorage.setItem("scratch_revealed", "true");
+          applyPromo("ZEST30");
+          if (!prefersReducedMotion) {
+            vibrate([20, 30, 40]);
+          }
+        }
+      });
+    },
+    [applyPromo, prefersReducedMotion],
+  );
 
-    const rect = canvas.getBoundingClientRect();
-    const x = ((clientX - rect.left) / rect.width) * canvas.width;
-    const y = ((clientY - rect.top) / rect.height) * canvas.height;
+  const scratchAt = useCallback(
+    (clientX: number, clientY: number) => {
+      if (done) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath();
-    ctx.arc(x, y, 20, 0, Math.PI * 2);
-    ctx.fill();
+      const rect = canvas.getBoundingClientRect();
+      const x = ((clientX - rect.left) / rect.width) * canvas.width;
+      const y = ((clientY - rect.top) / rect.height) * canvas.height;
 
-    vibrate(5);
-    const now = Date.now();
-    if (now - lastSound.current > 45) {
-      playScratchNoise(30);
-      lastSound.current = now;
-    }
-    checkReveal(ctx, canvas);
-  };
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath();
+      ctx.arc(x, y, 20, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (!prefersReducedMotion) {
+        vibrate(5);
+        const now = Date.now();
+        if (now - lastSound.current > 80) {
+          // ✅ أقل تكرار للصوت
+          playScratchNoise(30);
+          lastSound.current = now;
+        }
+      }
+
+      checkReveal(ctx, canvas);
+    },
+    [done, checkReveal, prefersReducedMotion],
+  );
+
+  // تنظيف RAF عند فك التركيب
+  useEffect(() => {
+    return () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+    };
+  }, []);
 
   return (
     <div className={`glass overflow-hidden rounded-3xl ${className}`}>
@@ -103,7 +140,9 @@ export function ScratchCard({ className = "" }: ScratchCardProps) {
           <p className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
             Limited offer
           </p>
-          <h3 className="text-base font-bold text-foreground">Scratch & save</h3>
+          <h3 className="text-base font-bold text-foreground">
+            Scratch & save
+          </h3>
         </div>
         {appliedPromo === "ZEST30" && (
           <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-bold text-accent">

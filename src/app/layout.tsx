@@ -12,10 +12,10 @@ const cairo = Cairo({
 export const metadata: Metadata = {
   metadataBase: new URL("https://zest.app"),
   title: {
-    default: "Zest — Food Delivery",
+    default: "Zest — توصيل الطعام",
     template: "%s · Zest",
   },
-  description: "Order from local restaurants with living micro-interactions.",
+  description: "اطلب من أفضل المطاعم المحلية بتجربة سلسة وتفاعلية.",
   applicationName: "Zest",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -27,10 +27,10 @@ export const metadata: Metadata = {
     telephone: false,
   },
   openGraph: {
-    title: "Zest — Food Delivery",
-    description: "Local restaurants, tactile checkout, live order stages.",
+    title: "Zest — توصيل الطعام",
+    description: "مطاعم محلية، تجربة دفع سلسة، وتتبع مباشر للطلب.",
     type: "website",
-    locale: "en_US",
+    locale: "ar_AR",
   },
   icons: {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
@@ -51,7 +51,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${cairo.variable} h-full antialiased`}>
+    <html
+      lang="ar"
+      dir="rtl"
+      className={`${cairo.variable} h-full antialiased`}
+    >
       <body className="min-h-full font-sans text-foreground">
         <AppShell>{children}</AppShell>
       </body>

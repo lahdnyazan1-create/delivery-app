@@ -98,7 +98,9 @@ export default function ProfilePage() {
             <LogIn className="size-5" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold">Login / تسجيل الدخول</span>
+            <span className="block text-sm font-bold">
+              Login / تسجيل الدخول
+            </span>
             <span className="block text-xs text-foreground-muted">
               Name + phone to place orders
             </span>
@@ -199,7 +201,9 @@ export default function ProfilePage() {
               <Package className="size-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold">No active delivery</span>
+              <span className="block text-sm font-bold">
+                No active delivery
+              </span>
               <span className="block text-xs text-foreground-muted">
                 Place an order to track stages live.
               </span>

@@ -22,6 +22,12 @@ const STAGES: {
     icon: "🍳",
   },
   {
+    status: "Ready",
+    titleAr: "طلبك جاهز، بانتظار المندوب",
+    titleEn: "Ready for Pickup",
+    icon: "📦",
+  },
+  {
     status: "OutForDelivery",
     titleAr: "السائق في الطريق إليك",
     titleEn: "OutForDelivery",
@@ -67,7 +73,39 @@ function ScooterCartoon() {
   );
 }
 
+function CancelledView() {
+  return (
+    <motion.div
+      className="glass overflow-hidden rounded-3xl p-5 text-center"
+      dir="rtl"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 24 }}
+    >
+      <motion.div
+        className="text-6xl mb-3"
+        animate={{ rotate: [0, -10, 10, 0] }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        ❌
+      </motion.div>
+      <h2 className="text-xl font-extrabold text-primary">تم إلغاء الطلب</h2>
+      <p className="text-sm text-foreground-muted mt-1">
+        نأسف، تم إلغاء طلبك. يمكنك طلب وجبة جديدة.
+      </p>
+      <p className="text-xs text-foreground-muted mt-3">
+        إذا كان لديك استفسار، تواصل مع الدعم.
+      </p>
+    </motion.div>
+  );
+}
+
 export function OrderStageTracker({ status }: OrderStageTrackerProps) {
+  // ✅ شاشة الإلغاء
+  if (status === "Cancelled") {
+    return <CancelledView />;
+  }
+
   const activeIndex = Math.max(
     0,
     STAGES.findIndex((s) => s.status === status),
@@ -101,18 +139,20 @@ export function OrderStageTracker({ status }: OrderStageTrackerProps) {
       <div className="relative mt-6 mb-2 px-1">
         <div className="absolute top-4 right-4 left-4 h-1 rounded-full bg-white/10" />
         <motion.div
-          className="absolute top-4 right-4 h-1 origin-right rounded-full bg-accent"
+          className="absolute top-4 right-4 h-1 rounded-full bg-accent"
           initial={false}
-          animate={{ width: `calc(${progress * 100}% - 0px)` }}
+          animate={{ width: `${progress * 100}%` }}
           transition={{ type: "spring", stiffness: 180, damping: 24 }}
-          style={{ left: "auto" }}
         />
         <ul className="relative grid grid-cols-4 gap-1">
           {STAGES.map((stage, i) => {
             const done = i <= activeIndex;
             const current = i === activeIndex;
             return (
-              <li key={stage.status} className="flex flex-col items-center gap-2">
+              <li
+                key={stage.status}
+                className="flex flex-col items-center gap-2"
+              >
                 <motion.span
                   animate={{
                     scale: current ? 1.12 : 1,
