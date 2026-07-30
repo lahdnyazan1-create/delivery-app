@@ -39,3 +39,24 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Firebase service account keys
+scripts/serviceAccountKey.json
+scripts/*.json
+
+# Development tools
+merge_files.py
+project_context_report.txt
+fix.sh
+
+# Functions compiled output
+functions/lib/**/*.js
+functions/lib/**/*.js.map
+
+# Compiled functions output
+functions/lib/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+.env*.local
+functions/lib
