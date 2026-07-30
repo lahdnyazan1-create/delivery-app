@@ -144,7 +144,7 @@ export function OrderStageTracker({ status }: OrderStageTrackerProps) {
           animate={{ width: `${progress * 100}%` }}
           transition={{ type: "spring", stiffness: 180, damping: 24 }}
         />
-        <ul className="relative grid grid-cols-4 gap-1">
+        <ul className="relative grid grid-cols-5 gap-1">
           {STAGES.map((stage, i) => {
             const done = i <= activeIndex;
             const current = i === activeIndex;
