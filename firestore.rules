@@ -18,17 +18,23 @@ service cloud.firestore {
       return isSignedIn() && role() == 'courier';
     }
 
+    function restaurantOwnerId(restaurantId) {
+      return get(/databases/$(database)/documents/restaurants/$(restaurantId)).data.ownerId;
+    }
+
+    function isRestaurantOwner(restaurantId) {
+      return isSignedIn() && restaurantId != null && restaurantOwnerId(restaurantId) == request.auth.uid;
+    }
+
     // ---------------- users ----------------
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
 
-      // إنشاء ملف المستخدم لأول مرة: فقط لنفسه ودوره customer إجباريًا
       allow create: if isSignedIn()
                     && request.auth.uid == userId
                     && request.resource.data.uid == userId
                     && request.resource.data.role == 'customer';
 
-      // تعديل الملف: صاحبه فقط، وممنوع عليه تغيير حقل role بنفسه
       allow update: if isAdmin()
                     || (isSignedIn() && request.auth.uid == userId
                         && request.resource.data.role == resource.data.role);
@@ -36,18 +42,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ---------------- restaurants / dishes / promoCodes ----------------
-    // قراءة عامة (تصفح القوائم بدون تسجيل دخول)، الكتابة للأدمن فقط
+    // ---------------- restaurants ----------------
     match /restaurants/{restaurantId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
+    // ---------------- dishes ----------------
     match /dishes/{dishId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin()
+                    || (isRestaurantOwner(resource.data.restaurantId)
+                        && request.resource.data.diff(resource.data)
+                             .affectedKeys().hasOnly(['available', 'updatedAt']));
+      allow delete: if isAdmin();
     }
 
+    // ---------------- promoCodes ----------------
     match /promoCodes/{code} {
       allow read: if true;
       allow write: if isAdmin();
@@ -65,23 +77,22 @@ service cloud.firestore {
                   && (resource.data.userId == request.auth.uid
                       || isAdmin()
                       || (isCourier() && (resource.data.courierId == request.auth.uid
-                                          || resource.data.courierId == null)));
+                                          || resource.data.courierId == null))
+                      || isRestaurantOwner(resource.data.restaurantId));
 
-      // الإنشاء فقط عبر Cloud Function (placeOrder) التي تستخدم Admin SDK
-      // وتتجاوز هذه القواعد تلقائيًا — لذلك يُمنع الإنشاء من الكلاينت نهائيًا
       allow create: if false;
 
-      // الأدمن: يعدّل أي شيء
       allow update: if isAdmin()
-                    // المندوب: استلام طلب متاح (لم يُسند بعد)
                     || (isCourier()
                         && resource.data.courierId == null
                         && request.resource.data.courierId == request.auth.uid
                         && request.resource.data.diff(resource.data)
                              .affectedKeys().hasOnly(['courierId', 'status', 'updatedAt']))
-                    // المندوب: تحديث حالة طلب مُسند له مسبقًا
                     || (isCourier()
                         && resource.data.courierId == request.auth.uid
+                        && request.resource.data.diff(resource.data)
+                             .affectedKeys().hasOnly(['status', 'updatedAt']))
+                    || (isRestaurantOwner(resource.data.restaurantId)
                         && request.resource.data.diff(resource.data)
                              .affectedKeys().hasOnly(['status', 'updatedAt']));
 

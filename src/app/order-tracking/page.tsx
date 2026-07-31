@@ -12,6 +12,7 @@ import type { OrderStatus } from "@/types/database";
 const STEPS: OrderStatus[] = [
   "Pending",
   "Preparing",
+  "Ready",
   "OutForDelivery",
   "Delivered",
 ];

@@ -214,24 +214,42 @@ export default function ProfilePage() {
         <OrderHistory />
       </div>
 
-      <button
-        type="button"
-        onClick={() => router.push("/admin")}
-        className="no-select glass touch-target flex w-full items-center gap-3 rounded-2xl p-4 text-left"
-      >
-        <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
-          <Shield className="size-5" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold">
-            Admin Dashboard / واجهة التحكم
+{user?.role === "admin" && (
+        <button
+          type="button"
+          onClick={() => router.push("/admin")}
+          className="no-select glass touch-target flex w-full items-center gap-3 rounded-2xl p-4 text-left"
+        >
+          <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <Shield className="size-5" />
           </span>
-          <span className="block text-xs text-foreground-muted">
-            PIN protected · full CRUD
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">لوحة تحكم الإدارة</span>
+            <span className="block text-xs text-foreground-muted">
+              إدارة المطاعم والطلبات
+            </span>
           </span>
-        </span>
-        <Settings2 className="size-5 text-foreground-muted" />
-      </button>
+          <Settings2 className="size-5 text-foreground-muted" />
+        </button>
+      )}
+      {user?.role === "courier" && (
+        <button
+          type="button"
+          onClick={() => router.push("/driver")}
+          className="no-select glass touch-target flex w-full items-center gap-3 rounded-2xl p-4 text-left"
+        >
+          <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <Shield className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">لوحة المندوب</span>
+            <span className="block text-xs text-foreground-muted">
+              الطلبات المتاحة والمُسندة إليك
+            </span>
+          </span>
+          <Settings2 className="size-5 text-foreground-muted" />
+        </button>
+      )}
     </AppShell>
   );
 }
