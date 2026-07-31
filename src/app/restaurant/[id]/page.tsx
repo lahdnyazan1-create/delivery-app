@@ -22,10 +22,10 @@ export default function RestaurantMenuPage() {
     return (
       <AppShell hideNav>
         <p className="glass rounded-2xl px-4 py-8 text-center text-sm">
-          Restaurant not found.
+          المطعم غير موجود.
         </p>
         <Link href="/" className="mt-4 block text-center text-primary">
-          Back home
+          العودة للرئيسية
         </Link>
       </AppShell>
     );
@@ -42,7 +42,7 @@ export default function RestaurantMenuPage() {
             type="button"
             onClick={() => router.push("/")}
             className="no-select touch-target glass mt-3 flex size-11 items-center justify-center rounded-xl"
-            aria-label="Back"
+            aria-label="رجوع"
           >
             <ArrowLeft className="size-5" />
           </button>
@@ -50,7 +50,7 @@ export default function RestaurantMenuPage() {
             href="/cart"
             id="cart-icon"
             className="no-select touch-target glass relative mt-3 flex size-11 items-center justify-center rounded-xl"
-            aria-label={`Cart, ${cartCount} items`}
+            aria-label={`السلة، ${cartCount} عناصر`}
           >
             <ShoppingBag className="size-5" />
             {cartCount > 0 && (
@@ -72,7 +72,7 @@ export default function RestaurantMenuPage() {
           </h1>
           {!restaurant.active && (
             <p className="mt-2 rounded-xl bg-primary/15 px-3 py-2 text-sm font-bold text-primary">
-              This restaurant is currently inactive
+              هذا المطعم مغلق حالياً
             </p>
           )}
           <p className="mt-1 text-sm text-foreground-muted">
@@ -85,20 +85,20 @@ export default function RestaurantMenuPage() {
             </span>
             <span className="inline-flex items-center gap-1">
               <Clock className="size-3.5" />
-              {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} min
+              {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} دقيقة
             </span>
             <span>
-              ₪{restaurant.deliveryFee?.toFixed(2) ?? "0.00"} delivery
+              توصيل ₪{restaurant.deliveryFee?.toFixed(2) ?? "0.00"}
             </span>
           </div>
         </div>
       </div>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-bold">Menu</h2>
+        <h2 className="text-lg font-bold">القائمة</h2>
         {menu.length === 0 ? (
           <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-foreground-muted">
-            No dishes listed yet. Check back soon.
+            لا توجد أطباق مُدرجة بعد. تحقق لاحقاً.
           </p>
         ) : (
           <ul className="grid grid-cols-1 gap-4">

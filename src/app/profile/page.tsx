@@ -81,11 +81,11 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
-      <h1 className="mb-1 text-2xl font-extrabold">Profile</h1>
+      <h1 className="mb-1 text-2xl font-extrabold">الملف الشخصي</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         {isAuthenticated && user
           ? `${user.displayName} · ${user.phone}`
-          : "Guest · سجّل دخولك"}
+          : "زائر · سجّل دخولك"}
       </p>
 
       {!isAuthenticated ? (
@@ -98,11 +98,9 @@ export default function ProfilePage() {
             <LogIn className="size-5" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold">
-              Login / تسجيل الدخول
-            </span>
+            <span className="block text-sm font-bold">تسجيل الدخول</span>
             <span className="block text-xs text-foreground-muted">
-              Name + phone to place orders
+              الاسم ورقم الهاتف لإتمام الطلبات
             </span>
           </span>
           <ChevronRight className="size-5 text-foreground-muted" />
@@ -117,9 +115,9 @@ export default function ProfilePage() {
             <LogOut className="size-5" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold">Logout</span>
+            <span className="block text-sm font-bold">تسجيل الخروج</span>
             <span className="block text-xs text-foreground-muted">
-              Clear session from this device
+              إنهاء الجلسة من هذا الجهاز
             </span>
           </span>
         </button>
@@ -162,9 +160,9 @@ export default function ProfilePage() {
 
       <div className="mb-5 grid grid-cols-3 gap-3">
         {[
-          { label: "Orders", value: orders.length },
-          { label: "In cart", value: cartCount },
-          { label: "Promos", value: 0 }, // يمكن إضافة عداد لاحقاً
+          { label: "الطلبات", value: orders.length },
+          { label: "في السلة", value: cartCount },
+          { label: "العروض", value: 0 }, // يمكن إضافة عداد لاحقاً
         ].map((stat) => (
           <div
             key={stat.label}
@@ -188,7 +186,7 @@ export default function ProfilePage() {
               <MapPinned className="size-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold">Active order</span>
+              <span className="block text-sm font-bold">طلب نشط</span>
               <span className="block text-xs text-foreground-muted">
                 {activeOrder.restaurantName} · {activeOrder.status}
               </span>
@@ -202,10 +200,10 @@ export default function ProfilePage() {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-bold">
-                No active delivery
+                لا يوجد توصيل نشط
               </span>
               <span className="block text-xs text-foreground-muted">
-                Place an order to track stages live.
+                اطلب الآن لتتبع مراحل التوصيل مباشرة.
               </span>
             </span>
           </div>
@@ -214,7 +212,7 @@ export default function ProfilePage() {
         <OrderHistory />
       </div>
 
-{user?.role === "admin" && (
+      {user?.role === "admin" && (
         <button
           type="button"
           onClick={() => router.push("/admin")}

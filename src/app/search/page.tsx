@@ -36,16 +36,16 @@ export default function SearchPage() {
 
   return (
     <AppShell>
-      <h1 className="mb-4 text-2xl font-extrabold">Search</h1>
+      <h1 className="mb-4 text-2xl font-extrabold">البحث</h1>
 
       <label className="glass mb-4 flex items-center gap-3 rounded-2xl px-3 py-2.5">
         <SearchIcon className="size-5 text-foreground-muted" aria-hidden />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Restaurants or dishes…"
+          placeholder="مطاعم أو أطباق…"
           className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-muted"
-          aria-label="Search restaurants"
+          aria-label="البحث عن مطاعم"
         />
       </label>
 
@@ -54,12 +54,12 @@ export default function SearchPage() {
       </div>
 
       <p className="mb-3 text-xs font-medium text-foreground-muted">
-        {filtered.length} restaurant{filtered.length === 1 ? "" : "s"}
+        {filtered.length} مطعم
       </p>
 
       {filtered.length === 0 ? (
         <p className="glass rounded-2xl px-4 py-8 text-center text-sm text-foreground-muted">
-          No matches. Try another cuisine or keyword.
+          لا توجد نتائج. جرّب تصنيفاً أو كلمة بحث أخرى.
         </p>
       ) : (
         <ul className="space-y-4">

@@ -63,7 +63,7 @@ export function ScratchCard({ className = "" }: ScratchCardProps) {
     ctx.font = "bold 14px Cairo, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("Scratch for offer", w / 2, h / 2);
+    ctx.fillText("اخدش لكشف العرض", w / 2, h / 2);
   }, [done]);
 
   // ✅ فحص الكشف باستخدام requestAnimationFrame (أداء أحسن)
@@ -138,26 +138,26 @@ export function ScratchCard({ className = "" }: ScratchCardProps) {
       <div className="flex items-center justify-between px-4 pt-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-            Limited offer
+            عرض محدود
           </p>
           <h3 className="text-base font-bold text-foreground">
-            Scratch & save
+            اخدش واربح
           </h3>
         </div>
         {appliedPromo === "ZEST30" && (
           <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-bold text-accent">
-            Applied
+            مُفعّل
           </span>
         )}
       </div>
 
       <div className="relative m-4 h-28 overflow-hidden rounded-2xl bg-secondary">
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-          <p className="text-xs font-medium text-foreground-muted">Your code</p>
+          <p className="text-xs font-medium text-foreground-muted">كودك</p>
           <p className="text-2xl font-extrabold tracking-[0.2em] text-primary">
             {done ? "ZEST30" : "••••••"}
           </p>
-          <p className="text-xs font-semibold text-accent">30% off checkout</p>
+          <p className="text-xs font-semibold text-accent">خصم 30% عند الدفع</p>
         </div>
 
         {!done && (

@@ -13,7 +13,7 @@ type SwipeButtonProps = {
 
 export function SwipeButton({
   disabled = false,
-  label = "Swipe to confirm",
+  label = "اسحب للتأكيد",
   onConfirm,
 }: SwipeButtonProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -108,7 +108,7 @@ export function SwipeButton({
         }`}
       >
         <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold text-white/90">
-          {complete ? "Order placed!" : busy ? "Confirming…" : label}
+          {complete ? "تم تأكيد الطلب!" : busy ? "جارٍ التأكيد…" : label}
         </p>
 
         <motion.button
@@ -134,3 +134,4 @@ export function SwipeButton({
     </div>
   );
 }
+

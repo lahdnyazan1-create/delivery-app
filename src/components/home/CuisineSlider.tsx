@@ -10,7 +10,7 @@ type CuisineSliderProps = {
 
 export function CuisineSlider({ value, onChange }: CuisineSliderProps) {
   const options: { id: CuisineOption; label: string; icon?: string }[] = [
-    { id: "all", label: "All", icon: "🍽️" },
+    { id: "all", label: "الكل", icon: "🍽️" },
     ...CUISINES.map((c) => ({ id: c.id, label: c.label, icon: c.icon })),
   ];
 

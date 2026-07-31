@@ -75,12 +75,12 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
         {dish.isHot && (
           <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2.5 py-1 text-[11px] font-semibold text-primary-soft backdrop-blur-md">
             <Flame className="size-3.5" aria-hidden />
-            Hot
+            حار
           </span>
         )}
         {!canAdd && (
           <span className="absolute inset-0 flex items-center justify-center bg-secondary/50 text-sm font-bold uppercase tracking-wide text-foreground backdrop-blur-[2px]">
-            {!restaurant?.active ? "Restaurant closed" : "Out of stock"}
+            {!restaurant?.active ? "المطعم مغلق" : "غير متوفر"}
           </span>
         )}
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-secondary/80 to-transparent" />
@@ -115,10 +115,10 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
               }
             }}
             className="no-select touch-target inline-flex items-center gap-1.5 rounded-2xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_rgb(255_107_53_/_0.3)] disabled:cursor-not-allowed disabled:bg-secondary-muted disabled:shadow-none"
-            aria-label={`Add ${dish.name} to cart`}
+            aria-label={`أضف ${dish.name} إلى السلة`}
           >
             <Plus className="size-4" aria-hidden />
-            Add
+            أضف
           </motion.button>
         </div>
         {hint && (

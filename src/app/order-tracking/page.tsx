@@ -17,6 +17,15 @@ const STEPS: OrderStatus[] = [
   "Delivered",
 ];
 
+const STEP_LABELS: Record<OrderStatus, string> = {
+  Pending: "قيد الانتظار",
+  Preparing: "قيد التحضير",
+  Ready: "جاهز للتوصيل",
+  OutForDelivery: "في الطريق إليك",
+  Delivered: "تم التوصيل",
+  Cancelled: "ملغي",
+};
+
 export default function OrderTrackingPage() {
   const router = useRouter();
   const activeOrder = useOrderStore((state) => state.activeOrder);
@@ -29,18 +38,18 @@ export default function OrderTrackingPage() {
           onClick={() => router.push("/")}
           className="no-select touch-target mb-4 inline-flex items-center gap-2 text-sm font-semibold text-foreground-muted"
         >
-          <ArrowLeft className="size-4" /> Back home
+          <ArrowLeft className="size-4" /> العودة للرئيسية
         </button>
         <div className="glass rounded-3xl px-5 py-10 text-center">
-          <p className="font-bold">No active order</p>
+          <p className="font-bold">لا يوجد طلب نشط</p>
           <p className="mt-2 text-sm text-foreground-muted">
-            Place an order from your cart to start live tracking.
+            قم بطلب من سلتك لبدء التتبع المباشر.
           </p>
           <Link
             href="/cart"
             className="mt-4 inline-flex rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white"
           >
-            Go to cart
+            الذهاب للسلة
           </Link>
         </div>
       </AppShell>
@@ -56,14 +65,14 @@ export default function OrderTrackingPage() {
           type="button"
           onClick={() => router.push("/")}
           className="no-select touch-target flex size-11 items-center justify-center rounded-xl glass"
-          aria-label="Back"
+          aria-label="رجوع"
         >
           <ArrowLeft className="size-5" />
         </button>
         <div>
-          <h1 className="text-xl font-extrabold">Order tracking</h1>
+          <h1 className="text-xl font-extrabold">تتبع الطلب</h1>
           <p className="text-xs text-foreground-muted">
-            {activeOrder.restaurantName} · ETA ~{activeOrder.etaMinutes} min
+            {activeOrder.restaurantName} · الوقت المتوقع ~{activeOrder.etaMinutes} دقيقة
           </p>
         </div>
       </div>
@@ -102,11 +111,11 @@ export default function OrderTrackingPage() {
                     current ? "text-primary" : "text-foreground"
                   }`}
                 >
-                  {step}
+                  {STEP_LABELS[step]}
                 </p>
                 {current && (
                   <p className="text-xs text-foreground-muted">
-                    Updates instantly when admin changes status.
+                    يتحدّث فوراً عند تغيير الحالة من الإدارة.
                   </p>
                 )}
               </div>
@@ -116,7 +125,7 @@ export default function OrderTrackingPage() {
       </ol>
 
       <div className="glass mb-4 rounded-3xl p-4">
-        <p className="mb-1 text-sm font-bold">Delivery to</p>
+        <p className="mb-1 text-sm font-bold">التوصيل إلى</p>
         <p className="text-sm text-foreground-muted">
           {activeOrder.customerName} · {activeOrder.customerPhone}
         </p>
@@ -126,9 +135,9 @@ export default function OrderTrackingPage() {
       </div>
 
       <div className="glass rounded-3xl p-4">
-        <p className="mb-1 text-sm font-bold">Order details</p>
+        <p className="mb-1 text-sm font-bold">تفاصيل الطلب</p>
         <p className="mb-3 text-xs text-foreground-muted">
-          From {activeOrder.restaurantName}
+          من {activeOrder.restaurantName}
         </p>
         <ul className="mb-3 space-y-2">
           {activeOrder.items.map((item) => (
@@ -145,12 +154,12 @@ export default function OrderTrackingPage() {
         </ul>
         {activeOrder.discount > 0 && (
           <p className="mb-1 flex justify-between text-sm text-accent">
-            <span>Discount ({activeOrder.promoCode})</span>
+            <span>خصم ({activeOrder.promoCode})</span>
             <span>-{formatPrice(activeOrder.discount)}</span>
           </p>
         )}
         <p className="flex justify-between border-t border-glass-border pt-2 text-base font-extrabold">
-          <span>Total</span>
+          <span>الإجمالي</span>
           <span className="text-primary">{formatPrice(activeOrder.total)}</span>
         </p>
       </div>

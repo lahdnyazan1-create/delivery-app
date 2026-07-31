@@ -55,10 +55,10 @@ export default function CartPage() {
   return (
     <AppShell>
       <div className="mb-4">
-        <h1 className="text-2xl font-extrabold text-foreground">Cart</h1>
+        <h1 className="text-2xl font-extrabold text-foreground">السلة</h1>
         {cartRestaurant && (
           <p className="mt-1 text-sm text-foreground-muted">
-            Ordering from{" "}
+            تطلب من{" "}
             <span className="font-semibold text-primary">
               {cartRestaurant.name}
             </span>
@@ -69,17 +69,17 @@ export default function CartPage() {
       {visibleCart.length === 0 ? (
         <div className="glass space-y-3 rounded-3xl px-5 py-10 text-center">
           <p className="text-base font-semibold text-foreground">
-            Your cart is empty
+            سلتك فارغة
           </p>
           <p className="text-sm text-foreground-muted">
-            Pick a restaurant, add dishes, then swipe to confirm.
+            اختر مطعمًا، أضف أطباقًا، ثم اسحب للتأكيد.
           </p>
           <button
             type="button"
             onClick={() => router.push("/")}
             className="no-select touch-target mt-2 inline-flex rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white"
           >
-            Browse restaurants
+            تصفح المطاعم
           </button>
         </div>
       ) : (
@@ -117,7 +117,7 @@ export default function CartPage() {
                           type="button"
                           onClick={() => removeFromCart(item.dishId)}
                           className="no-select touch-target flex size-11 items-center justify-center rounded-xl text-foreground-muted hover:text-primary"
-                          aria-label={`Remove ${dish.name}`}
+                          aria-label={`إزالة ${dish.name}`}
                         >
                           <Trash2 className="size-4" />
                         </button>
@@ -130,7 +130,7 @@ export default function CartPage() {
                           onClick={() =>
                             updateQuantity(item.dishId, item.quantity - 1)
                           }
-                          aria-label="Decrease quantity"
+                          aria-label="تقليل الكمية"
                         >
                           <Minus className="size-4" />
                         </button>
@@ -143,7 +143,7 @@ export default function CartPage() {
                           onClick={() =>
                             updateQuantity(item.dishId, item.quantity + 1)
                           }
-                          aria-label="Increase quantity"
+                          aria-label="زيادة الكمية"
                         >
                           <Plus className="size-4" />
                         </button>
@@ -199,7 +199,7 @@ export default function CartPage() {
             <input
               value={promoInput}
               onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-              placeholder="Promo code"
+              placeholder="كود الخصم"
               className="min-w-0 flex-1 rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none"
             />
             <button
@@ -210,7 +210,7 @@ export default function CartPage() {
               }}
               className="no-select touch-target rounded-xl bg-primary px-4 text-sm font-bold text-white"
             >
-              Apply
+              تطبيق
             </button>
           </div>
           {promoMsg && (
@@ -221,21 +221,21 @@ export default function CartPage() {
 
           <div className="glass mb-5 space-y-2 rounded-3xl p-4 text-sm">
             <div className="flex justify-between text-foreground-muted">
-              <span>Subtotal</span>
+              <span>المجموع الفرعي</span>
               <span>{formatPrice(subtotal)}</span>
             </div>
             <div className="flex justify-between text-foreground-muted">
-              <span>Delivery</span>
+              <span>التوصيل</span>
               <span>{formatPrice(deliveryFee)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-accent">
-                <span>Discount ({appliedPromo})</span>
+                <span>خصم ({appliedPromo})</span>
                 <span>-{formatPrice(discount)}</span>
               </div>
             )}
             <div className="flex justify-between border-t border-glass-border pt-2 text-base font-extrabold text-foreground">
-              <span>Total</span>
+              <span>الإجمالي</span>
               <span className="text-primary">{formatPrice(total)}</span>
             </div>
           </div>
@@ -250,10 +250,10 @@ export default function CartPage() {
             disabled={!canCheckout}
             label={
               !isAuthenticated
-                ? "Login required"
+                ? "يتطلب تسجيل الدخول"
                 : !hasLocation
-                  ? "Add delivery address"
-                  : "Swipe to place order"
+                  ? "أضف عنوان التوصيل"
+                  : "اسحب لتأكيد الطلب"
             }
             onConfirm={handleConfirm}
           />

@@ -59,13 +59,13 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
           <div className="flex items-center gap-3 text-xs font-semibold text-foreground-muted">
             <span className="inline-flex items-center gap-1">
               <Clock className="size-3.5" aria-hidden />
-              {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} min
+              {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} دقيقة
             </span>
             <span>·</span>
             <span>
               {restaurant.deliveryFee === 0
-                ? "Free delivery"
-                : `${formatPrice(restaurant.deliveryFee)} delivery`}
+                ? "توصيل مجاني"
+                : `توصيل ${formatPrice(restaurant.deliveryFee)}`}
             </span>
           </div>
         </div>
