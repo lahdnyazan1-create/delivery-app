@@ -9,8 +9,8 @@ export function OfflineBanner() {
   if (isOnline) return null;
 
   return (
-    <div className="fixed top-0 inset-x-0 z-50 bg-primary/90 text-white text-center py-2 px-4 text-xs font-bold backdrop-blur-md">
-      <WifiOff className="inline-block size-3.5 mr-1 -mt-0.5" />
+    <div className="fixed inset-x-0 top-0 z-50 bg-primary/90 px-4 py-2 text-center text-xs font-bold text-white backdrop-blur-md">
+      <WifiOff className="ms-1 -mt-0.5 inline-block size-3.5" />
       أنت غير متصل بالإنترنت. بعض الميزات قد لا تعمل.
     </div>
   );

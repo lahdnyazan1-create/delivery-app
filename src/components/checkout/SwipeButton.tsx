@@ -102,6 +102,7 @@ export function SwipeButton({
 
       <motion.div
         ref={trackRef}
+        dir="ltr"
         style={{ backgroundColor: bg }}
         className={`no-select relative flex h-14 items-center overflow-hidden rounded-full px-1 touch-pan-y ${
           disabled ? "opacity-50" : ""

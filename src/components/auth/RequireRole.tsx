@@ -27,8 +27,11 @@ export function RequireRole({ children, role }: RequireRoleProps) {
 
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-sm">
-        جاري التحقق من الصلاحيات...
+      <div className="app-gradient flex min-h-dvh flex-col items-center justify-center gap-4 px-6">
+        <div className="size-12 animate-spin rounded-full border-4 border-glass-border border-t-primary" />
+        <p className="animate-pulse text-sm font-semibold text-foreground-muted">
+          جاري التحقق من الصلاحيات...
+        </p>
       </div>
     );
   }

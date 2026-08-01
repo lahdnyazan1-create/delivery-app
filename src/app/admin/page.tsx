@@ -26,7 +26,7 @@ function statusBadgeClass(status: OrderStatus) {
     return "bg-accent/10 text-accent border border-accent/20";
   }
   if (status === "Cancelled") {
-    return "bg-red-500/10 text-red-400 border border-red-500/20";
+    return "bg-danger/10 text-danger border border-danger/20";
   }
   return "bg-primary/10 text-primary border border-primary/20";
 }
@@ -455,7 +455,7 @@ function AdminDashboardContent() {
                       className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
                         rest.active
                           ? "border border-accent/30 bg-accent/10 text-accent"
-                          : "border border-red-500/30 bg-red-500/10 text-red-400"
+                          : "border border-danger/30 bg-danger/10 text-danger"
                       }`}
                     >
                       {rest.active ? "نشط" : "متوقف"}
@@ -468,7 +468,7 @@ function AdminDashboardContent() {
                         {rest.ownerId}
                       </span>
                     ) : (
-                      <span className="text-red-400">غير مرتبط بعد</span>
+                      <span className="text-danger">غير مرتبط بعد</span>
                     )}
                   </p>
                 </div>

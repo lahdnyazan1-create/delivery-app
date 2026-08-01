@@ -15,6 +15,7 @@ const config: Config = {
         "secondary-muted": "#2a3f66",
         accent: "#00c853",
         "accent-soft": "#69f0ae",
+        danger: "#ef4444",
         background: "#0f1729",
         "background-elevated": "#1a2b4c",
         foreground: "#f7f4ef",
