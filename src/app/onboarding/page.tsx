@@ -14,21 +14,22 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 text-center">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 space-y-6">
-        <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center text-4xl mx-auto">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center text-foreground">
+      <div className="glass w-full max-w-md space-y-6 rounded-3xl p-8">
+        <div className="mx-auto flex size-20 items-center justify-center rounded-2xl border border-primary/30 bg-primary/10 text-4xl">
           🚀
         </div>
-        <h1 className="text-2xl font-bold text-amber-400">
+        <h1 className="text-2xl font-bold text-primary">
           أهلاً بك في تطبيق توصيل الطلبات
         </h1>
-        <p className="text-slate-400 text-sm leading-relaxed">
+        <p className="text-sm leading-relaxed text-foreground-muted">
           اطلب وجباتك المفضلة من أفضل المطاعم المحلية مع تتبع مباشر وحالة الطلب
           خطوة بخطوة.
         </p>
         <button
+          type="button"
           onClick={handleFinish}
-          className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3.5 rounded-2xl transition shadow-lg shadow-amber-500/10"
+          className="w-full rounded-2xl bg-primary py-3.5 font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90"
         >
           ابدأ التصفح الآن
         </button>

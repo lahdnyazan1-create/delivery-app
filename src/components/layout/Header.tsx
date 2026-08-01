@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { MapPin, ShoppingBag } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 export function Header() {
@@ -13,29 +14,29 @@ export function Header() {
     user?.address?.trim() || user?.locationLabel?.trim() || "حدد موقعك للتوصيل";
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 text-slate-100 px-4 py-3">
-      <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 border-b border-glass-border bg-background/90 px-4 py-3 text-foreground backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-xl font-black bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-primary to-primary-soft bg-clip-text text-xl font-black text-transparent">
             Zest Delivery
           </span>
         </Link>
 
-        <div className="hidden sm:flex items-center text-xs text-slate-400 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800 truncate max-w-xs">
-          <span className="text-amber-400 ml-1">📍</span>
+        <div className="glass hidden max-w-xs items-center gap-1.5 truncate rounded-full px-3 py-1.5 text-xs text-foreground-muted sm:flex">
+          <MapPin className="size-3.5 shrink-0 text-primary" aria-hidden />
           <span className="truncate">{displayAddress}</span>
         </div>
 
         <div className="flex items-center gap-3 text-xs font-semibold">
           {isAuthenticated && user ? (
             <div className="flex items-center gap-2">
-              <span className="text-slate-300">
+              <span className="hidden text-foreground-muted sm:inline">
                 {user.displayName || "مستخدم"}
               </span>
               {user.role === "admin" && (
                 <Link
                   href="/admin"
-                  className="text-amber-400 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20"
+                  className="rounded-lg border border-primary/20 bg-primary/10 px-2 py-1 text-primary"
                 >
                   لوحة الأدمن
                 </Link>
@@ -43,7 +44,7 @@ export function Header() {
               {user.role === "courier" && (
                 <Link
                   href="/driver"
-                  className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20"
+                  className="rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-accent"
                 >
                   لوحة السائق
                 </Link>
@@ -52,7 +53,7 @@ export function Header() {
           ) : (
             <Link
               href="/login"
-              className="bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl font-bold hover:bg-amber-400 transition"
+              className="rounded-xl bg-primary px-3 py-1.5 font-bold text-white transition hover:bg-primary/90"
             >
               تسجيل الدخول
             </Link>
@@ -60,11 +61,12 @@ export function Header() {
 
           <Link
             href="/cart"
-            className="relative bg-slate-800 p-2 rounded-xl text-amber-400 hover:bg-slate-700 transition"
+            className="glass relative flex size-10 items-center justify-center rounded-xl text-primary transition hover:bg-white/10"
+            aria-label={`السلة، ${cartItemsCount} عناصر`}
           >
-            🛒
+            <ShoppingBag className="size-4.5" aria-hidden />
             {cartItemsCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+              <span className="absolute -right-1 -top-1 flex size-4.5 items-center justify-center rounded-full bg-accent text-[10px] font-black text-secondary">
                 {cartItemsCount}
               </span>
             )}

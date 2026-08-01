@@ -9,6 +9,25 @@ import {
   toggleRestaurantActive as toggleRestaurantActiveFirestore,
 } from "@/lib/firestore";
 
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  Pending: "قيد الانتظار",
+  Preparing: "قيد التحضير",
+  Ready: "جاهز للتوصيل",
+  OutForDelivery: "خرج للتوصيل",
+  Delivered: "تم التسليم",
+  Cancelled: "ملغي",
+};
+
+function statusBadgeClass(status: OrderStatus) {
+  if (status === "Delivered") {
+    return "bg-accent/10 text-accent border border-accent/20";
+  }
+  if (status === "Cancelled") {
+    return "bg-red-500/10 text-red-400 border border-red-500/20";
+  }
+  return "bg-primary/10 text-primary border border-primary/20";
+}
+
 function AdminDashboardContent() {
   const {
     restaurants,
@@ -42,7 +61,7 @@ function AdminDashboardContent() {
       etaMinutes: Number(restForm.etaMinutes),
       address: restForm.address,
       active: true,
-      coverGradient: "from-amber-500 to-red-600",
+      coverGradient: "from-primary to-red-600",
       logoGradient: "from-primary to-orange-600",
     };
 
@@ -81,44 +100,47 @@ function AdminDashboardContent() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 dir-rtl">
-      <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+    <div className="min-h-screen bg-background p-4 text-foreground md:p-8">
+      <header className="mb-8 flex flex-col justify-between gap-4 border-b border-glass-border pb-6 md:flex-row md:items-center">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+          <h1 className="bg-gradient-to-r from-primary to-primary-soft bg-clip-text text-3xl font-bold text-transparent">
             لوحة تحكم الإدارة
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="mt-1 text-sm text-foreground-muted">
             إدارة المطاعم، الطلبات، والعمليات المباشرة
           </p>
         </div>
 
-        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <div className="glass flex rounded-xl p-1">
           <button
+            type="button"
             onClick={() => setActiveTab("orders")}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
               activeTab === "orders"
-                ? "bg-amber-500 text-slate-950 font-bold"
-                : "text-slate-400 hover:text-white"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
             }`}
           >
             الطلبات ({orders.length})
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("restaurants")}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
               activeTab === "restaurants"
-                ? "bg-amber-500 text-slate-950 font-bold"
-                : "text-slate-400 hover:text-white"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
             }`}
           >
             المطاعم ({restaurants.length})
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("analytics")}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
               activeTab === "analytics"
-                ? "bg-amber-500 text-slate-950 font-bold"
-                : "text-slate-400 hover:text-white"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
             }`}
           >
             الإحصائيات
@@ -128,9 +150,9 @@ function AdminDashboardContent() {
 
       {activeTab === "orders" && (
         <div className="space-y-4">
-          <h2 className="text-xl font-bold mb-4">متابعة الطلبات المباشرة</h2>
+          <h2 className="mb-4 text-xl font-bold">متابعة الطلبات المباشرة</h2>
           {orders.length === 0 ? (
-            <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 text-center text-slate-400">
+            <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
               لا يوجد طلبات حالية
             </div>
           ) : (
@@ -138,65 +160,61 @@ function AdminDashboardContent() {
               {orders.map((order) => (
                 <div
                   key={order.id}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4"
+                  className="glass space-y-4 rounded-2xl p-5"
                 >
-                  <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+                  <div className="flex items-start justify-between border-b border-glass-border pb-3">
                     <div>
-                      <span className="text-xs text-amber-400 font-mono">
+                      <span className="font-mono text-xs text-primary">
                         #{order.id.slice(-6)}
                       </span>
-                      <h3 className="font-bold text-lg">
+                      <h3 className="text-lg font-bold">
                         {order.restaurantName}
                       </h3>
                     </div>
                     <span
-                      className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
-                        order.status === "Delivered"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : order.status === "Cancelled"
-                            ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                      }`}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(order.status)}`}
                     >
-                      {order.status}
+                      {STATUS_LABELS[order.status]}
                     </span>
                   </div>
 
-                  <div className="text-sm space-y-1 text-slate-300">
+                  <div className="space-y-1 text-sm text-foreground">
                     <p>
-                      <span className="text-slate-500">العميل:</span>{" "}
+                      <span className="text-foreground-muted">العميل:</span>{" "}
                       {order.customerName} ({order.customerPhone})
                     </p>
                     <p>
-                      <span className="text-slate-500">العنوان:</span>{" "}
+                      <span className="text-foreground-muted">العنوان:</span>{" "}
                       {order.deliveryAddress}
                     </p>
                     <p>
-                      <span className="text-slate-500">المندوب الحالي:</span>{" "}
+                      <span className="text-foreground-muted">
+                        المندوب الحالي:
+                      </span>{" "}
                       {order.courierId || "غير محدد"}
                     </p>
                     <p>
-                      <span className="text-slate-500">المجموع:</span>{" "}
-                      <strong className="text-amber-400">
+                      <span className="text-foreground-muted">المجموع:</span>{" "}
+                      <strong className="text-primary">
                         {order.total} ₪
                       </strong>
                     </p>
                   </div>
 
-                  <div className="bg-slate-950 p-3 rounded-xl text-xs space-y-1 text-slate-400">
+                  <div className="space-y-1 rounded-xl bg-white/5 p-3 text-xs text-foreground-muted">
                     {order.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between">
                         <span>
-                          {item.quantity}x {item.name}
+                          {item.quantity}× {item.name}
                         </span>
                         <span>{item.price * item.quantity} ₪</span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="pt-2 space-y-2 border-t border-slate-800">
+                  <div className="space-y-2 border-t border-glass-border pt-2">
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-slate-400 w-20">
+                      <label className="w-20 text-xs text-foreground-muted">
                         السائق:
                       </label>
                       <select
@@ -204,7 +222,7 @@ function AdminDashboardContent() {
                         onChange={(e) =>
                           handleAssignDriver(order.id, e.target.value)
                         }
-                        className="bg-slate-950 border border-slate-800 text-xs rounded-lg p-2 w-full text-slate-200 outline-none"
+                        className="w-full rounded-lg border border-glass-border bg-secondary p-2 text-xs text-foreground outline-none focus:border-primary"
                       >
                         <option value="">اختر سائق...</option>
                         {drivers.map((d) => (
@@ -216,7 +234,7 @@ function AdminDashboardContent() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-slate-400 w-20">
+                      <label className="w-20 text-xs text-foreground-muted">
                         الحالة:
                       </label>
                       <select
@@ -227,20 +245,14 @@ function AdminDashboardContent() {
                             e.target.value as OrderStatus,
                           )
                         }
-                        className="bg-slate-950 border border-slate-800 text-xs rounded-lg p-2 w-full text-slate-200 outline-none"
+                        className="w-full rounded-lg border border-glass-border bg-secondary p-2 text-xs text-foreground outline-none focus:border-primary"
                       >
-                        <option value="Pending">قيد الانتظار (Pending)</option>
-                        <option value="Preparing">
-                          قيد التحضير (Preparing)
-                        </option>
-                        <option value="Ready">جاهز للتوصيل (Ready)</option>
-                        <option value="OutForDelivery">
-                          خرج للتوصيل (OutForDelivery)
-                        </option>
-                        <option value="Delivered">
-                          تم التسليم (Delivered)
-                        </option>
-                        <option value="Cancelled">ملغي (Cancelled)</option>
+                        <option value="Pending">قيد الانتظار</option>
+                        <option value="Preparing">قيد التحضير</option>
+                        <option value="Ready">جاهز للتوصيل</option>
+                        <option value="OutForDelivery">خرج للتوصيل</option>
+                        <option value="Delivered">تم التسليم</option>
+                        <option value="Cancelled">ملغي</option>
                       </select>
                     </div>
                   </div>
@@ -252,14 +264,14 @@ function AdminDashboardContent() {
       )}
 
       {activeTab === "restaurants" && (
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 h-fit">
-            <h2 className="text-lg font-bold mb-4 text-amber-400">
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="glass h-fit rounded-2xl p-6">
+            <h2 className="mb-4 text-lg font-bold text-primary">
               إضافة مطعم جديد
             </h2>
             <form onSubmit={handleAddRestaurant} className="space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">
+                <label className="mb-1 block text-xs text-foreground-muted">
                   اسم المطعم
                 </label>
                 <input
@@ -269,12 +281,12 @@ function AdminDashboardContent() {
                   onChange={(e) =>
                     setRestForm({ ...restForm, name: e.target.value })
                   }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm outline-none focus:border-amber-500"
+                  className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
                   placeholder="مثال: بيتزا الخليل"
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">
+                <label className="mb-1 block text-xs text-foreground-muted">
                   المطبخ / التصنيف
                 </label>
                 <input
@@ -283,12 +295,12 @@ function AdminDashboardContent() {
                   onChange={(e) =>
                     setRestForm({ ...restForm, cuisine: e.target.value })
                   }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm outline-none focus:border-amber-500"
+                  className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">
+                  <label className="mb-1 block text-xs text-foreground-muted">
                     أجرة التوصيل (₪)
                   </label>
                   <input
@@ -300,11 +312,11 @@ function AdminDashboardContent() {
                         deliveryFee: Number(e.target.value),
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm outline-none focus:border-amber-500"
+                    className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">
+                  <label className="mb-1 block text-xs text-foreground-muted">
                     الوقت المتوقع (دقيقة)
                   </label>
                   <input
@@ -316,12 +328,12 @@ function AdminDashboardContent() {
                         etaMinutes: Number(e.target.value),
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm outline-none focus:border-amber-500"
+                    className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">
+                <label className="mb-1 block text-xs text-foreground-muted">
                   العنوان
                 </label>
                 <input
@@ -330,19 +342,19 @@ function AdminDashboardContent() {
                   onChange={(e) =>
                     setRestForm({ ...restForm, address: e.target.value })
                   }
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm outline-none focus:border-amber-500"
+                  className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
                 />
               </div>
               <button
                 type="submit"
-                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl transition mt-2"
+                className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90"
               >
                 إضافة المطعم
               </button>
             </form>
           </div>
 
-          <div className="md:col-span-2 space-y-4">
+          <div className="space-y-4 md:col-span-2">
             <h2 className="text-lg font-bold">
               المطاعم المسجلة ({restaurants.length})
             </h2>
@@ -350,20 +362,21 @@ function AdminDashboardContent() {
               {restaurants.map((rest) => (
                 <div
                   key={rest.id}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center"
+                  className="glass flex items-center justify-between rounded-2xl p-4"
                 >
                   <div>
-                    <h3 className="font-bold text-base">{rest.name}</h3>
-                    <p className="text-xs text-slate-400">
+                    <h3 className="text-base font-bold">{rest.name}</h3>
+                    <p className="text-xs text-foreground-muted">
                       {rest.cuisine || "وجبات"} • {rest.deliveryFee} ₪ توصيل
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleToggleActive(rest.id, rest.active)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
                       rest.active
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                        : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+                        ? "border border-accent/30 bg-accent/10 text-accent"
+                        : "border border-red-500/30 bg-red-500/10 text-red-400"
                     }`}
                   >
                     {rest.active ? "نشط" : "متوقف"}
@@ -376,22 +389,28 @@ function AdminDashboardContent() {
       )}
 
       {activeTab === "analytics" && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <p className="text-slate-400 text-sm">إجمالي المبيعات المكتملة</p>
-            <p className="text-3xl font-extrabold text-amber-400 mt-2">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div className="glass rounded-2xl p-6">
+            <p className="text-sm text-foreground-muted">
+              إجمالي المبيعات المكتملة
+            </p>
+            <p className="mt-2 text-3xl font-extrabold text-accent">
               {totalRevenue.toFixed(2)} ₪
             </p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <p className="text-slate-400 text-sm">الطلبات النشطة حالياً</p>
-            <p className="text-3xl font-extrabold text-sky-400 mt-2">
+          <div className="glass rounded-2xl p-6">
+            <p className="text-sm text-foreground-muted">
+              الطلبات النشطة حالياً
+            </p>
+            <p className="mt-2 text-3xl font-extrabold text-primary">
               {activeOrders.length}
             </p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <p className="text-slate-400 text-sm">إجمالي الطلبات الكلي</p>
-            <p className="text-3xl font-extrabold text-emerald-400 mt-2">
+          <div className="glass rounded-2xl p-6">
+            <p className="text-sm text-foreground-muted">
+              إجمالي الطلبات الكلي
+            </p>
+            <p className="mt-2 text-3xl font-extrabold text-primary-soft">
               {orders.length}
             </p>
           </div>
