@@ -7,6 +7,9 @@ import { RequireRole } from "@/components/auth/RequireRole";
 import {
   addRestaurant as addRestaurantFirestore,
   toggleRestaurantActive as toggleRestaurantActiveFirestore,
+  setUserRole,
+  upsertDriverProfile,
+  updateRestaurant as updateRestaurantFirestore,
 } from "@/lib/firestore";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -38,7 +41,7 @@ function AdminDashboardContent() {
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<
-    "orders" | "restaurants" | "analytics"
+    "orders" | "restaurants" | "access" | "analytics"
   >("orders");
 
   const [restForm, setRestForm] = useState({
@@ -48,6 +51,20 @@ function AdminDashboardContent() {
     etaMinutes: 30,
     address: "",
   });
+
+  const [driverForm, setDriverForm] = useState({
+    uid: "",
+    name: "",
+    phone: "",
+    vehicle: "دراجة نارية",
+    plateNumber: "",
+  });
+  const [driverMsg, setDriverMsg] = useState("");
+  const [driverBusy, setDriverBusy] = useState(false);
+
+  const [ownerForm, setOwnerForm] = useState({ restaurantId: "", uid: "" });
+  const [ownerMsg, setOwnerMsg] = useState("");
+  const [ownerBusy, setOwnerBusy] = useState(false);
 
   const handleAddRestaurant = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +108,65 @@ function AdminDashboardContent() {
     assignDriverToOrder(orderId, driverId);
   };
 
+  const handleLinkDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const uid = driverForm.uid.trim();
+    if (!uid || !driverForm.name.trim()) {
+      setDriverMsg("أدخل معرّف المستخدم (UID) واسم السائق على الأقل");
+      return;
+    }
+    setDriverBusy(true);
+    setDriverMsg("");
+    try {
+      await setUserRole(uid, "courier");
+      await upsertDriverProfile(uid, {
+        name: driverForm.name.trim(),
+        phone: driverForm.phone.trim(),
+        vehicle: driverForm.vehicle,
+        plateNumber: driverForm.plateNumber.trim(),
+        isAvailable: true,
+      });
+      setDriverMsg("تم ربط السائق وترقية دوره بنجاح ✓");
+      setDriverForm({
+        uid: "",
+        name: "",
+        phone: "",
+        vehicle: "دراجة نارية",
+        plateNumber: "",
+      });
+    } catch (error) {
+      console.error("Failed to link driver", error);
+      setDriverMsg(
+        "تعذّر الربط — تأكد أن المستخدم سجّل دخول مرة واحدة على الأقل وأن الـ UID صحيح",
+      );
+    } finally {
+      setDriverBusy(false);
+    }
+  };
+
+  const handleLinkOwner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const uid = ownerForm.uid.trim();
+    if (!ownerForm.restaurantId || !uid) {
+      setOwnerMsg("اختر مطعماً وأدخل معرّف المستخدم (UID)");
+      return;
+    }
+    setOwnerBusy(true);
+    setOwnerMsg("");
+    try {
+      await updateRestaurantFirestore(ownerForm.restaurantId, {
+        ownerId: uid,
+      });
+      setOwnerMsg("تم ربط مالك المطعم بنجاح ✓");
+      setOwnerForm({ restaurantId: "", uid: "" });
+    } catch (error) {
+      console.error("Failed to link owner", error);
+      setOwnerMsg("تعذّر الربط، تحقق من البيانات وحاول مجدداً");
+    } finally {
+      setOwnerBusy(false);
+    }
+  };
+
   const totalRevenue = orders
     .filter((o) => o.status === "Delivered")
     .reduce((acc, curr) => acc + curr.total, 0);
@@ -98,6 +174,10 @@ function AdminDashboardContent() {
   const activeOrders = orders.filter(
     (o) => o.status !== "Delivered" && o.status !== "Cancelled",
   );
+
+  const inputClass =
+    "w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary";
+  const labelClass = "mb-1 block text-xs text-foreground-muted";
 
   return (
     <div className="min-h-screen bg-background p-4 text-foreground md:p-8">
@@ -111,7 +191,7 @@ function AdminDashboardContent() {
           </p>
         </div>
 
-        <div className="glass flex rounded-xl p-1">
+        <div className="glass flex flex-wrap rounded-xl p-1">
           <button
             type="button"
             onClick={() => setActiveTab("orders")}
@@ -133,6 +213,17 @@ function AdminDashboardContent() {
             }`}
           >
             المطاعم ({restaurants.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("access")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === "access"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            الوصول والفرق
           </button>
           <button
             type="button"
@@ -271,9 +362,7 @@ function AdminDashboardContent() {
             </h2>
             <form onSubmit={handleAddRestaurant} className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs text-foreground-muted">
-                  اسم المطعم
-                </label>
+                <label className={labelClass}>اسم المطعم</label>
                 <input
                   type="text"
                   required
@@ -281,28 +370,24 @@ function AdminDashboardContent() {
                   onChange={(e) =>
                     setRestForm({ ...restForm, name: e.target.value })
                   }
-                  className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
+                  className={inputClass}
                   placeholder="مثال: بيتزا الخليل"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-foreground-muted">
-                  المطبخ / التصنيف
-                </label>
+                <label className={labelClass}>المطبخ / التصنيف</label>
                 <input
                   type="text"
                   value={restForm.cuisine}
                   onChange={(e) =>
                     setRestForm({ ...restForm, cuisine: e.target.value })
                   }
-                  className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
+                  className={inputClass}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs text-foreground-muted">
-                    أجرة التوصيل (₪)
-                  </label>
+                  <label className={labelClass}>أجرة التوصيل (₪)</label>
                   <input
                     type="number"
                     value={restForm.deliveryFee}
@@ -312,13 +397,11 @@ function AdminDashboardContent() {
                         deliveryFee: Number(e.target.value),
                       })
                     }
-                    className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-foreground-muted">
-                    الوقت المتوقع (دقيقة)
-                  </label>
+                  <label className={labelClass}>الوقت المتوقع (دقيقة)</label>
                   <input
                     type="number"
                     value={restForm.etaMinutes}
@@ -328,21 +411,19 @@ function AdminDashboardContent() {
                         etaMinutes: Number(e.target.value),
                       })
                     }
-                    className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
+                    className={inputClass}
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs text-foreground-muted">
-                  العنوان
-                </label>
+                <label className={labelClass}>العنوان</label>
                 <input
                   type="text"
                   value={restForm.address}
                   onChange={(e) =>
                     setRestForm({ ...restForm, address: e.target.value })
                   }
-                  className="w-full rounded-xl border border-glass-border bg-secondary p-2.5 text-sm text-foreground outline-none focus:border-primary"
+                  className={inputClass}
                 />
               </div>
               <button
@@ -360,30 +441,195 @@ function AdminDashboardContent() {
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               {restaurants.map((rest) => (
-                <div
-                  key={rest.id}
-                  className="glass flex items-center justify-between rounded-2xl p-4"
-                >
-                  <div>
-                    <h3 className="text-base font-bold">{rest.name}</h3>
-                    <p className="text-xs text-foreground-muted">
-                      {rest.cuisine || "وجبات"} • {rest.deliveryFee} ₪ توصيل
-                    </p>
+                <div key={rest.id} className="glass rounded-2xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-bold">{rest.name}</h3>
+                      <p className="text-xs text-foreground-muted">
+                        {rest.cuisine || "وجبات"} • {rest.deliveryFee} ₪ توصيل
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActive(rest.id, rest.active)}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                        rest.active
+                          ? "border border-accent/30 bg-accent/10 text-accent"
+                          : "border border-red-500/30 bg-red-500/10 text-red-400"
+                      }`}
+                    >
+                      {rest.active ? "نشط" : "متوقف"}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleActive(rest.id, rest.active)}
-                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
-                      rest.active
-                        ? "border border-accent/30 bg-accent/10 text-accent"
-                        : "border border-red-500/30 bg-red-500/10 text-red-400"
-                    }`}
-                  >
-                    {rest.active ? "نشط" : "متوقف"}
-                  </button>
+                  <p className="mt-2 truncate text-[11px] text-foreground-muted">
+                    المالك:{" "}
+                    {rest.ownerId ? (
+                      <span className="font-mono text-accent">
+                        {rest.ownerId}
+                      </span>
+                    ) : (
+                      <span className="text-red-400">غير مرتبط بعد</span>
+                    )}
+                  </p>
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "access" && (
+        <div className="grid gap-8 md:grid-cols-2">
+          <div className="glass rounded-2xl p-6">
+            <h2 className="mb-1 text-lg font-bold text-primary">
+              ربط سائق جديد
+            </h2>
+            <p className="mb-4 text-xs text-foreground-muted">
+              يجب أن يكون المستخدم قد سجّل دخول مرة واحدة على الأقل. انسخ
+              معرّفه (UID) من Firebase Console → Authentication.
+            </p>
+            <form onSubmit={handleLinkDriver} className="space-y-4">
+              <div>
+                <label className={labelClass}>معرّف المستخدم (UID) *</label>
+                <input
+                  type="text"
+                  required
+                  value={driverForm.uid}
+                  onChange={(e) =>
+                    setDriverForm({ ...driverForm, uid: e.target.value })
+                  }
+                  className={`${inputClass} font-mono`}
+                  placeholder="مثال: aB3xY9..."
+                />
+              </div>
+              <div>
+                <label className={labelClass}>اسم السائق *</label>
+                <input
+                  type="text"
+                  required
+                  value={driverForm.name}
+                  onChange={(e) =>
+                    setDriverForm({ ...driverForm, name: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>رقم الهاتف</label>
+                <input
+                  type="tel"
+                  value={driverForm.phone}
+                  onChange={(e) =>
+                    setDriverForm({ ...driverForm, phone: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>نوع المركبة</label>
+                  <select
+                    value={driverForm.vehicle}
+                    onChange={(e) =>
+                      setDriverForm({
+                        ...driverForm,
+                        vehicle: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  >
+                    <option value="دراجة نارية">دراجة نارية</option>
+                    <option value="سيارة">سيارة</option>
+                    <option value="دراجة هوائية">دراجة هوائية</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>رقم اللوحة</label>
+                  <input
+                    type="text"
+                    value={driverForm.plateNumber}
+                    onChange={(e) =>
+                      setDriverForm({
+                        ...driverForm,
+                        plateNumber: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={driverBusy}
+                className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {driverBusy ? "جارٍ الربط…" : "ربط السائق"}
+              </button>
+              {driverMsg && (
+                <p className="text-center text-xs text-foreground-muted">
+                  {driverMsg}
+                </p>
+              )}
+            </form>
+          </div>
+
+          <div className="glass rounded-2xl p-6">
+            <h2 className="mb-1 text-lg font-bold text-primary">
+              ربط مالك مطعم
+            </h2>
+            <p className="mb-4 text-xs text-foreground-muted">
+              يجب أن يكون المستخدم قد سجّل دخول مرة واحدة على الأقل كزبون
+              عادي — لا حاجة لتغيير دوره.
+            </p>
+            <form onSubmit={handleLinkOwner} className="space-y-4">
+              <div>
+                <label className={labelClass}>المطعم *</label>
+                <select
+                  required
+                  value={ownerForm.restaurantId}
+                  onChange={(e) =>
+                    setOwnerForm({
+                      ...ownerForm,
+                      restaurantId: e.target.value,
+                    })
+                  }
+                  className={inputClass}
+                >
+                  <option value="">اختر مطعماً...</option>
+                  {restaurants.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                      {r.ownerId ? " (مرتبط بالفعل)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>معرّف المستخدم (UID) *</label>
+                <input
+                  type="text"
+                  required
+                  value={ownerForm.uid}
+                  onChange={(e) =>
+                    setOwnerForm({ ...ownerForm, uid: e.target.value })
+                  }
+                  className={`${inputClass} font-mono`}
+                  placeholder="مثال: aB3xY9..."
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={ownerBusy}
+                className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {ownerBusy ? "جارٍ الربط…" : "ربط المالك"}
+              </button>
+              {ownerMsg && (
+                <p className="text-center text-xs text-foreground-muted">
+                  {ownerMsg}
+                </p>
+              )}
+            </form>
           </div>
         </div>
       )}

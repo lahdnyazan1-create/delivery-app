@@ -4,6 +4,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  setDoc,
   doc,
   onSnapshot,
   query,
@@ -169,4 +170,32 @@ export const updateDriver = async (
 ) => {
   const ref = doc(db, "drivers", driverId);
   await updateDoc(ref, { ...driver, updatedAt: serverTimestamp() });
+};
+
+// ✅ ترقية دور مستخدم موجود (يُستخدم من لوحة الأدمن فقط، القواعد تفرض ذلك)
+export const setUserRole = async (
+  uid: string,
+  role: UserProfile["role"],
+) => {
+  const ref = doc(db, "users", uid);
+  await updateDoc(ref, { role, updatedAt: serverTimestamp() });
+};
+
+// ✅ إنشاء/تحديث بروفايل سائق بمعرّف مطابق تماماً لـ uid حساب المستخدم
+// (ضروري لأن driver/page.tsx يبحث عن drivers/{uid} وليس معرّفاً عشوائياً)
+export const upsertDriverProfile = async (
+  uid: string,
+  driver: Omit<Driver, "id">,
+) => {
+  const ref = doc(db, "drivers", uid);
+  await setDoc(ref, { ...driver, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+// ✅ تحديث عام لبيانات مطعم (يُستخدم هنا لربط ownerId بمالك المطعم)
+export const updateRestaurant = async (
+  restaurantId: string,
+  data: Partial<Restaurant>,
+) => {
+  const ref = doc(db, "restaurants", restaurantId);
+  await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
 };
