@@ -1,18 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CUISINES, type CuisineOption } from "@/constants/cuisines";
+import { useDataStore } from "@/store/useDataStore";
 
 type CuisineSliderProps = {
-  value: CuisineOption;
-  onChange: (value: CuisineOption) => void;
+  value: string;
+  onChange: (value: string) => void;
 };
 
 export function CuisineSlider({ value, onChange }: CuisineSliderProps) {
-  const options: { id: CuisineOption; label: string; icon?: string }[] = [
-    { id: "all", label: "الكل", icon: "🍽️" },
-    ...CUISINES.map((c) => ({ id: c.id, label: c.label, icon: c.icon })),
-  ];
+  const categories = useDataStore((s) => s.categories)
+    .filter((c) => c.visible)
+    .sort((a, b) => a.order - b.order);
+
+  const options = [{ id: "all", label: "الكل", icon: "🍽️" }, ...categories];
 
   return (
     <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

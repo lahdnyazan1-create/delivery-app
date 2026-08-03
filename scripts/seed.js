@@ -201,6 +201,37 @@ const promoCodes = [
   { code: "OLDCODE5", percentOff: 5, active: false }, // كود غير فعّال، للتأكد إن النظام يتجاهله
 ];
 
+const categories = [
+  { id: "pizza", label: "بيتزا", icon: "🍕", order: 1, visible: true },
+  { id: "burger", label: "برغر", icon: "🍔", order: 2, visible: true },
+  { id: "oriental", label: "شرقي", icon: "🥙", order: 3, visible: true },
+  { id: "sushi", label: "سوشي", icon: "🍣", order: 4, visible: true },
+  { id: "sweets", label: "حلويات", icon: "🍰", order: 5, visible: true },
+];
+
+const banners = [
+  {
+    id: "banner-welcome",
+    title: "أهلاً بك في Zest",
+    subtitle: "اطلب من أفضل المطاعم المحلية الآن",
+    ctaText: "تصفح المطاعم",
+    ctaLink: "/search",
+    gradient: "from-primary to-red-700",
+    order: 1,
+    active: true,
+  },
+  {
+    id: "banner-promo",
+    title: "خصم 30% على أول طلب",
+    subtitle: "استخدم كود ZEST30 عند الدفع",
+    ctaText: "اطلب الآن",
+    ctaLink: "/cart",
+    gradient: "from-secondary to-primary",
+    order: 2,
+    active: true,
+  },
+];
+
 async function seed() {
   const batch = db.batch();
 
@@ -225,9 +256,19 @@ async function seed() {
     batch.set(db.collection("promoCodes").doc(code), data);
   }
 
+  for (const cat of categories) {
+    const { id, ...data } = cat;
+    batch.set(db.collection("categories").doc(id), data);
+  }
+
+  for (const banner of banners) {
+    const { id, ...data } = banner;
+    batch.set(db.collection("banners").doc(id), data);
+  }
+
   await batch.commit();
   console.log(
-    `تم إدخال ${restaurants.length} مطاعم، ${dishes.length} طبق، ${promoCodes.length} كود خصم بنجاح ✅`,
+    `تم إدخال ${restaurants.length} مطاعم، ${dishes.length} طبق، ${categories.length} فئة، ${banners.length} بانر، ${promoCodes.length} كود خصم بنجاح ✅`,
   );
 }
 

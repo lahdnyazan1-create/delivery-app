@@ -1,16 +1,3 @@
-/**
- * ✅ useAppStore.ts — Aggregator Pattern (Optimized)
- *
- * تم تقسيم الـ Store إلى 4 وحدات مستقلة:
- * - useAuthStore: المصادقة والمستخدم
- * - useDataStore: المطاعم والأطباق والسائقين
- * - useCartStore: السلة والخصومات
- * - useOrderStore: الطلبات والتتبع
- *
- * يوفر هذا الهوك واجهة مجمعة تدعم التوافقية العكسية (Backward Compatibility)
- * مع تمكين المكونات من استدعاء الـ Stores المنفصلة للحد من الـ Re-renders.
- */
-
 import { useAuthStore } from "./useAuthStore";
 import { useDataStore } from "./useDataStore";
 import { useCartStore } from "./useCartStore";
@@ -21,10 +8,8 @@ import {
 } from "@/lib/firestore";
 import { Restaurant } from "@/types/database";
 
-// Re-export individual stores
 export { useAuthStore, useDataStore, useCartStore, useOrderStore };
 
-// Backward-compatible hook
 export const useAppStore = () => {
   const auth = useAuthStore();
   const data = useDataStore();
@@ -35,6 +20,7 @@ export const useAppStore = () => {
     // Auth Module
     user: auth.user,
     isAuthenticated: auth.isAuthenticated,
+    authReady: auth.authReady,
     hasSeenOnboarding: auth.hasSeenOnboarding,
     completePhoneLogin: auth.completePhoneLogin,
     logoutUser: auth.logoutUser,
@@ -74,16 +60,19 @@ export const useAppStore = () => {
     subscribeToOrders: order.subscribeToOrders,
     unsubscribeFromOrders: order.unsubscribeFromOrders,
     placeOrder: async () => {
-      const orderId = await order.placeOrder(
+      // ✅ إصلاح حرج: order.placeOrder ترجع كائن {ok, orderId, message}
+      // الكود القديم كان يتحقق من صحة الكائن نفسه (صحيح دائماً) بدل .ok
+      // فكان يُفرّغ السلة حتى عند فشل الطلب فعلياً
+      const result = await order.placeOrder(
         cart.cart,
         cart.cartRestaurantId,
         cart.appliedPromo,
         auth.user?.uid || "",
       );
-      if (orderId) {
+      if (result.ok) {
         cart.clearCart();
       }
-      return orderId;
+      return result;
     },
     updateOrderStatus: order.updateOrderStatus,
     claimOrder: (orderId: string) =>

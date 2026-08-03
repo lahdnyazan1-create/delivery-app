@@ -1,11 +1,9 @@
 "use client";
-import OrderHistory from "@/components/profile/OrderHistory";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronRight,
-  MapPinned,
   Package,
   Shield,
   Settings2,
@@ -22,12 +20,14 @@ export default function ProfilePage() {
     user,
     isAuthenticated,
     orders,
-    activeOrder,
     logoutUser,
     updateUserLocation,
     cart,
+    restaurants,
   } = useAppStore();
-
+  const ownedRestaurant = user
+    ? restaurants.find((r) => r.ownerId === user.uid)
+    : null;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const [draftAddress, setDraftAddress] = useState<string | null>(null);
   const [geoMsg, setGeoMsg] = useState("");
@@ -162,7 +162,7 @@ export default function ProfilePage() {
         {[
           { label: "الطلبات", value: orders.length },
           { label: "في السلة", value: cartCount },
-          { label: "العروض", value: 0 }, // يمكن إضافة عداد لاحقاً
+          { label: "العروض", value: 0 },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -176,47 +176,27 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      <div className="mb-5 space-y-2">
-        {activeOrder && activeOrder.status !== "Delivered" ? (
-          <Link
-            href="/order-tracking"
-            className="glass no-select flex items-center gap-3 rounded-2xl p-4"
-          >
-            <span className="flex size-11 items-center justify-center rounded-xl bg-accent/15 text-accent">
-              <MapPinned className="size-5" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold">طلب نشط</span>
-              <span className="block text-xs text-foreground-muted">
-                {activeOrder.restaurantName} · {activeOrder.status}
-              </span>
-            </span>
-            <ChevronRight className="size-5 text-foreground-muted" />
-          </Link>
-        ) : (
-          <div className="glass flex items-center gap-3 rounded-2xl p-4">
-            <span className="flex size-11 items-center justify-center rounded-xl bg-white/5 text-foreground-muted">
-              <Package className="size-5" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold">
-                لا يوجد توصيل نشط
-              </span>
-              <span className="block text-xs text-foreground-muted">
-                اطلب الآن لتتبع مراحل التوصيل مباشرة.
-              </span>
-            </span>
-          </div>
-        )}
-
-        <OrderHistory />
-      </div>
+      <Link
+        href="/orders"
+        className="glass no-select mb-5 flex items-center gap-3 rounded-2xl p-4"
+      >
+        <span className="flex size-11 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <Package className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold">طلباتي</span>
+          <span className="block text-xs text-foreground-muted">
+            {orders.length} طلب سابق · تتبع وإعادة الطلب
+          </span>
+        </span>
+        <ChevronRight className="size-5 text-foreground-muted" />
+      </Link>
 
       {user?.role === "admin" && (
         <button
           type="button"
           onClick={() => router.push("/admin")}
-          className="no-select glass touch-target flex w-full items-center gap-3 rounded-2xl p-4 text-left"
+          className="no-select glass touch-target mb-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left"
         >
           <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
             <Shield className="size-5" />
@@ -234,7 +214,7 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => router.push("/driver")}
-          className="no-select glass touch-target flex w-full items-center gap-3 rounded-2xl p-4 text-left"
+          className="no-select glass touch-target mb-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left"
         >
           <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
             <Shield className="size-5" />
@@ -243,6 +223,24 @@ export default function ProfilePage() {
             <span className="block text-sm font-bold">لوحة المندوب</span>
             <span className="block text-xs text-foreground-muted">
               الطلبات المتاحة والمُسندة إليك
+            </span>
+          </span>
+          <Settings2 className="size-5 text-foreground-muted" />
+        </button>
+      )}
+      {ownedRestaurant && (
+        <button
+          type="button"
+          onClick={() => router.push("/restaurant")}
+          className="no-select glass touch-target flex w-full items-center gap-3 rounded-2xl p-4 text-left"
+        >
+          <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <Shield className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">لوحة المطعم</span>
+            <span className="block text-xs text-foreground-muted">
+              {ownedRestaurant.name}
             </span>
           </span>
           <Settings2 className="size-5 text-foreground-muted" />

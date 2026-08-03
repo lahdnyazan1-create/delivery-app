@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search as SearchIcon } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { CuisineSlider } from "@/components/home/CuisineSlider";
 import { RestaurantCard } from "@/components/home/RestaurantCard";
 import { useAppStore } from "@/store/useAppStore";
-import type { CuisineOption } from "@/constants/cuisines";
 
-export default function SearchPage() {
+function SearchContent() {
+  const params = useSearchParams();
   const [query, setQuery] = useState("");
-  const [cuisine, setCuisine] = useState<CuisineOption>("all");
+  const [cuisine, setCuisine] = useState<string>(params.get("category") || "all");
   const { restaurants, dishes } = useAppStore();
 
   const filtered = useMemo(() => {
@@ -35,7 +36,7 @@ export default function SearchPage() {
   }, [restaurants, dishes, query, cuisine]);
 
   return (
-    <AppShell>
+    <>
       <h1 className="mb-4 text-2xl font-extrabold">البحث</h1>
 
       <label className="glass mb-4 flex items-center gap-3 rounded-2xl px-3 py-2.5">
@@ -72,6 +73,18 @@ export default function SearchPage() {
           ))}
         </ul>
       )}
+    </>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <AppShell>
+      <Suspense
+        fallback={<p className="text-sm text-foreground-muted">جارِ التحميل…</p>}
+      >
+        <SearchContent />
+      </Suspense>
     </AppShell>
   );
 }

@@ -2,20 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, ShoppingBag, User } from "lucide-react";
-import { useCartStore } from "@/store/useCartStore";
+import { UtensilsCrossed, ShoppingCart, Package, User } from "lucide-react";
 
 const tabs = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/search", label: "Search", icon: Search },
-  { href: "/cart", label: "Cart", icon: ShoppingBag },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/", label: "مطاعم", icon: UtensilsCrossed },
+  { href: "/mart", label: "مارت", icon: ShoppingCart },
+  { href: "/orders", label: "طلبات", icon: Package },
+  { href: "/profile", label: "ملف شخصي", icon: User },
 ] as const;
 
 export function BottomNav() {
   const pathname = usePathname();
-  const cart = useCartStore((state) => state.cart);
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   if (
     pathname.startsWith("/admin") ||
@@ -28,12 +25,13 @@ export function BottomNav() {
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label="التنقل الرئيسي"
       className="glass-strong fixed inset-x-0 bottom-0 z-40 border-t border-glass-border pb-safe"
     >
       <ul className="mx-auto flex max-w-lg items-stretch justify-around px-2 pt-2">
         {tabs.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          const active =
+            href === "/" ? pathname === "/" : pathname.startsWith(href);
 
           return (
             <li key={href} className="flex-1">
@@ -50,11 +48,6 @@ export function BottomNav() {
                   strokeWidth={active ? 2.5 : 2}
                   aria-hidden
                 />
-                {href === "/cart" && cartCount > 0 && (
-                  <span className="absolute right-[22%] top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">
-                    {cartCount}
-                  </span>
-                )}
                 <span className="text-[11px] font-semibold tracking-wide">
                   {label}
                 </span>
@@ -65,4 +58,4 @@ export function BottomNav() {
       </ul>
     </nav>
   );
-}
+}	

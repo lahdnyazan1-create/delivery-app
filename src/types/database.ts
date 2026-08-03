@@ -103,3 +103,22 @@ export interface CartItem {
 }
 
 export type ActiveOrder = Order;
+export interface Category {
+  id: string;
+  label: string;
+  icon: string;
+  order: number;
+  visible: boolean;
+}
+
+export interface Banner {
+  id: string;
+  title: string;
+  subtitle?: string;
+  ctaText?: string;
+  ctaLink?: string;
+  gradient?: string;
+  imageUrl?: string;
+  order: number;
+  active: boolean;
+}

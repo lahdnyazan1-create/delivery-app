@@ -71,6 +71,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------------- categories ----------------
+    match /categories/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------------- banners ----------------
+    match /banners/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ---------------- orders ----------------
     match /orders/{orderId} {
       allow read: if isSignedIn()

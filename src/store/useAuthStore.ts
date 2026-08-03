@@ -16,9 +16,9 @@ interface AuthState {
   isAuthenticated: boolean;
   hasSeenOnboarding: boolean;
   loading: boolean;
+  authReady: boolean;
   error: string | null;
 
-  // Actions
   completePhoneLogin: (
     firebaseUser: FirebaseUser,
     fullName: string,
@@ -45,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       hasSeenOnboarding: false,
       loading: false,
+      authReady: false,
       error: null,
 
       completePhoneLogin: async (firebaseUser, fullName) => {
@@ -68,7 +69,12 @@ export const useAuthStore = create<AuthState>()(
             userData = newUser;
           }
 
-          set({ user: userData, isAuthenticated: true, error: null });
+          set({
+            user: userData,
+            isAuthenticated: true,
+            authReady: true,
+            error: null,
+          });
           return { ok: true, message: "تم تسجيل الدخول بنجاح" };
         } catch (error: any) {
           set({ error: error.message });
@@ -85,13 +91,17 @@ export const useAuthStore = create<AuthState>()(
                 set({
                   user: snap.data() as UserProfile,
                   isAuthenticated: true,
+                  authReady: true,
                 });
+              } else {
+                set({ user: null, isAuthenticated: false, authReady: true });
               }
             } catch (err) {
               console.error("Auth listener error:", err);
+              set({ authReady: true });
             }
           } else {
-            set({ user: null, isAuthenticated: false });
+            set({ user: null, isAuthenticated: false, authReady: true });
           }
         });
         return unsub;

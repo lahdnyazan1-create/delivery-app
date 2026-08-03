@@ -7,26 +7,16 @@ import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
   type ConfirmationResult,
+  type User as FirebaseUser,
 } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { AppShell } from "@/components/layout/AppShell";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { useAppStore } from "@/store/useAppStore";
 
-/**
- * تحويل رقم محلي إلى صيغة E.164
- * - يزيل المسافات والرموز
- * - يحتفظ بكود الدولة إذا كان موجوداً مسبقاً
- * - يضيف كود الدولة الافتراضي إذا لم يكن موجوداً
- */
 function toE164(localPhone: string, countryCode = "+970"): string {
   const digits = localPhone.replace(/[^\d+]/g, "");
-
-  // إذا كان الرقم يبدأ بـ +، نفترض أنه يحتوي على كود دولة
-  if (digits.startsWith("+")) {
-    return digits;
-  }
-
-  // إذا كان الرقم يبدأ بكود دولة بدون + (مثل 970)
+  if (digits.startsWith("+")) return digits;
   if (
     digits.startsWith("970") ||
     digits.startsWith("972") ||
@@ -34,8 +24,6 @@ function toE164(localPhone: string, countryCode = "+970"): string {
   ) {
     return `+${digits}`;
   }
-
-  // إزالة الصفر البادئ فقط إذا كان الرقم المحلي
   const withoutLeadingZero = digits.replace(/^0/, "");
   return `${countryCode}${withoutLeadingZero}`;
 }
@@ -46,7 +34,7 @@ function LoginForm() {
   const next = search.get("next") || "/profile";
   const { completePhoneLogin } = useAppStore();
 
-  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [step, setStep] = useState<"phone" | "otp" | "name">("phone");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -55,27 +43,43 @@ function LoginForm() {
 
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const pendingUserRef = useRef<FirebaseUser | null>(null);
 
   const ensureRecaptcha = () => {
     if (!recaptchaRef.current) {
       recaptchaRef.current = new RecaptchaVerifier(
         auth,
         "recaptcha-container",
-        {
-          size: "invisible",
-        },
+        { size: "invisible" },
       );
     }
     return recaptchaRef.current;
   };
 
+  const finishLogin = async (firebaseUser: FirebaseUser, name: string) => {
+    const result = await completePhoneLogin(firebaseUser, name);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    const allowedPaths = [
+      "/",
+      "/profile",
+      "/cart",
+      "/order-tracking",
+      "/admin",
+      "/driver",
+      "/restaurant",
+    ];
+    const safeNext = allowedPaths.some((p) => next.startsWith(p))
+      ? next
+      : "/profile";
+    router.replace(safeNext);
+  };
+
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!fullName.trim()) {
-      setError("الرجاء إدخال الاسم الكامل");
-      return;
-    }
     setLoading(true);
     try {
       const verifier = ensureRecaptcha();
@@ -109,29 +113,39 @@ function LoginForm() {
     setLoading(true);
     try {
       const credential = await confirmationRef.current.confirm(otp);
-      const result = await completePhoneLogin(credential.user, fullName);
-      if (!result.ok) {
-        setError(result.message);
-        return;
+
+      // ✅ هل هذا الحساب موجود مسبقاً؟ إن كان كذلك، لا داعٍ لسؤاله عن اسمه مجدداً
+      const existingSnap = await getDoc(doc(db, "users", credential.user.uid));
+      if (existingSnap.exists()) {
+        await finishLogin(credential.user, "");
+      } else {
+        pendingUserRef.current = credential.user;
+        setStep("name");
       }
-      // ✅ حماية من Open Redirect
-      const allowedPaths = [
-        "/",
-        "/profile",
-        "/cart",
-        "/order-tracking",
-        "/admin",
-        "/driver",
-        "/restaurant",
-      ];
-      const safeNext = allowedPaths.some((p) => next.startsWith(p))
-        ? next
-        : "/profile";
-      router.replace(safeNext);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "رمز التحقق غير صحيح";
       setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!fullName.trim()) {
+      setError("الرجاء إدخال الاسم الكامل");
+      return;
+    }
+    if (!pendingUserRef.current) {
+      setError("انتهت الجلسة، الرجاء البدء من جديد");
+      setStep("phone");
+      return;
+    }
+    setLoading(true);
+    try {
+      await finishLogin(pendingUserRef.current, fullName.trim());
     } finally {
       setLoading(false);
     }
@@ -149,27 +163,17 @@ function LoginForm() {
 
       <h1 className="text-2xl font-extrabold">تسجيل الدخول</h1>
       <p className="mt-1 text-sm text-foreground-muted">
-        {step === "phone"
-          ? "أدخل اسمك ورقم جوالك، وسنرسل لك رمز تحقق عبر رسالة نصية"
-          : `أدخل رمز التحقق المرسل إلى ${phone}`}
+        {step === "phone" &&
+          "أدخل رقم جوالك، وسنرسل لك رمز تحقق عبر رسالة نصية"}
+        {step === "otp" && `أدخل رمز التحقق المرسل إلى ${phone}`}
+        {step === "name" && "أهلاً بك لأول مرة! ما اسمك الكامل؟"}
       </p>
 
-      {step === "phone" ? (
+      {step === "phone" && (
         <form
           onSubmit={handleSendCode}
           className="glass mt-6 space-y-3 rounded-3xl p-5"
         >
-          <label className="block text-xs font-semibold text-foreground-muted">
-            الاسم الكامل
-            <input
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-glass-border bg-secondary px-3 py-3 text-sm text-foreground outline-none"
-              placeholder="مثال: يزيد اللهالي"
-              autoComplete="name"
-              required
-            />
-          </label>
           <label className="block text-xs font-semibold text-foreground-muted">
             رقم الجوال
             <input
@@ -179,6 +183,7 @@ function LoginForm() {
               placeholder="05XXXXXXXX"
               inputMode="tel"
               autoComplete="tel"
+              autoFocus
               required
             />
           </label>
@@ -191,7 +196,9 @@ function LoginForm() {
             {loading ? "جارِ الإرسال..." : "إرسال رمز التحقق"}
           </button>
         </form>
-      ) : (
+      )}
+
+      {step === "otp" && (
         <form
           onSubmit={handleVerifyCode}
           className="glass mt-6 space-y-3 rounded-3xl p-5"
@@ -226,6 +233,34 @@ function LoginForm() {
         </form>
       )}
 
+      {step === "name" && (
+        <form
+          onSubmit={handleSubmitName}
+          className="glass mt-6 space-y-3 rounded-3xl p-5"
+        >
+          <label className="block text-xs font-semibold text-foreground-muted">
+            الاسم الكامل
+            <input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="mt-1.5 w-full rounded-xl border border-glass-border bg-secondary px-3 py-3 text-sm text-foreground outline-none"
+              placeholder="مثال: يزيد اللهالي"
+              autoComplete="name"
+              autoFocus
+              required
+            />
+          </label>
+          {error && <p className="text-xs text-primary">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {loading ? "جارِ الحفظ..." : "متابعة"}
+          </button>
+        </form>
+      )}
+
       <div id="recaptcha-container" />
     </div>
   );
@@ -236,7 +271,9 @@ export default function LoginPage() {
     <AppShell hideNav hideHeader>
       <Suspense
         fallback={
-          <p className="pt-safe text-sm text-foreground-muted">Loading…</p>
+          <p className="pt-safe text-sm text-foreground-muted">
+            جارِ التحميل…
+          </p>
         }
       >
         <LoginForm />

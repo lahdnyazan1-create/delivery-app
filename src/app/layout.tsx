@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/layout/AppShell";
+import { AppInitializer } from "@/components/layout/AppInitializer";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { FloatingCartBar } from "@/components/checkout/FloatingCartBar";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -51,13 +53,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="ar"
-      dir="rtl"
-      className={`${cairo.variable} h-full antialiased`}
-    >
+    <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`}>
       <body className="min-h-full font-sans text-foreground">
-        <AppShell>{children}</AppShell>
+        <AppInitializer />
+        <OfflineBanner />
+        {children}
+        <FloatingCartBar />
       </body>
     </html>
   );

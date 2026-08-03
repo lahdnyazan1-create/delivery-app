@@ -12,10 +12,12 @@ interface RequireRoleProps {
 
 export function RequireRole({ children, role }: RequireRoleProps) {
   const router = useRouter();
-  const { user, isAuthenticated } = useAppStore();
+  const { user, isAuthenticated, authReady } = useAppStore();
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
+    if (!authReady) return; // ⏳ ما زلنا نتحقق من الجلسة المحفوظة، لا نقرر شيئاً بعد
+
     if (!isAuthenticated) {
       router.replace("/login");
     } else if (user?.role !== role) {
@@ -23,7 +25,7 @@ export function RequireRole({ children, role }: RequireRoleProps) {
     } else {
       setIsAuthorized(true);
     }
-  }, [user, isAuthenticated, role, router]);
+  }, [authReady, user, isAuthenticated, role, router]);
 
   if (!isAuthorized) {
     return (
