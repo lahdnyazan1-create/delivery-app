@@ -6,6 +6,7 @@ import { Search as SearchIcon } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { CategoriesGrid } from "@/components/home/CategoriesGrid";
 import { BannerCarousel } from "@/components/home/BannerCarousel";
+import { RestaurantShelf } from "@/components/home/RestaurantShelf";
 import { RestaurantCard } from "@/components/home/RestaurantCard";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -33,6 +34,27 @@ export default function HomePage() {
     });
   }, [restaurants, query]);
 
+  const featuredRestaurants = useMemo(
+    () => restaurants.filter((r) => r.active && r.promoTag),
+    [restaurants],
+  );
+
+  const topRated = useMemo(
+    () =>
+      [...restaurants]
+        .filter((r) => r.active)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 8),
+    [restaurants],
+  );
+
+  const freeDelivery = useMemo(
+    () => restaurants.filter((r) => r.active && r.deliveryFee === 0),
+    [restaurants],
+  );
+
+  const isSearching = query.trim().length > 0;
+
   return (
     <AppShell>
       <label className="glass mb-5 flex items-center gap-3 rounded-2xl px-3 py-2.5">
@@ -46,17 +68,43 @@ export default function HomePage() {
         />
       </label>
 
-      <div className="mb-6">
-        <BannerCarousel />
-      </div>
+      {!isSearching && (
+        <>
+          <div className="mb-6">
+            <BannerCarousel />
+          </div>
 
-      <div className="mb-6">
-        <CategoriesGrid limit={7} />
-      </div>
+          <div className="mb-6">
+            <CategoriesGrid limit={7} />
+          </div>
+
+          {featuredRestaurants.length > 0 && (
+            <div className="mb-6">
+              <RestaurantShelf title="🔥 وفّر معنا" restaurants={featuredRestaurants} />
+            </div>
+          )}
+
+          <div className="mb-6">
+            <RestaurantShelf
+              title="⭐ الأعلى تقييماً"
+              restaurants={topRated}
+              emptyHint="لا توجد مطاعم بعد"
+            />
+          </div>
+
+          {freeDelivery.length > 0 && (
+            <div className="mb-6">
+              <RestaurantShelf title="🚚 توصيل مجاني" restaurants={freeDelivery} />
+            </div>
+          )}
+        </>
+      )}
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">المطاعم المتاحة</h2>
+          <h2 className="text-lg font-bold text-foreground">
+            {isSearching ? "نتائج البحث" : "كل المطاعم"}
+          </h2>
           <span className="text-xs font-medium text-foreground-muted">
             {filteredRestaurants.length} مطعم
           </span>

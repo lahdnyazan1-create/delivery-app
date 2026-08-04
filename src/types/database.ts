@@ -26,6 +26,7 @@ export interface Restaurant {
   logoGradient?: string;
   image?: string;
   tagline?: string;
+  promoTag?: string | null; // مثال: "خصم 10%" — يظهر في قسم "وفّر معنا" بالرئيسية عند تعبئته
   address?: string;
   active: boolean;
   createdAt?: number;
@@ -59,7 +60,13 @@ export interface Driver {
 }
 
 export type OrderStatus =
-  "Pending" | "Preparing" | "Ready" | "OutForDelivery" | "Delivered" | "Cancelled";
+  | "Pending"
+  | "Preparing"
+  | "Ready"
+  | "OutForDelivery"
+  | "Delivered"
+  | "Cancelled";
+
 export interface OrderItem {
   dishId?: string;
   id?: string;
@@ -103,6 +110,7 @@ export interface CartItem {
 }
 
 export type ActiveOrder = Order;
+
 export interface Category {
   id: string;
   label: string;

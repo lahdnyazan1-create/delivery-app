@@ -66,6 +66,17 @@ function AdminDashboardContent() {
   const [ownerMsg, setOwnerMsg] = useState("");
   const [ownerBusy, setOwnerBusy] = useState(false);
 
+  const [promoDrafts, setPromoDrafts] = useState<Record<string, string>>({});
+
+  const handleSavePromoTag = async (id: string) => {
+    const value = (promoDrafts[id] ?? "").trim();
+    try {
+      await updateRestaurantFirestore(id, { promoTag: value || null });
+    } catch (error) {
+      console.error("Failed to update promo tag", error);
+    }
+  };
+
   const handleAddRestaurant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!restForm.name) return;
@@ -471,6 +482,30 @@ function AdminDashboardContent() {
                       <span className="text-danger">غير مرتبط بعد</span>
                     )}
                   </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={promoDrafts[rest.id] ?? rest.promoTag ?? ""}
+                      onChange={(e) =>
+                        setPromoDrafts({
+                          ...promoDrafts,
+                          [rest.id]: e.target.value,
+                        })
+                      }
+                      placeholder="مثال: خصم 10% — اتركه فارغاً للإخفاء"
+                      className="w-full rounded-lg border border-glass-border bg-secondary px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSavePromoTag(rest.id)}
+                      className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white"
+                    >
+                      حفظ
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[10px] text-foreground-muted">
+                    يظهر في قسم &quot;وفّر معنا&quot; بالرئيسية عند تعبئته
+                  </p>
                 </div>
               ))}
             </div>
@@ -486,7 +521,7 @@ function AdminDashboardContent() {
             </h2>
             <p className="mb-4 text-xs text-foreground-muted">
               يجب أن يكون المستخدم قد سجّل دخول مرة واحدة على الأقل. انسخ
-              معرّفه (UID) من Firebase Console → Authentication.
+              معرّفه (UID) من Firebase Console ← Authentication.
             </p>
             <form onSubmit={handleLinkDriver} className="space-y-4">
               <div>
