@@ -119,7 +119,7 @@ export default function CartPage() {
         <>
           <ul className="mb-5 space-y-3">
             <AnimatePresence initial={false}>
-              {visibleCart.map((item) => {
+              {visibleCart.map((item: any) => {
                 const dish = getDish(item.dishId)!;
                 return (
                   <motion.li
