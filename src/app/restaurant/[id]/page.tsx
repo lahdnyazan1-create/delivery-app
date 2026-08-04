@@ -13,8 +13,7 @@ export default function RestaurantMenuPage() {
   const id = params?.id as string;
 
   const { getRestaurant, getDishesByRestaurant, cart } = useAppStore();
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-
+  const cartCount = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
   const restaurant = getRestaurant(id);
   const menu = getDishesByRestaurant(id);
 
