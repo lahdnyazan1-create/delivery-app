@@ -1,5 +1,11 @@
+// src/store/useDataStore.ts
+// ============================================================================
+// التعديل: إضافة اشتراك real-time بمجموعة zones (مطلوبة الآن لاختيار منطقة
+// التوصيل في شاشة السلة قبل إتمام الطلب).
+// ============================================================================
+
 import { create } from "zustand";
-import { Restaurant, Dish, Driver, PromoCode, Category, Banner } from "@/types/database";
+import { Restaurant, Dish, Driver, PromoCode, Category, Banner, Zone } from "@/types/database";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -18,6 +24,7 @@ interface DataState {
   promoCodes: PromoCode[];
   categories: Category[];
   banners: Banner[];
+  zones: Zone[];
   loading: boolean;
   error: string | null;
   _unsubs: Unsubscribe[];
@@ -27,6 +34,7 @@ interface DataState {
   getRestaurant: (id: string) => Restaurant | undefined;
   getDish: (dishId: string) => Dish | undefined;
   getDishesByRestaurant: (restaurantId: string) => Dish[];
+  getZone: (zoneId: string) => Zone | undefined;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -36,6 +44,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   promoCodes: [],
   categories: [],
   banners: [],
+  zones: [],
   loading: false,
   error: null,
   _unsubs: [],
@@ -128,6 +137,23 @@ export const useDataStore = create<DataState>((set, get) => ({
         ),
       );
 
+      // ✅ جديد — كل المناطق مرتبة بالاسم (نفلتر active==true بجهة العميل
+      // لتفادي الحاجة لفهرس مركّب where+orderBy غير معرّف في
+      // firestore.indexes.json الحالي؛ عدد المناطق عادة صغير فلا مشكلة أداء)
+      const zonesQuery = query(collection(db, "zones"), orderBy("name", "asc"));
+      unsubs.push(
+        onSnapshot(
+          zonesQuery,
+          (snapshot) => {
+            const zones = snapshot.docs
+              .map((doc) => ({ id: doc.id, ...doc.data() }) as Zone)
+              .filter((z) => z.active);
+            set({ zones });
+          },
+          (err) => console.error("Zones listener error:", err),
+        ),
+      );
+
       set({ _unsubs: unsubs });
     } catch (error: any) {
       set({ error: error.message, loading: false });
@@ -138,4 +164,5 @@ export const useDataStore = create<DataState>((set, get) => ({
   getDish: (dishId) => get().dishes.find((d) => d.id === dishId),
   getDishesByRestaurant: (restaurantId) =>
     get().dishes.filter((d) => d.restaurantId === restaurantId),
+  getZone: (zoneId) => get().zones.find((z) => z.id === zoneId),
 }));

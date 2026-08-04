@@ -1,3 +1,15 @@
+// src/app/driver/page.tsx
+// ============================================================================
+// التعديلات:
+// - ✅ claimOrder و updateOrderStatus يمرّان الآن عبر src/lib/orders.ts
+//   (Cloud Functions) بدل الكتابة المباشرة على Firestore.
+// - ✅ استُبدل الـ <select> الذي كان يعرض كل الحالات الست بزر واحد "تم التسليم"،
+//   لأن المندوب لا يملك صلاحياً سوى الانتقال Out For Delivery -> Delivered
+//   (يُفرض هذا الآن من السيرفر عبر STATUS_TRANSITIONS، فلا داعي لعرض خيارات
+//   ستُرفض على أي حال).
+// - ✅ يعرض العنوان من deliveryAddressDetails بدل الحقل القديم deliveryAddress.
+// ============================================================================
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -11,20 +23,26 @@ import {
   PackageCheck,
   ChevronDown,
   ChevronUp,
+  Wallet,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { useAppStore } from "@/store/useAppStore";
-import { ORDER_STATUSES } from "@/constants/orderStatuses";
-import type { OrderStatus } from "@/types/database";
 import { formatPrice } from "@/constants/currency";
 
 function DriverDashboardContent() {
   const router = useRouter();
-  const { orders, updateOrderStatus, claimOrder, drivers, user, logoutUser } =
-    useAppStore();
+  const {
+    orders,
+    updateOrderStatus,
+    claimOrder,
+    drivers,
+    user,
+    logoutUser,
+  } = useAppStore();
   const [tab, setTab] = useState<"my-orders" | "available">("my-orders");
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [delivering, setDelivering] = useState<string | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const currentDriver = useMemo(
@@ -43,29 +61,30 @@ function DriverDashboardContent() {
     [orders, user],
   );
 
-  // تم تعديل مطابقة الحالات للتوافق مع OrderStatus (تأكد سواء كانت أرقام/حروف كبيرة أو صغيرة)
+  // ✅ الطلبات المتاحة للاستلام هي فقط تلك بحالة "Ready" بدون مندوب —
+  // (Pending/Preparing لم تعد متاحة للاستلام أصلاً لأن السيرفر يرفضها الآن)
   const availableOrders = useMemo(
-    () =>
-      orders.filter(
-        (o) =>
-          !o.courierId &&
-          (o.status === "Ready" ||
-            o.status === "Preparing" ||
-            o.status === "Pending"),
-      ),
+    () => orders.filter((o) => !o.courierId && o.status === "Ready"),
     [orders],
   );
 
   const handleClaim = async (orderId: string) => {
     if (!user) return;
     setClaiming(orderId);
-
     const result = await claimOrder(orderId);
-
     setClaiming(null);
     if (result?.ok) {
       setTab("my-orders");
     } else if (result?.message) {
+      alert(result.message);
+    }
+  };
+
+  const handleMarkDelivered = async (orderId: string) => {
+    setDelivering(orderId);
+    const result = await updateOrderStatus(orderId, "Delivered");
+    setDelivering(null);
+    if (!result.ok && result.message) {
       alert(result.message);
     }
   };
@@ -172,10 +191,29 @@ function DriverDashboardContent() {
                   </div>
                 </div>
 
+                {/* شارة طريقة الدفع — مهمة للمندوب ليعرف إن كان سيقبض كاش */}
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                      order.paymentMethod === "CASH"
+                        ? "bg-amber-500/15 text-amber-500"
+                        : "bg-emerald-500/15 text-emerald-500"
+                    }`}
+                  >
+                    <Wallet className="size-3" />
+                    {order.paymentMethod === "CASH"
+                      ? "الدفع كاش عند الاستلام"
+                      : "مدفوع مسبقاً"}
+                  </span>
+                </div>
+
                 <div className="flex items-start gap-2 text-xs text-foreground-muted">
                   <MapPin className="size-4 shrink-0 text-primary mt-0.5" />
                   <span>
-                    عنوان التوصيل: {order.deliveryAddress || "غير محدد"}
+                    عنوان التوصيل:{" "}
+                    {order.deliveryAddressDetails ||
+                      order.deliveryAddress ||
+                      "غير محدد"}
                   </span>
                 </div>
 
@@ -228,26 +266,24 @@ function DriverDashboardContent() {
                       : "استلام الطلب"}
                   </button>
                 ) : (
-                  <div className="border-t border-glass-border pt-3 flex items-center justify-between gap-2">
-                    <span className="text-xs text-foreground-muted font-bold">
-                      تحديث الحالة:
-                    </span>
-                    <select
-                      value={order.status}
-                      onChange={(e) =>
-                        updateOrderStatus(
-                          order.id,
-                          e.target.value as OrderStatus,
-                        )
-                      }
-                      className="rounded-xl border border-glass-border bg-secondary px-3 py-1.5 text-xs font-bold outline-none text-primary"
-                    >
-                      {ORDER_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="border-t border-glass-border pt-3">
+                    {order.status === "OutForDelivery" ? (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkDelivered(order.id)}
+                        disabled={delivering === order.id}
+                        className="no-select touch-target w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+                      >
+                        <CheckCircle2 className="size-4" />
+                        {delivering === order.id
+                          ? "جارِ التحديث..."
+                          : "تم التسليم"}
+                      </button>
+                    ) : (
+                      <p className="text-center text-xs text-foreground-muted">
+                        الحالة الحالية: {order.status}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

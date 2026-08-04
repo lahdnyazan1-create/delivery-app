@@ -1,3 +1,12 @@
+// src/store/useAppStore.ts
+// ============================================================================
+// التعديل: placeOrder يقرأ zoneId + deliveryAddressDetails تلقائياً من
+// useCartStore (بدل تمريرهما يدوياً بكل استدعاء)، تماشياً مع الشكل الأصلي
+// البسيط الذي كانت تستخدمه شاشة السلة (placeOrder() بدون معطيات).
+// تم أيضاً تعريض zones + selectedZoneId + setSelectedZoneId +
+// deliveryAddressDetails + setDeliveryAddressDetails لاستخدامها في الواجهة.
+// ============================================================================
+
 import { useAuthStore } from "./useAuthStore";
 import { useDataStore } from "./useDataStore";
 import { useCartStore } from "./useCartStore";
@@ -6,7 +15,7 @@ import {
   addRestaurant as addRestaurantFirestore,
   toggleRestaurantActive as toggleRestaurantActiveFirestore,
 } from "@/lib/firestore";
-import { Restaurant } from "@/types/database";
+import { Restaurant, PaymentMethod } from "@/types/database";
 
 export { useAuthStore, useDataStore, useCartStore, useOrderStore };
 
@@ -34,6 +43,7 @@ export const useAppStore = () => {
     dishes: data.dishes,
     drivers: data.drivers,
     promoCodes: data.promoCodes,
+    zones: data.zones,
     loading: data.loading || auth.loading,
     error: data.error || auth.error,
     loadInitialData: data.loadInitialData,
@@ -41,11 +51,16 @@ export const useAppStore = () => {
     getRestaurant: data.getRestaurant,
     getDish: data.getDish,
     getDishesByRestaurant: data.getDishesByRestaurant,
+    getZone: data.getZone,
 
     // Cart Module
     cart: cart.cart,
     cartRestaurantId: cart.cartRestaurantId,
     appliedPromo: cart.appliedPromo,
+    selectedZoneId: cart.selectedZoneId,
+    deliveryAddressDetails: cart.deliveryAddressDetails,
+    setSelectedZoneId: cart.setSelectedZoneId,
+    setDeliveryAddressDetails: cart.setDeliveryAddressDetails,
     addToCart: cart.addToCart,
     removeFromCart: cart.removeFromCart,
     updateQuantity: cart.updateQuantity,
@@ -59,26 +74,40 @@ export const useAppStore = () => {
     activeOrder: order.activeOrder,
     subscribeToOrders: order.subscribeToOrders,
     unsubscribeFromOrders: order.unsubscribeFromOrders,
-    placeOrder: async () => {
-      // ✅ إصلاح حرج: order.placeOrder ترجع كائن {ok, orderId, message}
-      // الكود القديم كان يتحقق من صحة الكائن نفسه (صحيح دائماً) بدل .ok
-      // فكان يُفرّغ السلة حتى عند فشل الطلب فعلياً
-      const result = await order.placeOrder(
-        cart.cart,
-        cart.cartRestaurantId,
-        cart.appliedPromo,
-        auth.user?.uid || "",
-      );
+
+    /**
+     * ✅ يقرأ zoneId وdeliveryAddressDetails تلقائياً من useCartStore
+     * (اختارهما المستخدم مسبقاً في شاشة السلة عبر setSelectedZoneId /
+     * setDeliveryAddressDetails). يمكن تمرير paymentMethod اختيارياً فقط.
+     */
+    placeOrder: async (paymentMethod?: PaymentMethod) => {
+      const { selectedZoneId, deliveryAddressDetails } = cart;
+
+      if (!selectedZoneId) {
+        return { ok: false, message: "يرجى اختيار منطقة التوصيل" };
+      }
+      if (!deliveryAddressDetails || deliveryAddressDetails.trim().length < 3) {
+        return { ok: false, message: "يرجى إدخال تفاصيل عنوان التوصيل" };
+      }
+
+      const result = await order.placeOrder({
+        cart: cart.cart,
+        restaurantId: cart.cartRestaurantId,
+        promoCode: cart.appliedPromo,
+        zoneId: selectedZoneId,
+        deliveryAddressDetails,
+        paymentMethod,
+      });
       if (result.ok) {
         cart.clearCart();
       }
       return result;
     },
+
     updateOrderStatus: order.updateOrderStatus,
-    claimOrder: (orderId: string) =>
-      order.claimOrder(orderId, auth.user?.uid || "", auth.user?.role || ""),
+    claimOrder: (orderId: string) => order.claimOrder(orderId),
     assignDriverToOrder: (orderId: string, driverId: string) =>
-      order.assignDriverToOrder(orderId, driverId, data.drivers),
+      order.assignDriverToOrder(orderId, driverId),
     setActiveOrder: order.setActiveOrder,
     updateActiveOrderStatus: order.updateActiveOrderStatus,
 

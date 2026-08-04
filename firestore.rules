@@ -83,6 +83,36 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------------- zones (جديد) ----------------
+    // قراءة عامة لأن العميل يحتاج عرض قائمة المناطق ورسومها عند الطلب.
+    // الكتابة (إنشاء/تعديل رسوم منطقة) للإدارة فقط.
+    match /zones/{zoneId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------------- driverWallets (جديد) ----------------
+    // المندوب يقرأ محفظته فقط، الإدارة تقرأ الكل.
+    // لا كتابة من العميل إطلاقاً — التحديث فقط عبر updateOrderStatus/settleDriverCash
+    // اللتين تعملان بصلاحيات Admin SDK وتتجاوزان هذه القواعد.
+    match /driverWallets/{driverId} {
+      allow read: if isSignedIn() && (request.auth.uid == driverId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // ---------------- notifications (جديد) ----------------
+    // تُنشأ فقط من onOrderStatusChanged (Admin SDK). العميل يقرأ إشعاراته فقط
+    // ويستطيع تعليمها كمقروءة (تحديث حقل read فقط).
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn()
+                  && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if false;
+      allow update: if isSignedIn()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAdmin();
+    }
+
     // ---------------- orders ----------------
     match /orders/{orderId} {
       allow read: if isSignedIn()
@@ -92,21 +122,18 @@ service cloud.firestore {
                                           || resource.data.courierId == null))
                       || isRestaurantOwner(resource.data.restaurantId));
 
+      // الإنشاء حصراً عبر placeOrder (Admin SDK)
       allow create: if false;
 
+      // ✅ تم إغلاق تعديل status/courierId من العميل بالكامل.
+      // كل انتقالات الحالة (قبول/تحضير/جاهز/استلام/تسليم/إلغاء) تمر إلزامياً
+      // عبر updateOrderStatus Cloud Function التي تفرض State Machine وتتحقق
+      // من الصلاحيات، وتكتب بصلاحيات Admin SDK (تتجاوز هذه القواعد أصلاً).
+      // ما تبقّى مسموحاً به هنا هو فقط تعديلات هامشية لا تمس دورة حياة الطلب.
       allow update: if isAdmin()
-                    || (isCourier()
-                        && resource.data.courierId == null
-                        && request.resource.data.courierId == request.auth.uid
-                        && request.resource.data.diff(resource.data)
-                             .affectedKeys().hasOnly(['courierId', 'status', 'updatedAt']))
-                    || (isCourier()
-                        && resource.data.courierId == request.auth.uid
-                        && request.resource.data.diff(resource.data)
-                             .affectedKeys().hasOnly(['status', 'updatedAt']))
                     || (isRestaurantOwner(resource.data.restaurantId)
                         && request.resource.data.diff(resource.data)
-                             .affectedKeys().hasOnly(['status', 'updatedAt']));
+                             .affectedKeys().hasOnly(['etaMinutes', 'updatedAt']));
 
       allow delete: if isAdmin();
     }

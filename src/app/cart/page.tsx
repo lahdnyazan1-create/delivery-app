@@ -1,8 +1,18 @@
+// src/app/cart/page.tsx
+// ============================================================================
+// التعديلات:
+// - ✅ إضافة قسم "اختيار منطقة التوصيل" (zones) — يحدد رسوم التوصيل الفعلية.
+// - ✅ استبدال الاعتماد على user.address بحقل deliveryAddressDetails حر
+//   (تفاصيل العنوان لهذا الطلب تحديداً: شارع/مبنى/طابق...).
+// - ✅ canCheckout الآن يتطلب أيضاً اختيار منطقة وإدخال تفاصيل عنوان صحيحة.
+// - ✅ placeOrder() لم يعد يحتاج معطيات (يقرأها من useCartStore تلقائياً).
+// ============================================================================
+
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Minus, Plus, Trash2, MapPin } from "lucide-react";
+import { Minus, Plus, Trash2, MapPin, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/layout/AppShell";
 import { ScratchCard } from "@/components/promo/ScratchCard";
@@ -24,6 +34,11 @@ export default function CartPage() {
     applyPromo,
     placeOrder,
     getCartTotal,
+    zones,
+    selectedZoneId,
+    setSelectedZoneId,
+    deliveryAddressDetails,
+    setDeliveryAddressDetails,
   } = useAppStore();
 
   const { subtotal, discount, deliveryFee, total } = getCartTotal();
@@ -33,9 +48,19 @@ export default function CartPage() {
   const [checkoutError, setCheckoutError] = useState("");
 
   const isAuthenticated = Boolean(user);
-  const hasLocation = Boolean(user && user.address?.trim());
+
+  // ✅ إن لم تُختر منطقة بعد ووُجدت مناطق متاحة، اختر أول منطقة تلقائياً
+  // لتسهيل التجربة (المستخدم يقدر يغيّرها من القائمة بأي وقت).
+  useEffect(() => {
+    if (!selectedZoneId && zones.length > 0) {
+      setSelectedZoneId(zones[0].id);
+    }
+  }, [zones, selectedZoneId, setSelectedZoneId]);
+
+  const hasZone = Boolean(selectedZoneId);
+  const hasAddressDetails = Boolean(deliveryAddressDetails.trim().length >= 3);
   const canCheckout = Boolean(
-    isAuthenticated && hasLocation && cart.length > 0,
+    isAuthenticated && hasZone && hasAddressDetails && cart.length > 0,
   );
   const cartRestaurant = getRestaurant(cartRestaurantId || "");
 
@@ -51,6 +76,14 @@ export default function CartPage() {
   };
 
   const visibleCart = cart.filter((item) => getDish(item.dishId));
+
+  const checkoutLabel = !isAuthenticated
+    ? "يتطلب تسجيل الدخول"
+    : !hasZone
+      ? "اختر منطقة التوصيل"
+      : !hasAddressDetails
+        ? "أضف تفاصيل العنوان"
+        : "اسحب لتأكيد الطلب";
 
   return (
     <AppShell>
@@ -122,7 +155,6 @@ export default function CartPage() {
                           <Trash2 className="size-4" />
                         </button>
                       </div>
-                      {/* ✅ Touch targets 44px */}
                       <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/5 p-1">
                         <button
                           type="button"
@@ -155,11 +187,13 @@ export default function CartPage() {
             </AnimatePresence>
           </ul>
 
+          {/* ✅ قسم اختيار منطقة التوصيل + تفاصيل العنوان (جديد بالكامل) */}
           <div className="glass mb-5 rounded-3xl p-4" dir="rtl">
-            <div className="mb-2 flex items-center gap-2">
+            <div className="mb-3 flex items-center gap-2">
               <MapPin className="size-4 text-primary" />
-              <p className="text-sm font-bold">عنوان التوصيل</p>
+              <p className="text-sm font-bold">التوصيل</p>
             </div>
+
             {!isAuthenticated ? (
               <button
                 type="button"
@@ -170,23 +204,46 @@ export default function CartPage() {
               </button>
             ) : (
               <>
-                <p className="text-sm text-foreground">
-                  {user?.address || "لم يتم تحديد عنوان"}
+                <p className="mb-2 text-xs font-bold text-foreground-muted">
+                  اختر منطقتك
                 </p>
-                {user?.lat != null && (
-                  <p className="mt-1 text-xs text-foreground-muted">
-                    GPS: {user.lat.toFixed(5)}, {user.lng?.toFixed(5)}
+                {zones.length === 0 ? (
+                  <p className="rounded-xl bg-secondary px-3 py-2.5 text-xs text-foreground-muted">
+                    لا توجد مناطق توصيل متاحة حالياً، حاول لاحقاً.
                   </p>
+                ) : (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {zones.map((zone) => {
+                      const isSelected = selectedZoneId === zone.id;
+                      return (
+                        <button
+                          key={zone.id}
+                          type="button"
+                          onClick={() => setSelectedZoneId(zone.id)}
+                          className={`no-select touch-target flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
+                            isSelected
+                              ? "bg-primary text-white"
+                              : "bg-secondary text-foreground-muted"
+                          }`}
+                        >
+                          {isSelected && <Check className="size-3.5" />}
+                          {zone.name} — {formatPrice(zone.deliveryFee)}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-                {!hasLocation && (
-                  <button
-                    type="button"
-                    onClick={() => router.push("/profile")}
-                    className="no-select touch-target mt-3 w-full rounded-xl bg-primary/15 py-3 text-sm font-bold text-primary"
-                  >
-                    أضف عنوان التوصيل من الملف الشخصي
-                  </button>
-                )}
+
+                <p className="mb-2 text-xs font-bold text-foreground-muted">
+                  تفاصيل العنوان (اسم الشارع، رقم المبنى، الطابق...)
+                </p>
+                <textarea
+                  value={deliveryAddressDetails}
+                  onChange={(e) => setDeliveryAddressDetails(e.target.value)}
+                  placeholder="مثال: شارع رفيديا، عمارة الأمل، طابق 2"
+                  rows={2}
+                  className="w-full resize-none rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none placeholder:text-foreground-muted/60"
+                />
               </>
             )}
           </div>
@@ -248,13 +305,7 @@ export default function CartPage() {
 
           <SwipeButton
             disabled={!canCheckout}
-            label={
-              !isAuthenticated
-                ? "يتطلب تسجيل الدخول"
-                : !hasLocation
-                  ? "أضف عنوان التوصيل"
-                  : "اسحب لتأكيد الطلب"
-            }
+            label={checkoutLabel}
             onConfirm={handleConfirm}
           />
         </>

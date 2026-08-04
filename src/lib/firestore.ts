@@ -1,3 +1,13 @@
+// src/lib/firestore.ts
+// ============================================================================
+// التعديلات:
+// - ✅ حُذفت updateOrderStatus() القديمة (كانت تكتب status مباشرة على Firestore
+//   عبر updateDoc). كل تغييرات الحالة الآن تمر حصراً عبر src/lib/orders.ts
+//   الذي يستدعي updateOrderStatus Cloud Function.
+// - ✅ أُضيفت subscribeRestaurantOrders() لدعم لوحة الفيندور الجديدة
+//   (app/vendor/page.tsx) — تشترك فقط بطلبات مطعم واحد.
+// ============================================================================
+
 import { db } from "./firebase";
 import {
   collection,
@@ -18,7 +28,6 @@ import {
   Dish,
   Driver,
   Order,
-  OrderStatus,
   PromoCode,
   UserProfile,
 } from "@/types/database";
@@ -47,23 +56,8 @@ export const fetchPromoCodes = async (): Promise<PromoCode[]> => {
   );
 };
 
-export const updateOrderStatus = async (
-  orderId: string,
-  status: OrderStatus,
-): Promise<{ success: boolean }> => {
-  try {
-    const ref = doc(db, "orders", orderId);
-    await updateDoc(ref, { status, updatedAt: serverTimestamp() });
-    return { success: true };
-  } catch (error) {
-    console.error("Error updating order status:", error);
-    return { success: false };
-  }
-};
-
 /**
  * ✅ مقيدة بالمستخدم — تجلب فقط طلبات المستخدم المسجل
- * تُرجع دالة إلغاء الاشتراك (unsubscribe) لتنظيف الموارد
  */
 export const subscribeOrders = (
   userId: string,
@@ -118,6 +112,41 @@ export const subscribeAllOrders = (
     },
     (error) => {
       console.error("All orders subscription error:", error);
+      callback([]);
+    },
+  );
+};
+
+/**
+ * ✅ جديد — اشتراك خاص بلوحة الفيندور: يجلب فقط طلبات مطعم واحد.
+ * القاعدة الأمنية (isRestaurantOwner) تتحقق من كل مستند على حدة، لذا هذا
+ * الاستعلام آمن طالما restaurantId يخص مطعم المستخدم الحالي فعلياً.
+ */
+export const subscribeRestaurantOrders = (
+  restaurantId: string,
+  callback: (orders: Order[]) => void,
+): Unsubscribe => {
+  const q = query(
+    collection(db, "orders"),
+    where("restaurantId", "==", restaurantId),
+    orderBy("createdAt", "desc"),
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const orders = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toMillis?.() || data.createdAt,
+          updatedAt: data.updatedAt?.toMillis?.() || data.updatedAt,
+        } as Order;
+      });
+      callback(orders);
+    },
+    (error) => {
+      console.error("Restaurant orders subscription error:", error);
       callback([]);
     },
   );
@@ -182,7 +211,6 @@ export const setUserRole = async (
 };
 
 // ✅ إنشاء/تحديث بروفايل سائق بمعرّف مطابق تماماً لـ uid حساب المستخدم
-// (ضروري لأن driver/page.tsx يبحث عن drivers/{uid} وليس معرّفاً عشوائياً)
 export const upsertDriverProfile = async (
   uid: string,
   driver: Omit<Driver, "id">,

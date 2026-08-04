@@ -1,3 +1,4 @@
+// src/components/layout/AppShell.tsx
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -21,12 +22,14 @@ export function AppShell({
     hideHeader ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/driver") ||
+    pathname.startsWith("/vendor") ||
     pathname.startsWith("/restaurant");
 
   const shouldHideNav =
     hideNav ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/driver") ||
+    pathname.startsWith("/vendor") ||
     pathname.startsWith("/restaurant");
 
   return (
@@ -43,3 +46,4 @@ export function AppShell({
     </div>
   );
 }
+
