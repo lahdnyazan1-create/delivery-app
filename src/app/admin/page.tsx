@@ -14,6 +14,7 @@ import {
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   Pending: "قيد الانتظار",
+  Accepted: "تم القبول",
   Preparing: "قيد التحضير",
   Ready: "جاهز للتوصيل",
   OutForDelivery: "خرج للتوصيل",
