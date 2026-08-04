@@ -75,7 +75,7 @@ export default function CartPage() {
     return true;
   };
 
-  const visibleCart = cart.filter((item) => getDish(item.dishId));
+  const visibleCart = cart.filter((item: any) => getDish(item.dishId));
 
   const checkoutLabel = !isAuthenticated
     ? "يتطلب تسجيل الدخول"
