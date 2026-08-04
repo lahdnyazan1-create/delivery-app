@@ -28,7 +28,7 @@ export default function ProfilePage() {
   const ownedRestaurant = user
     ? restaurants.find((r) => r.ownerId === user.uid)
     : null;
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartCount = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
   const [draftAddress, setDraftAddress] = useState<string | null>(null);
   const [geoMsg, setGeoMsg] = useState("");
   const address = draftAddress ?? user?.address ?? "";
