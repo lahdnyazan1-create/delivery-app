@@ -117,8 +117,8 @@ export const useAppStore = () => {
       return result;
     },
 
-    addDish: order.addDish,
-    updateDish: order.updateDish,
+    addDish: (order as any).addDish,
+    updateDish: (order as any).updateDish,
     updateOrderStatus: order.updateOrderStatus,
     claimOrder: (orderId: string) => order.claimOrder(orderId),
     assignDriverToOrder: (orderId: string, driverId: string) =>
