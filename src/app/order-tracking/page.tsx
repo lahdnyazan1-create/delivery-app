@@ -19,6 +19,7 @@ const STEPS: OrderStatus[] = [
 
 const STEP_LABELS: Record<OrderStatus, string> = {
   Pending: "قيد الانتظار",
+  Accepted: "تم القبول",
   Preparing: "قيد التحضير",
   Ready: "جاهز للتوصيل",
   OutForDelivery: "في الطريق إليك",
