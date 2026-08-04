@@ -1,11 +1,10 @@
 // src/lib/firestore.ts
 // ============================================================================
-// التعديلات:
-// - ✅ حُذفت updateOrderStatus() القديمة (كانت تكتب status مباشرة على Firestore
-//   عبر updateDoc). كل تغييرات الحالة الآن تمر حصراً عبر src/lib/orders.ts
-//   الذي يستدعي updateOrderStatus Cloud Function.
-// - ✅ أُضيفت subscribeRestaurantOrders() لدعم لوحة الفيندور الجديدة
-//   (app/vendor/page.tsx) — تشترك فقط بطلبات مطعم واحد.
+// التعديلات (تراكمية):
+// - ✅ حُذفت updateOrderStatus() القديمة — كل تغيير حالة يمر عبر lib/orders.ts
+// - ✅ subscribeRestaurantOrders() للوحة الفيندور
+// - ✅ جديد: addZone / updateZone / fetchAllZones لإدارة مناطق التوصيل من الأدمن
+// - ✅ جديد: fetchDriverWallets لعرض أرصدة كاش المندوبين بلوحة الأدمن
 // ============================================================================
 
 import { db } from "./firebase";
@@ -30,6 +29,8 @@ import {
   Order,
   PromoCode,
   UserProfile,
+  Zone,
+  DriverWallet,
 } from "@/types/database";
 
 export const fetchRestaurants = async (): Promise<Restaurant[]> => {
@@ -118,9 +119,7 @@ export const subscribeAllOrders = (
 };
 
 /**
- * ✅ جديد — اشتراك خاص بلوحة الفيندور: يجلب فقط طلبات مطعم واحد.
- * القاعدة الأمنية (isRestaurantOwner) تتحقق من كل مستند على حدة، لذا هذا
- * الاستعلام آمن طالما restaurantId يخص مطعم المستخدم الحالي فعلياً.
+ * ✅ اشتراك خاص بلوحة الفيندور: يجلب فقط طلبات مطعم واحد.
  */
 export const subscribeRestaurantOrders = (
   restaurantId: string,
@@ -226,4 +225,49 @@ export const updateRestaurant = async (
 ) => {
   const ref = doc(db, "restaurants", restaurantId);
   await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+};
+
+// ----------------------------------------------------------------------------
+// ✅ جديد — Zones (مناطق التوصيل)
+// ----------------------------------------------------------------------------
+
+/** يجلب كل المناطق (فعّالة وغير فعّالة) — لعرضها وإدارتها بلوحة الأدمن */
+export const fetchAllZones = async (): Promise<Zone[]> => {
+  const snapshot = await getDocs(collection(db, "zones"));
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Zone);
+};
+
+export const addZone = async (
+  zone: Omit<Zone, "id" | "createdAt" | "updatedAt">,
+): Promise<string> => {
+  const ref = await addDoc(collection(db, "zones"), {
+    ...zone,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const updateZone = async (
+  zoneId: string,
+  data: Partial<Omit<Zone, "id">>,
+) => {
+  const ref = doc(db, "zones", zoneId);
+  await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+};
+
+export const toggleZoneActive = async (zoneId: string, active: boolean) => {
+  await updateZone(zoneId, { active });
+};
+
+// ----------------------------------------------------------------------------
+// ✅ جديد — Driver Wallets (محافظ كاش المندوبين)
+// ----------------------------------------------------------------------------
+
+/** يجلب كل محافظ المندوبين مرة واحدة — تُستخدم بلوحة الأدمن لعرض الأرصدة */
+export const fetchDriverWallets = async (): Promise<DriverWallet[]> => {
+  const snapshot = await getDocs(collection(db, "driverWallets"));
+  return snapshot.docs.map(
+    (doc) => ({ driverId: doc.id, ...doc.data() }) as DriverWallet,
+  );
 };

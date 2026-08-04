@@ -1,8 +1,19 @@
+// src/app/admin/page.tsx
+// ============================================================================
+// التعديلات:
+// - ✅ STATUS_LABELS أصبحت تغطي "Accepted" أيضاً (كانت ناقصة فتسبب خطأ عرض)
+// - ✅ عرض deliveryAddressDetails بدل deliveryAddress المهجور + شارة طريقة الدفع
+// - ✅ "ربط مالك مطعم" صار يضبط role="vendor" تلقائياً (كان يربط ownerId فقط
+//   بدون ترقية الدور، فكانت لوحة /vendor ترفض دخوله لأنها تتحقق من الدور)
+// - ✅ تبويب "مناطق التوصيل" جديد بالكامل — إضافة/تعديل رسوم/تفعيل وتعطيل
+// - ✅ قسم جديد بتبويب "الوصول والفرق" لعرض وتسوية محافظ كاش المندوبين
+// ============================================================================
+
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { Restaurant, OrderStatus } from "@/types/database";
+import { Restaurant, OrderStatus, Zone, DriverWallet } from "@/types/database";
 import { RequireRole } from "@/components/auth/RequireRole";
 import {
   addRestaurant as addRestaurantFirestore,
@@ -10,11 +21,18 @@ import {
   setUserRole,
   upsertDriverProfile,
   updateRestaurant as updateRestaurantFirestore,
+  fetchAllZones,
+  addZone,
+  updateZone,
+  toggleZoneActive,
+  fetchDriverWallets,
 } from "@/lib/firestore";
+import { settleDriverCash } from "@/lib/orders";
+import { formatPrice } from "@/constants/currency";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   Pending: "قيد الانتظار",
-  Accepted: "تم القبول",
+  Accepted: "مقبول من المطعم",
   Preparing: "قيد التحضير",
   Ready: "جاهز للتوصيل",
   OutForDelivery: "خرج للتوصيل",
@@ -42,7 +60,7 @@ function AdminDashboardContent() {
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<
-    "orders" | "restaurants" | "access" | "analytics"
+    "orders" | "restaurants" | "zones" | "access" | "analytics"
   >("orders");
 
   const [restForm, setRestForm] = useState({
@@ -68,6 +86,115 @@ function AdminDashboardContent() {
   const [ownerBusy, setOwnerBusy] = useState(false);
 
   const [promoDrafts, setPromoDrafts] = useState<Record<string, string>>({});
+
+  // ---------------- Zones state ----------------
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [zonesLoading, setZonesLoading] = useState(false);
+  const [zoneForm, setZoneForm] = useState({
+    name: "",
+    deliveryFee: 5,
+    estimatedMinutes: 30,
+  });
+  const [zoneBusy, setZoneBusy] = useState(false);
+  const [zoneFeeDrafts, setZoneFeeDrafts] = useState<Record<string, number>>(
+    {},
+  );
+
+  const loadZones = async () => {
+    setZonesLoading(true);
+    try {
+      const list = await fetchAllZones();
+      setZones(list);
+    } catch (error) {
+      console.error("Failed to load zones", error);
+    } finally {
+      setZonesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "zones") {
+      loadZones();
+    }
+  }, [activeTab]);
+
+  const handleAddZone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!zoneForm.name.trim()) return;
+    setZoneBusy(true);
+    try {
+      await addZone({
+        name: zoneForm.name.trim(),
+        deliveryFee: Number(zoneForm.deliveryFee),
+        estimatedMinutes: Number(zoneForm.estimatedMinutes),
+        active: true,
+      });
+      setZoneForm({ name: "", deliveryFee: 5, estimatedMinutes: 30 });
+      await loadZones();
+    } catch (error) {
+      console.error("Failed to add zone", error);
+    } finally {
+      setZoneBusy(false);
+    }
+  };
+
+  const handleSaveZoneFee = async (zoneId: string) => {
+    const value = zoneFeeDrafts[zoneId];
+    if (value === undefined) return;
+    try {
+      await updateZone(zoneId, { deliveryFee: Number(value) });
+      await loadZones();
+    } catch (error) {
+      console.error("Failed to update zone fee", error);
+    }
+  };
+
+  const handleToggleZone = async (zoneId: string, active: boolean) => {
+    try {
+      await toggleZoneActive(zoneId, !active);
+      await loadZones();
+    } catch (error) {
+      console.error("Failed to toggle zone", error);
+    }
+  };
+
+  // ---------------- Driver wallets state ----------------
+  const [wallets, setWallets] = useState<DriverWallet[]>([]);
+  const [walletsLoading, setWalletsLoading] = useState(false);
+  const [settlingDriverId, setSettlingDriverId] = useState<string | null>(
+    null,
+  );
+
+  const loadWallets = async () => {
+    setWalletsLoading(true);
+    try {
+      const list = await fetchDriverWallets();
+      setWallets(list);
+    } catch (error) {
+      console.error("Failed to load wallets", error);
+    } finally {
+      setWalletsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "access") {
+      loadWallets();
+    }
+  }, [activeTab]);
+
+  const handleSettle = async (driverId: string) => {
+    setSettlingDriverId(driverId);
+    try {
+      const result = await settleDriverCash(driverId);
+      if (!result.ok) alert(result.message || "فشلت التسوية");
+      await loadWallets();
+    } finally {
+      setSettlingDriverId(null);
+    }
+  };
+
+  // ---------------- Restaurants / Promo ----------------
 
   const handleSavePromoTag = async (id: string) => {
     const value = (promoDrafts[id] ?? "").trim();
@@ -166,10 +293,15 @@ function AdminDashboardContent() {
     setOwnerBusy(true);
     setOwnerMsg("");
     try {
+      // ✅ يربط ownerId بالمطعم *و* يرقّي دور المستخدم إلى "vendor" معاً،
+      // لأن لوحة /vendor تتطلب role === "vendor" بالضبط (RequireRole)،
+      // بينما ownerId وحده كان يكفي فقط لصلاحيات Firestore Rules /
+      // Cloud Functions لكن ليس لدخول صفحة اللوحة نفسها.
       await updateRestaurantFirestore(ownerForm.restaurantId, {
         ownerId: uid,
       });
-      setOwnerMsg("تم ربط مالك المطعم بنجاح ✓");
+      await setUserRole(uid, "vendor");
+      setOwnerMsg("تم ربط مالك المطعم وترقية دوره إلى vendor بنجاح ✓");
       setOwnerForm({ restaurantId: "", uid: "" });
     } catch (error) {
       console.error("Failed to link owner", error);
@@ -228,6 +360,17 @@ function AdminDashboardContent() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("zones")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === "zones"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            مناطق التوصيل
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("access")}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
               activeTab === "access"
@@ -274,11 +417,24 @@ function AdminDashboardContent() {
                         {order.restaurantName}
                       </h3>
                     </div>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(order.status)}`}
-                    >
-                      {STATUS_LABELS[order.status]}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(order.status)}`}
+                      >
+                        {STATUS_LABELS[order.status]}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          order.paymentMethod === "CASH"
+                            ? "bg-amber-500/15 text-amber-500"
+                            : "bg-emerald-500/15 text-emerald-500"
+                        }`}
+                      >
+                        {order.paymentMethod === "CASH"
+                          ? "كاش"
+                          : "مدفوع مسبقاً"}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="space-y-1 text-sm text-foreground">
@@ -288,7 +444,9 @@ function AdminDashboardContent() {
                     </p>
                     <p>
                       <span className="text-foreground-muted">العنوان:</span>{" "}
-                      {order.deliveryAddress}
+                      {order.deliveryAddressDetails ||
+                        order.deliveryAddress ||
+                        "—"}
                     </p>
                     <p>
                       <span className="text-foreground-muted">
@@ -299,7 +457,7 @@ function AdminDashboardContent() {
                     <p>
                       <span className="text-foreground-muted">المجموع:</span>{" "}
                       <strong className="text-primary">
-                        {order.total} ₪
+                        {formatPrice(order.total)}
                       </strong>
                     </p>
                   </div>
@@ -310,7 +468,7 @@ function AdminDashboardContent() {
                         <span>
                           {item.quantity}× {item.name}
                         </span>
-                        <span>{item.price * item.quantity} ₪</span>
+                        <span>{formatPrice(item.price * item.quantity)}</span>
                       </div>
                     ))}
                   </div>
@@ -325,7 +483,8 @@ function AdminDashboardContent() {
                         onChange={(e) =>
                           handleAssignDriver(order.id, e.target.value)
                         }
-                        className="w-full rounded-lg border border-glass-border bg-secondary p-2 text-xs text-foreground outline-none focus:border-primary"
+                        disabled={order.status !== "Ready"}
+                        className="w-full rounded-lg border border-glass-border bg-secondary p-2 text-xs text-foreground outline-none focus:border-primary disabled:opacity-50"
                       >
                         <option value="">اختر سائق...</option>
                         {drivers.map((d) => (
@@ -350,14 +509,18 @@ function AdminDashboardContent() {
                         }
                         className="w-full rounded-lg border border-glass-border bg-secondary p-2 text-xs text-foreground outline-none focus:border-primary"
                       >
-                        <option value="Pending">قيد الانتظار</option>
-                        <option value="Preparing">قيد التحضير</option>
-                        <option value="Ready">جاهز للتوصيل</option>
-                        <option value="OutForDelivery">خرج للتوصيل</option>
-                        <option value="Delivered">تم التسليم</option>
-                        <option value="Cancelled">ملغي</option>
+                        {(Object.keys(STATUS_LABELS) as OrderStatus[]).map(
+                          (s) => (
+                            <option key={s} value={s}>
+                              {STATUS_LABELS[s]}
+                            </option>
+                          ),
+                        )}
                       </select>
                     </div>
+                    {/* ⚠️ ملاحظة: الإدارة تملك صلاحية القفز لأي حالة (isAdmin
+                        في updateOrderStatus)، لكن ننصح باتباع التسلسل الطبيعي
+                        لتفادي أخطاء تشغيلية (مثل تخطي "جاهز" قبل تعيين سائق). */}
                   </div>
                 </div>
               ))}
@@ -399,7 +562,9 @@ function AdminDashboardContent() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelClass}>أجرة التوصيل (₪)</label>
+                  <label className={labelClass}>
+                    أجرة توصيل احتياطية (₪)
+                  </label>
                   <input
                     type="number"
                     value={restForm.deliveryFee}
@@ -411,6 +576,10 @@ function AdminDashboardContent() {
                     }
                     className={inputClass}
                   />
+                  <p className="mt-1 text-[10px] text-foreground-muted">
+                    غير مستخدمة فعلياً بعد الآن — الرسوم الفعلية من منطقة
+                    التوصيل التي يختارها العميل
+                  </p>
                 </div>
                 <div>
                   <label className={labelClass}>الوقت المتوقع (دقيقة)</label>
@@ -458,7 +627,7 @@ function AdminDashboardContent() {
                     <div>
                       <h3 className="text-base font-bold">{rest.name}</h3>
                       <p className="text-xs text-foreground-muted">
-                        {rest.cuisine || "وجبات"} • {rest.deliveryFee} ₪ توصيل
+                        {rest.cuisine || "وجبات"}
                       </p>
                     </div>
                     <button
@@ -514,80 +683,56 @@ function AdminDashboardContent() {
         </div>
       )}
 
-      {activeTab === "access" && (
-        <div className="grid gap-8 md:grid-cols-2">
-          <div className="glass rounded-2xl p-6">
+      {activeTab === "zones" && (
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="glass h-fit rounded-2xl p-6">
             <h2 className="mb-1 text-lg font-bold text-primary">
-              ربط سائق جديد
+              إضافة منطقة توصيل
             </h2>
             <p className="mb-4 text-xs text-foreground-muted">
-              يجب أن يكون المستخدم قد سجّل دخول مرة واحدة على الأقل. انسخ
-              معرّفه (UID) من Firebase Console ← Authentication.
+              رسوم التوصيل الفعلية لكل طلب تُحسب من هنا الآن، وليس من إعدادات
+              المطعم.
             </p>
-            <form onSubmit={handleLinkDriver} className="space-y-4">
+            <form onSubmit={handleAddZone} className="space-y-4">
               <div>
-                <label className={labelClass}>معرّف المستخدم (UID) *</label>
+                <label className={labelClass}>اسم المنطقة *</label>
                 <input
                   type="text"
                   required
-                  value={driverForm.uid}
+                  value={zoneForm.name}
                   onChange={(e) =>
-                    setDriverForm({ ...driverForm, uid: e.target.value })
-                  }
-                  className={`${inputClass} font-mono`}
-                  placeholder="مثال: aB3xY9..."
-                />
-              </div>
-              <div>
-                <label className={labelClass}>اسم السائق *</label>
-                <input
-                  type="text"
-                  required
-                  value={driverForm.name}
-                  onChange={(e) =>
-                    setDriverForm({ ...driverForm, name: e.target.value })
+                    setZoneForm({ ...zoneForm, name: e.target.value })
                   }
                   className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>رقم الهاتف</label>
-                <input
-                  type="tel"
-                  value={driverForm.phone}
-                  onChange={(e) =>
-                    setDriverForm({ ...driverForm, phone: e.target.value })
-                  }
-                  className={inputClass}
+                  placeholder="مثال: نابلس - وسط البلد"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelClass}>نوع المركبة</label>
-                  <select
-                    value={driverForm.vehicle}
+                  <label className={labelClass}>رسوم التوصيل (₪)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={zoneForm.deliveryFee}
                     onChange={(e) =>
-                      setDriverForm({
-                        ...driverForm,
-                        vehicle: e.target.value,
+                      setZoneForm({
+                        ...zoneForm,
+                        deliveryFee: Number(e.target.value),
                       })
                     }
                     className={inputClass}
-                  >
-                    <option value="دراجة نارية">دراجة نارية</option>
-                    <option value="سيارة">سيارة</option>
-                    <option value="دراجة هوائية">دراجة هوائية</option>
-                  </select>
+                  />
                 </div>
                 <div>
-                  <label className={labelClass}>رقم اللوحة</label>
+                  <label className={labelClass}>الوقت المتوقع (دقيقة)</label>
                   <input
-                    type="text"
-                    value={driverForm.plateNumber}
+                    type="number"
+                    min={0}
+                    value={zoneForm.estimatedMinutes}
                     onChange={(e) =>
-                      setDriverForm({
-                        ...driverForm,
-                        plateNumber: e.target.value,
+                      setZoneForm({
+                        ...zoneForm,
+                        estimatedMinutes: Number(e.target.value),
                       })
                     }
                     className={inputClass}
@@ -596,76 +741,303 @@ function AdminDashboardContent() {
               </div>
               <button
                 type="submit"
-                disabled={driverBusy}
+                disabled={zoneBusy}
                 className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
               >
-                {driverBusy ? "جارٍ الربط…" : "ربط السائق"}
+                {zoneBusy ? "جارٍ الإضافة…" : "إضافة المنطقة"}
               </button>
-              {driverMsg && (
-                <p className="text-center text-xs text-foreground-muted">
-                  {driverMsg}
-                </p>
-              )}
             </form>
           </div>
 
-          <div className="glass rounded-2xl p-6">
-            <h2 className="mb-1 text-lg font-bold text-primary">
-              ربط مالك مطعم
+          <div className="space-y-4 md:col-span-2">
+            <h2 className="text-lg font-bold">
+              المناطق المسجلة ({zones.length})
             </h2>
-            <p className="mb-4 text-xs text-foreground-muted">
-              يجب أن يكون المستخدم قد سجّل دخول مرة واحدة على الأقل كزبون
-              عادي — لا حاجة لتغيير دوره.
-            </p>
-            <form onSubmit={handleLinkOwner} className="space-y-4">
-              <div>
-                <label className={labelClass}>المطعم *</label>
-                <select
-                  required
-                  value={ownerForm.restaurantId}
-                  onChange={(e) =>
-                    setOwnerForm({
-                      ...ownerForm,
-                      restaurantId: e.target.value,
-                    })
-                  }
-                  className={inputClass}
-                >
-                  <option value="">اختر مطعماً...</option>
-                  {restaurants.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                      {r.ownerId ? " (مرتبط بالفعل)" : ""}
-                    </option>
-                  ))}
-                </select>
+            {zonesLoading ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                جارٍ التحميل...
               </div>
+            ) : zones.length === 0 ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                لا توجد مناطق بعد — أضف واحدة من النموذج
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {zones.map((zone) => (
+                  <div key={zone.id} className="glass rounded-2xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-base font-bold">{zone.name}</h3>
+                        <p className="text-xs text-foreground-muted">
+                          {zone.estimatedMinutes ?? "—"} دقيقة تقريباً
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleZone(zone.id, zone.active)}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                          zone.active
+                            ? "border border-accent/30 bg-accent/10 text-accent"
+                            : "border border-danger/30 bg-danger/10 text-danger"
+                        }`}
+                      >
+                        {zone.active ? "نشطة" : "معطّلة"}
+                      </button>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={
+                          zoneFeeDrafts[zone.id] ?? zone.deliveryFee
+                        }
+                        onChange={(e) =>
+                          setZoneFeeDrafts({
+                            ...zoneFeeDrafts,
+                            [zone.id]: Number(e.target.value),
+                          })
+                        }
+                        className="w-full rounded-lg border border-glass-border bg-secondary px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSaveZoneFee(zone.id)}
+                        className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white"
+                      >
+                        حفظ الرسوم
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "access" && (
+        <div className="space-y-8">
+          <div className="grid gap-8 md:grid-cols-2">
+            <div className="glass rounded-2xl p-6">
+              <h2 className="mb-1 text-lg font-bold text-primary">
+                ربط سائق جديد
+              </h2>
+              <p className="mb-4 text-xs text-foreground-muted">
+                يجب أن يكون المستخدم قد سجّل دخول مرة واحدة على الأقل. انسخ
+                معرّفه (UID) من Firebase Console ← Authentication.
+              </p>
+              <form onSubmit={handleLinkDriver} className="space-y-4">
+                <div>
+                  <label className={labelClass}>معرّف المستخدم (UID) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={driverForm.uid}
+                    onChange={(e) =>
+                      setDriverForm({ ...driverForm, uid: e.target.value })
+                    }
+                    className={`${inputClass} font-mono`}
+                    placeholder="مثال: aB3xY9..."
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>اسم السائق *</label>
+                  <input
+                    type="text"
+                    required
+                    value={driverForm.name}
+                    onChange={(e) =>
+                      setDriverForm({ ...driverForm, name: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>رقم الهاتف</label>
+                  <input
+                    type="tel"
+                    value={driverForm.phone}
+                    onChange={(e) =>
+                      setDriverForm({ ...driverForm, phone: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>نوع المركبة</label>
+                    <select
+                      value={driverForm.vehicle}
+                      onChange={(e) =>
+                        setDriverForm({
+                          ...driverForm,
+                          vehicle: e.target.value,
+                        })
+                      }
+                      className={inputClass}
+                    >
+                      <option value="دراجة نارية">دراجة نارية</option>
+                      <option value="سيارة">سيارة</option>
+                      <option value="دراجة هوائية">دراجة هوائية</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>رقم اللوحة</label>
+                    <input
+                      type="text"
+                      value={driverForm.plateNumber}
+                      onChange={(e) =>
+                        setDriverForm({
+                          ...driverForm,
+                          plateNumber: e.target.value,
+                        })
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={driverBusy}
+                  className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {driverBusy ? "جارٍ الربط…" : "ربط السائق"}
+                </button>
+                {driverMsg && (
+                  <p className="text-center text-xs text-foreground-muted">
+                    {driverMsg}
+                  </p>
+                )}
+              </form>
+            </div>
+
+            <div className="glass rounded-2xl p-6">
+              <h2 className="mb-1 text-lg font-bold text-primary">
+                ربط مالك مطعم
+              </h2>
+              <p className="mb-4 text-xs text-foreground-muted">
+                يجب أن يكون المستخدم قد سجّل دخول مرة واحدة على الأقل كزبون
+                عادي. سيتم ترقية دوره تلقائياً إلى &quot;vendor&quot; لمنحه
+                صلاحية الدخول للوحة /vendor.
+              </p>
+              <form onSubmit={handleLinkOwner} className="space-y-4">
+                <div>
+                  <label className={labelClass}>المطعم *</label>
+                  <select
+                    required
+                    value={ownerForm.restaurantId}
+                    onChange={(e) =>
+                      setOwnerForm({
+                        ...ownerForm,
+                        restaurantId: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">اختر مطعماً...</option>
+                    {restaurants.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                        {r.ownerId ? " (مرتبط بالفعل)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>معرّف المستخدم (UID) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={ownerForm.uid}
+                    onChange={(e) =>
+                      setOwnerForm({ ...ownerForm, uid: e.target.value })
+                    }
+                    className={`${inputClass} font-mono`}
+                    placeholder="مثال: aB3xY9..."
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={ownerBusy}
+                  className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {ownerBusy ? "جارٍ الربط…" : "ربط المالك وترقية دوره"}
+                </button>
+                {ownerMsg && (
+                  <p className="text-center text-xs text-foreground-muted">
+                    {ownerMsg}
+                  </p>
+                )}
+              </form>
+            </div>
+          </div>
+
+          {/* ✅ جديد — محافظ كاش المندوبين */}
+          <div className="glass rounded-2xl p-6">
+            <div className="mb-4 flex items-center justify-between">
               <div>
-                <label className={labelClass}>معرّف المستخدم (UID) *</label>
-                <input
-                  type="text"
-                  required
-                  value={ownerForm.uid}
-                  onChange={(e) =>
-                    setOwnerForm({ ...ownerForm, uid: e.target.value })
-                  }
-                  className={`${inputClass} font-mono`}
-                  placeholder="مثال: aB3xY9..."
-                />
+                <h2 className="text-lg font-bold text-primary">
+                  محافظ كاش المندوبين
+                </h2>
+                <p className="text-xs text-foreground-muted">
+                  الكاش المتراكم من الطلبات المدفوعة عند الاستلام — يُحدَّث
+                  تلقائياً عند كل عملية تسليم.
+                </p>
               </div>
               <button
-                type="submit"
-                disabled={ownerBusy}
-                className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+                type="button"
+                onClick={loadWallets}
+                className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-foreground-muted hover:text-foreground"
               >
-                {ownerBusy ? "جارٍ الربط…" : "ربط المالك"}
+                تحديث
               </button>
-              {ownerMsg && (
-                <p className="text-center text-xs text-foreground-muted">
-                  {ownerMsg}
-                </p>
-              )}
-            </form>
+            </div>
+
+            {walletsLoading ? (
+              <p className="text-center text-sm text-foreground-muted">
+                جارٍ التحميل...
+              </p>
+            ) : wallets.length === 0 ? (
+              <p className="text-center text-sm text-foreground-muted">
+                لا يوجد أي كاش متراكم بيد أي مندوب حالياً
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {wallets
+                  .filter((w) => w.totalCashInHand > 0)
+                  .map((wallet) => {
+                    const driver = drivers.find(
+                      (d) => d.id === wallet.driverId,
+                    );
+                    return (
+                      <div
+                        key={wallet.driverId}
+                        className="rounded-xl border border-glass-border bg-secondary p-3"
+                      >
+                        <p className="text-sm font-bold">
+                          {driver?.name || wallet.driverId}
+                        </p>
+                        <p className="mt-1 text-xl font-extrabold text-primary">
+                          {formatPrice(wallet.totalCashInHand)}
+                        </p>
+                        <p className="text-[11px] text-foreground-muted">
+                          {wallet.cashOrdersSinceSettlement} طلب منذ آخر تسوية
+                        </p>
+                        <button
+                          type="button"
+                          disabled={settlingDriverId === wallet.driverId}
+                          onClick={() => handleSettle(wallet.driverId)}
+                          className="mt-2 w-full rounded-lg bg-primary py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        >
+                          {settlingDriverId === wallet.driverId
+                            ? "جارٍ التسوية…"
+                            : "تسوية / استلام الكاش"}
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -677,7 +1049,7 @@ function AdminDashboardContent() {
               إجمالي المبيعات المكتملة
             </p>
             <p className="mt-2 text-3xl font-extrabold text-accent">
-              {totalRevenue.toFixed(2)} ₪
+              {formatPrice(totalRevenue)}
             </p>
           </div>
           <div className="glass rounded-2xl p-6">
