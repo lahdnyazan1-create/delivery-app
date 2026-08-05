@@ -66,6 +66,9 @@ interface PlaceOrderInput {
   zoneId: string;
   deliveryAddressDetails: string;
   paymentMethod?: PaymentMethod;
+  /** إحداثيات اختيارية لزيادة موثوقية تحديد الموقع — لا تُغني عن العنوان النصي */
+  customerLat?: number | null;
+  customerLng?: number | null;
 }
 
 export const placeOrder = onCall<PlaceOrderInput>(
@@ -88,6 +91,8 @@ export const placeOrder = onCall<PlaceOrderInput>(
       zoneId,
       deliveryAddressDetails,
       paymentMethod,
+      customerLat,
+      customerLng,
     } = request.data || {};
 
     if (!restaurantId || !Array.isArray(items) || items.length === 0) {
@@ -237,6 +242,8 @@ export const placeOrder = onCall<PlaceOrderInput>(
         paymentMethod: finalPaymentMethod,
         deliveredAt: null,
         userId: uid,
+        customerLat: typeof customerLat === "number" ? customerLat : null,
+        customerLng: typeof customerLng === "number" ? customerLng : null,
       };
 
       t.set(orderRef, newOrder);

@@ -34,6 +34,8 @@ export interface PlaceOrderPayload {
   zoneId: string;
   deliveryAddressDetails: string;
   paymentMethod?: PaymentMethod;
+  customerLat?: number | null;
+  customerLng?: number | null;
 }
 
 export interface PlaceOrderResponse {
@@ -60,6 +62,8 @@ export async function placeOrder(params: {
   zoneId: string;
   deliveryAddressDetails: string;
   paymentMethod?: PaymentMethod;
+  customerLat?: number | null;
+  customerLng?: number | null;
   /** مرّر نفس المفتاح عند إعادة محاولة نفس عملية الدفع بالضبط */
   idempotencyKey?: string;
 }): Promise<
@@ -73,6 +77,8 @@ export async function placeOrder(params: {
     zoneId,
     deliveryAddressDetails,
     paymentMethod = "CASH",
+    customerLat = null,
+    customerLng = null,
     idempotencyKey,
   } = params;
 
@@ -92,6 +98,8 @@ export async function placeOrder(params: {
       zoneId,
       deliveryAddressDetails: deliveryAddressDetails.trim(),
       paymentMethod,
+      customerLat,
+      customerLng,
     });
 
     const { orderId, order } = response.data;

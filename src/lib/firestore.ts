@@ -271,3 +271,121 @@ export const fetchDriverWallets = async (): Promise<DriverWallet[]> => {
     (doc) => ({ driverId: doc.id, ...doc.data() }) as DriverWallet,
   );
 };
+
+// ----------------------------------------------------------------------------
+// ✅ جديد — أكواد الخصم الحقيقية (PromoCode) — منفصلة تماماً عن promoTag
+// الزخرفي على المطعم. هذه هي التي تُطبَّق فعلياً على حساب السعر عبر
+// calcTotals عند إدخال العميل للكود في شاشة السلة.
+// ----------------------------------------------------------------------------
+
+/** معرّف المستند = نص الكود نفسه (بأحرف كبيرة) لضمان عدم التكرار */
+export const addPromoCode = async (
+  code: string,
+  percentOff: number,
+): Promise<void> => {
+  const ref = doc(db, "promoCodes", code.trim().toUpperCase());
+  await setDoc(ref, {
+    percentOff: Number(percentOff),
+    active: true,
+    createdAt: serverTimestamp(),
+  });
+};
+
+export const updatePromoCode = async (
+  code: string,
+  data: Partial<{ percentOff: number; active: boolean }>,
+) => {
+  const ref = doc(db, "promoCodes", code);
+  await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+};
+
+export const deletePromoCodeDoc = async (code: string) => {
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, "promoCodes", code));
+};
+
+// ----------------------------------------------------------------------------
+// ✅ جديد — Categories (فئات الرئيسية)
+// ----------------------------------------------------------------------------
+
+export const fetchAllCategories = async () => {
+  const snapshot = await getDocs(
+    query(collection(db, "categories"), orderBy("order", "asc")),
+  );
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
+
+export const addCategory = async (category: {
+  label: string;
+  icon: string;
+  order: number;
+  visible: boolean;
+}): Promise<string> => {
+  const ref = await addDoc(collection(db, "categories"), category);
+  return ref.id;
+};
+
+export const updateCategory = async (
+  categoryId: string,
+  data: Partial<{
+    label: string;
+    icon: string;
+    order: number;
+    visible: boolean;
+  }>,
+) => {
+  const ref = doc(db, "categories", categoryId);
+  await updateDoc(ref, data);
+};
+
+export const deleteCategoryDoc = async (categoryId: string) => {
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, "categories", categoryId));
+};
+
+// ----------------------------------------------------------------------------
+// ✅ جديد — Banners (إعلانات الرئيسية)
+// ----------------------------------------------------------------------------
+
+export const fetchAllBanners = async () => {
+  const snapshot = await getDocs(
+    query(collection(db, "banners"), orderBy("order", "asc")),
+  );
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
+
+export const addBanner = async (banner: {
+  title: string;
+  subtitle?: string;
+  ctaText?: string;
+  ctaLink?: string;
+  gradient?: string;
+  imageUrl?: string;
+  order: number;
+  active: boolean;
+}): Promise<string> => {
+  const ref = await addDoc(collection(db, "banners"), banner);
+  return ref.id;
+};
+
+export const updateBanner = async (
+  bannerId: string,
+  data: Partial<{
+    title: string;
+    subtitle: string;
+    ctaText: string;
+    ctaLink: string;
+    gradient: string;
+    imageUrl: string;
+    order: number;
+    active: boolean;
+  }>,
+) => {
+  const ref = doc(db, "banners", bannerId);
+  await updateDoc(ref, data);
+};
+
+export const deleteBannerDoc = async (bannerId: string) => {
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, "banners", bannerId));
+};

@@ -1,8 +1,15 @@
+// src/components/menu/LivingCard.tsx
+// ============================================================================
+// التعديل: عند وجود أصناف من مطعم آخر بالسلة، كان الفشل يظهر كتلميح نصي
+// صغير يختفي خلال ثانيتين — سهل جداً تفويته، فيبدو للمستخدم وكأن الزر لا
+// يعمل. الآن نعرض نافذة تأكيد واضحة: "إفراغ السلة والبدء من هنا" أو "إلغاء".
+// ============================================================================
+
 "use client";
 
 import { useRef, useState } from "react";
-import { Flame, Plus } from "lucide-react";
-import { motion } from "framer-motion";
+import { Flame, Plus, AlertTriangle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Dish } from "@/types/database";
 import { useAppStore } from "@/store/useAppStore";
 import { formatPrice } from "@/constants/currency";
@@ -42,12 +49,30 @@ function Steam() {
 }
 
 export function LivingCard({ dish, index = 0 }: LivingCardProps) {
-  const { addToCart, getRestaurant } = useAppStore();
+  const { addToCart, replaceCartAndAdd, getRestaurant } = useAppStore();
   const mediaRef = useRef<HTMLDivElement>(null);
   const [hint, setHint] = useState("");
+  const [showConflict, setShowConflict] = useState(false);
   const restaurant = getRestaurant(dish.restaurantId);
   const canAdd = Boolean(dish.available && restaurant?.active);
   const price = Number.isFinite(dish.price) ? dish.price : 0;
+
+  const handleAddClick = () => {
+    const result = addToCart(dish.id, dish.restaurantId);
+    if (!result.ok) {
+      if (result.conflict) {
+        setShowConflict(true);
+      } else if (result.message) {
+        setHint(result.message);
+        window.setTimeout(() => setHint(""), 2200);
+      }
+    }
+  };
+
+  const handleReplaceConfirm = () => {
+    replaceCartAndAdd(dish.id, dish.restaurantId);
+    setShowConflict(false);
+  };
 
   return (
     <motion.article
@@ -61,7 +86,7 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
       }}
       whileHover={canAdd ? { scale: 1.02 } : undefined}
       whileTap={canAdd ? { scale: 0.985 } : undefined}
-      className={`no-select glass overflow-hidden rounded-3xl ${
+      className={`no-select glass relative overflow-hidden rounded-3xl ${
         !canAdd ? "opacity-60" : ""
       }`}
     >
@@ -107,13 +132,7 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
             type="button"
             whileTap={canAdd ? { scale: 0.9 } : undefined}
             disabled={!canAdd}
-            onClick={() => {
-              const result = addToCart(dish.id, dish.restaurantId);
-              if (!result.ok && result.message) {
-                setHint(result.message);
-                window.setTimeout(() => setHint(""), 2200);
-              }
-            }}
+            onClick={handleAddClick}
             className="no-select touch-target inline-flex items-center gap-1.5 rounded-2xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_rgb(255_107_53_/_0.3)] disabled:cursor-not-allowed disabled:bg-secondary-muted disabled:shadow-none"
             aria-label={`أضف ${dish.name} إلى السلة`}
           >
@@ -127,6 +146,44 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
           </p>
         )}
       </div>
+
+      {/* ✅ نافذة تأكيد واضحة بدل الفشل الصامت عند تعارض المطعم */}
+      <AnimatePresence>
+        {showConflict && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-10 flex items-center justify-center bg-secondary/95 p-5 backdrop-blur-sm"
+          >
+            <div className="w-full space-y-3 text-center">
+              <AlertTriangle className="mx-auto size-8 text-primary" />
+              <p className="text-sm font-bold text-foreground">
+                سلتك تحتوي أصناف من مطعم آخر
+              </p>
+              <p className="text-xs text-foreground-muted">
+                إفراغها والبدء بطلب جديد من هذا المطعم؟
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConflict(false)}
+                  className="no-select touch-target flex-1 rounded-xl bg-white/10 py-2.5 text-xs font-bold text-foreground"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReplaceConfirm}
+                  className="no-select touch-target flex-1 rounded-xl bg-primary py-2.5 text-xs font-bold text-white"
+                >
+                  إفراغ والبدء من هنا
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.article>
   );
 }

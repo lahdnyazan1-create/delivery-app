@@ -157,6 +157,14 @@ export interface Order {
   /** تفاصيل العنوان التي يكتبها المستخدم (اسم الشارع، رقم المبنى...) */
   deliveryAddressDetails: string;
 
+  /**
+   * إحداثيات GPS اختيارية للعميل (من صفحة البروفايل أو من السلة مباشرة).
+   * تُستخدم لزيادة موثوقية تحديد الموقع للمندوب، بالإضافة للعنوان النصي
+   * وليس بدلاً عنه — النص يبقى مطلوباً دائماً.
+   */
+  customerLat?: number | null;
+  customerLng?: number | null;
+
   paymentMethod: PaymentMethod;
 
   /** طابع زمني عند وصول الطلب فعلياً — يُملأ فقط عبر updateOrderStatus */

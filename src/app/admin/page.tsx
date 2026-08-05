@@ -26,9 +26,27 @@ import {
   updateZone,
   toggleZoneActive,
   fetchDriverWallets,
+  fetchPromoCodes,
+  addPromoCode,
+  updatePromoCode,
+  deletePromoCodeDoc,
+  fetchAllCategories,
+  addCategory,
+  updateCategory,
+  deleteCategoryDoc,
+  fetchAllBanners,
+  addBanner,
+  updateBanner,
+  deleteBannerDoc,
 } from "@/lib/firestore";
 import { settleDriverCash } from "@/lib/orders";
 import { formatPrice } from "@/constants/currency";
+
+// أيقونات مقترحة (Emoji) لفئات الرئيسية — بسيطة وتعمل بدون رفع أي صور
+const CATEGORY_ICON_OPTIONS = [
+  "🍔", "🍕", "🍗", "🌯", "🥗", "🍰", "☕", "🥤",
+  "🍜", "🍣", "🥙", "🍟", "🧁", "🍦", "🥪", "🛒",
+];
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   Pending: "قيد الانتظار",
@@ -60,7 +78,14 @@ function AdminDashboardContent() {
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<
-    "orders" | "restaurants" | "zones" | "access" | "analytics"
+    | "orders"
+    | "restaurants"
+    | "zones"
+    | "promocodes"
+    | "categories"
+    | "banners"
+    | "access"
+    | "analytics"
   >("orders");
 
   const [restForm, setRestForm] = useState({
@@ -96,17 +121,22 @@ function AdminDashboardContent() {
     estimatedMinutes: 30,
   });
   const [zoneBusy, setZoneBusy] = useState(false);
+  const [zoneError, setZoneError] = useState("");
   const [zoneFeeDrafts, setZoneFeeDrafts] = useState<Record<string, number>>(
     {},
   );
 
   const loadZones = async () => {
     setZonesLoading(true);
+    setZoneError("");
     try {
       const list = await fetchAllZones();
       setZones(list);
     } catch (error) {
       console.error("Failed to load zones", error);
+      setZoneError(
+        "تعذّر تحميل المناطق — تأكد من نشر قواعد Firestore المحدّثة (firebase deploy --only firestore:rules)",
+      );
     } finally {
       setZonesLoading(false);
     }
@@ -122,6 +152,7 @@ function AdminDashboardContent() {
     e.preventDefault();
     if (!zoneForm.name.trim()) return;
     setZoneBusy(true);
+    setZoneError("");
     try {
       await addZone({
         name: zoneForm.name.trim(),
@@ -131,8 +162,15 @@ function AdminDashboardContent() {
       });
       setZoneForm({ name: "", deliveryFee: 5, estimatedMinutes: 30 });
       await loadZones();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to add zone", error);
+      // ✅ نعرض الخطأ الفعلي بدل بلعه بصمت — غالباً permission-denied يعني
+      // أن قواعد Firestore الجديدة لم تُنشر بعد على المشروع
+      setZoneError(
+        error?.code === "permission-denied"
+          ? "تم الرفض من Firestore (permission-denied). غالباً قواعد firestore.rules الجديدة لم تُنشر بعد — شغّل: firebase deploy --only firestore:rules"
+          : `فشلت الإضافة: ${error?.message || "خطأ غير معروف"}`,
+      );
     } finally {
       setZoneBusy(false);
     }
@@ -192,6 +230,201 @@ function AdminDashboardContent() {
     } finally {
       setSettlingDriverId(null);
     }
+  };
+
+  // ---------------- Real Promo Codes state (منفصل عن promoTag الزخرفي) ----------------
+  const [promoList, setPromoList] = useState<
+    { code: string; percentOff: number; active: boolean }[]
+  >([]);
+  const [promoListLoading, setPromoListLoading] = useState(false);
+  const [promoForm, setPromoForm] = useState({ code: "", percentOff: 10 });
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoError, setPromoError] = useState("");
+
+  const loadPromoCodes = async () => {
+    setPromoListLoading(true);
+    setPromoError("");
+    try {
+      const list = await fetchPromoCodes();
+      setPromoList(list);
+    } catch (error) {
+      console.error("Failed to load promo codes", error);
+    } finally {
+      setPromoListLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "promocodes") loadPromoCodes();
+  }, [activeTab]);
+
+  const handleAddPromoCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promoForm.code.trim()) return;
+    setPromoBusy(true);
+    setPromoError("");
+    try {
+      await addPromoCode(promoForm.code.trim(), promoForm.percentOff);
+      setPromoForm({ code: "", percentOff: 10 });
+      await loadPromoCodes();
+    } catch (error: any) {
+      setPromoError(`فشلت الإضافة: ${error?.message || "خطأ غير معروف"}`);
+    } finally {
+      setPromoBusy(false);
+    }
+  };
+
+  const handleTogglePromo = async (code: string, active: boolean) => {
+    await updatePromoCode(code, { active: !active });
+    await loadPromoCodes();
+  };
+
+  const handleDeletePromo = async (code: string) => {
+    if (!confirm(`حذف كود "${code}" نهائياً؟`)) return;
+    await deletePromoCodeDoc(code);
+    await loadPromoCodes();
+  };
+
+  // ---------------- Categories state ----------------
+  const [categoriesList, setCategoriesList] = useState<
+    { id: string; label: string; icon: string; order: number; visible: boolean }[]
+  >([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoryForm, setCategoryForm] = useState({
+    label: "",
+    icon: CATEGORY_ICON_OPTIONS[0],
+    order: 0,
+  });
+  const [categoryBusy, setCategoryBusy] = useState(false);
+
+  const loadCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      const list = (await fetchAllCategories()) as any[];
+      setCategoriesList(list);
+    } catch (error) {
+      console.error("Failed to load categories", error);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "categories") loadCategories();
+  }, [activeTab]);
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryForm.label.trim()) return;
+    setCategoryBusy(true);
+    try {
+      await addCategory({
+        label: categoryForm.label.trim(),
+        icon: categoryForm.icon,
+        order: Number(categoryForm.order),
+        visible: true,
+      });
+      setCategoryForm({ label: "", icon: CATEGORY_ICON_OPTIONS[0], order: 0 });
+      await loadCategories();
+    } catch (error) {
+      console.error("Failed to add category", error);
+    } finally {
+      setCategoryBusy(false);
+    }
+  };
+
+  const handleToggleCategoryVisible = async (id: string, visible: boolean) => {
+    await updateCategory(id, { visible: !visible });
+    await loadCategories();
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm("حذف هذه الفئة نهائياً؟")) return;
+    await deleteCategoryDoc(id);
+    await loadCategories();
+  };
+
+  // ---------------- Banners state ----------------
+  const [bannersList, setBannersList] = useState<
+    {
+      id: string;
+      title: string;
+      subtitle?: string;
+      ctaText?: string;
+      ctaLink?: string;
+      gradient?: string;
+      imageUrl?: string;
+      order: number;
+      active: boolean;
+    }[]
+  >([]);
+  const [bannersLoading, setBannersLoading] = useState(false);
+  const [bannerForm, setBannerForm] = useState({
+    title: "",
+    subtitle: "",
+    ctaText: "",
+    ctaLink: "",
+    imageUrl: "",
+    order: 0,
+  });
+  const [bannerBusy, setBannerBusy] = useState(false);
+
+  const loadBanners = async () => {
+    setBannersLoading(true);
+    try {
+      const list = (await fetchAllBanners()) as any[];
+      setBannersList(list);
+    } catch (error) {
+      console.error("Failed to load banners", error);
+    } finally {
+      setBannersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "banners") loadBanners();
+  }, [activeTab]);
+
+  const handleAddBanner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bannerForm.title.trim()) return;
+    setBannerBusy(true);
+    try {
+      await addBanner({
+        title: bannerForm.title.trim(),
+        subtitle: bannerForm.subtitle.trim() || undefined,
+        ctaText: bannerForm.ctaText.trim() || undefined,
+        ctaLink: bannerForm.ctaLink.trim() || undefined,
+        imageUrl: bannerForm.imageUrl.trim() || undefined,
+        gradient: "from-primary to-red-600",
+        order: Number(bannerForm.order),
+        active: true,
+      });
+      setBannerForm({
+        title: "",
+        subtitle: "",
+        ctaText: "",
+        ctaLink: "",
+        imageUrl: "",
+        order: 0,
+      });
+      await loadBanners();
+    } catch (error) {
+      console.error("Failed to add banner", error);
+    } finally {
+      setBannerBusy(false);
+    }
+  };
+
+  const handleToggleBannerActive = async (id: string, active: boolean) => {
+    await updateBanner(id, { active: !active });
+    await loadBanners();
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    if (!confirm("حذف هذا الإعلان نهائياً؟")) return;
+    await deleteBannerDoc(id);
+    await loadBanners();
   };
 
   // ---------------- Restaurants / Promo ----------------
@@ -368,6 +601,39 @@ function AdminDashboardContent() {
             }`}
           >
             مناطق التوصيل
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("promocodes")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === "promocodes"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            أكواد الخصم
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("categories")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === "categories"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            الفئات
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("banners")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === "banners"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            الإعلانات
           </button>
           <button
             type="button"
@@ -662,7 +928,7 @@ function AdminDashboardContent() {
                           [rest.id]: e.target.value,
                         })
                       }
-                      placeholder="مثال: خصم 10% — اتركه فارغاً للإخفاء"
+                      placeholder="مثال: عرض اليوم! — اتركه فارغاً للإخفاء"
                       className="w-full rounded-lg border border-glass-border bg-secondary px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary"
                     />
                     <button
@@ -674,7 +940,9 @@ function AdminDashboardContent() {
                     </button>
                   </div>
                   <p className="mt-1 text-[10px] text-foreground-muted">
-                    يظهر في قسم &quot;وفّر معنا&quot; بالرئيسية عند تعبئته
+                    ⚠️ شارة نصية زخرفية فقط تظهر بالرئيسية — لا تخصم أي مبلغ
+                    فعلياً. لخصم حقيقي على السعر استخدم تبويب &quot;أكواد
+                    الخصم&quot;.
                   </p>
                 </div>
               ))}
@@ -746,6 +1014,11 @@ function AdminDashboardContent() {
               >
                 {zoneBusy ? "جارٍ الإضافة…" : "إضافة المنطقة"}
               </button>
+              {zoneError && (
+                <p className="rounded-lg bg-danger/10 p-2.5 text-xs font-semibold text-danger">
+                  {zoneError}
+                </p>
+              )}
             </form>
           </div>
 
@@ -807,6 +1080,395 @@ function AdminDashboardContent() {
                         حفظ الرسوم
                       </button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "promocodes" && (
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="glass h-fit rounded-2xl p-6">
+            <h2 className="mb-1 text-lg font-bold text-primary">
+              إضافة كود خصم حقيقي
+            </h2>
+            <p className="mb-4 text-xs text-foreground-muted">
+              هذا الكود يُطبَّق فعلياً على السعر عند إدخاله بشاشة السلة —
+              ليس نصاً زخرفياً.
+            </p>
+            <form onSubmit={handleAddPromoCode} className="space-y-4">
+              <div>
+                <label className={labelClass}>الكود *</label>
+                <input
+                  type="text"
+                  required
+                  value={promoForm.code}
+                  onChange={(e) =>
+                    setPromoForm({
+                      ...promoForm,
+                      code: e.target.value.toUpperCase(),
+                    })
+                  }
+                  className={`${inputClass} font-mono uppercase`}
+                  placeholder="مثال: WELCOME10"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>نسبة الخصم %</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={promoForm.percentOff}
+                  onChange={(e) =>
+                    setPromoForm({
+                      ...promoForm,
+                      percentOff: Number(e.target.value),
+                    })
+                  }
+                  className={inputClass}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={promoBusy}
+                className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {promoBusy ? "جارٍ الإضافة…" : "إضافة الكود"}
+              </button>
+              {promoError && (
+                <p className="rounded-lg bg-danger/10 p-2.5 text-xs font-semibold text-danger">
+                  {promoError}
+                </p>
+              )}
+            </form>
+          </div>
+
+          <div className="space-y-4 md:col-span-2">
+            <h2 className="text-lg font-bold">
+              الأكواد الحالية ({promoList.length})
+            </h2>
+            {promoListLoading ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                جارٍ التحميل...
+              </div>
+            ) : promoList.length === 0 ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                لا توجد أكواد بعد
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {promoList.map((promo) => (
+                  <div
+                    key={promo.code}
+                    className="glass flex items-center justify-between rounded-2xl p-4"
+                  >
+                    <div>
+                      <p className="font-mono text-base font-bold">
+                        {promo.code}
+                      </p>
+                      <p className="text-xs text-foreground-muted">
+                        خصم {promo.percentOff}%
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleTogglePromo(promo.code, promo.active)
+                        }
+                        className={`rounded-lg px-2.5 py-1.5 text-xs font-bold ${
+                          promo.active
+                            ? "bg-accent/10 text-accent"
+                            : "bg-danger/10 text-danger"
+                        }`}
+                      >
+                        {promo.active ? "نشط" : "معطّل"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePromo(promo.code)}
+                        className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
+                      >
+                        حذف
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-foreground-muted">
+              ملاحظة: كود &quot;ZEST30&quot; (اخدش واربح) أُزيل من الواجهة —
+              إن كان لا يزال موجوداً بهذه القائمة، احذفه من هنا نهائياً.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "categories" && (
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="glass h-fit rounded-2xl p-6">
+            <h2 className="mb-4 text-lg font-bold text-primary">
+              إضافة فئة جديدة
+            </h2>
+            <form onSubmit={handleAddCategory} className="space-y-4">
+              <div>
+                <label className={labelClass}>اسم الفئة *</label>
+                <input
+                  type="text"
+                  required
+                  value={categoryForm.label}
+                  onChange={(e) =>
+                    setCategoryForm({ ...categoryForm, label: e.target.value })
+                  }
+                  className={inputClass}
+                  placeholder="مثال: مشروبات"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>الأيقونة</label>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORY_ICON_OPTIONS.map((icon) => (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => setCategoryForm({ ...categoryForm, icon })}
+                      className={`flex size-10 items-center justify-center rounded-xl border text-lg transition ${
+                        categoryForm.icon === icon
+                          ? "border-primary bg-primary/15"
+                          : "border-glass-border bg-secondary"
+                      }`}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>الترتيب (رقم أصغر = أول)</label>
+                <input
+                  type="number"
+                  value={categoryForm.order}
+                  onChange={(e) =>
+                    setCategoryForm({
+                      ...categoryForm,
+                      order: Number(e.target.value),
+                    })
+                  }
+                  className={inputClass}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={categoryBusy}
+                className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {categoryBusy ? "جارٍ الإضافة…" : "إضافة الفئة"}
+              </button>
+            </form>
+          </div>
+
+          <div className="space-y-4 md:col-span-2">
+            <h2 className="text-lg font-bold">
+              الفئات الحالية ({categoriesList.length})
+            </h2>
+            {categoriesLoading ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                جارٍ التحميل...
+              </div>
+            ) : categoriesList.length === 0 ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                لا توجد فئات بعد
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {categoriesList.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className="glass flex items-center justify-between rounded-2xl p-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{cat.icon}</span>
+                      <div>
+                        <p className="text-sm font-bold">{cat.label}</p>
+                        <p className="text-[10px] text-foreground-muted">
+                          ترتيب: {cat.order}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleToggleCategoryVisible(cat.id, cat.visible)
+                        }
+                        className={`rounded-lg px-2 py-1.5 text-[11px] font-bold ${
+                          cat.visible
+                            ? "bg-accent/10 text-accent"
+                            : "bg-danger/10 text-danger"
+                        }`}
+                      >
+                        {cat.visible ? "ظاهرة" : "مخفية"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(cat.id)}
+                        className="rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-bold text-foreground-muted hover:text-danger"
+                      >
+                        حذف
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "banners" && (
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="glass h-fit rounded-2xl p-6">
+            <h2 className="mb-1 text-lg font-bold text-primary">
+              إضافة إعلان جديد
+            </h2>
+            <p className="mb-4 text-xs text-foreground-muted">
+              رابط الصورة اختياري — إن تُرك فارغاً يظهر تدرج لوني بدلاً منه.
+            </p>
+            <form onSubmit={handleAddBanner} className="space-y-4">
+              <div>
+                <label className={labelClass}>العنوان *</label>
+                <input
+                  type="text"
+                  required
+                  value={bannerForm.title}
+                  onChange={(e) =>
+                    setBannerForm({ ...bannerForm, title: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>العنوان الفرعي</label>
+                <input
+                  type="text"
+                  value={bannerForm.subtitle}
+                  onChange={(e) =>
+                    setBannerForm({ ...bannerForm, subtitle: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>نص الزر</label>
+                  <input
+                    type="text"
+                    value={bannerForm.ctaText}
+                    onChange={(e) =>
+                      setBannerForm({ ...bannerForm, ctaText: e.target.value })
+                    }
+                    className={inputClass}
+                    placeholder="اطلب الآن"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>رابط الزر</label>
+                  <input
+                    type="text"
+                    value={bannerForm.ctaLink}
+                    onChange={(e) =>
+                      setBannerForm({ ...bannerForm, ctaLink: e.target.value })
+                    }
+                    className={inputClass}
+                    placeholder="/restaurant/xyz"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>رابط صورة (اختياري)</label>
+                <input
+                  type="text"
+                  value={bannerForm.imageUrl}
+                  onChange={(e) =>
+                    setBannerForm({ ...bannerForm, imageUrl: e.target.value })
+                  }
+                  className={inputClass}
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <label className={labelClass}>الترتيب</label>
+                <input
+                  type="number"
+                  value={bannerForm.order}
+                  onChange={(e) =>
+                    setBannerForm({
+                      ...bannerForm,
+                      order: Number(e.target.value),
+                    })
+                  }
+                  className={inputClass}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={bannerBusy}
+                className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {bannerBusy ? "جارٍ الإضافة…" : "إضافة الإعلان"}
+              </button>
+            </form>
+          </div>
+
+          <div className="space-y-4 md:col-span-2">
+            <h2 className="text-lg font-bold">
+              الإعلانات الحالية ({bannersList.length})
+            </h2>
+            {bannersLoading ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                جارٍ التحميل...
+              </div>
+            ) : bannersList.length === 0 ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                لا توجد إعلانات بعد
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {bannersList.map((banner) => (
+                  <div key={banner.id} className="glass rounded-2xl p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-bold">{banner.title}</p>
+                        {banner.subtitle && (
+                          <p className="text-xs text-foreground-muted">
+                            {banner.subtitle}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleToggleBannerActive(banner.id, banner.active)
+                        }
+                        className={`rounded-lg px-2.5 py-1.5 text-xs font-bold ${
+                          banner.active
+                            ? "bg-accent/10 text-accent"
+                            : "bg-danger/10 text-danger"
+                        }`}
+                      >
+                        {banner.active ? "نشط" : "معطّل"}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBanner(banner.id)}
+                      className="mt-3 w-full rounded-lg bg-white/5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
+                    >
+                      حذف
+                    </button>
                   </div>
                 ))}
               </div>

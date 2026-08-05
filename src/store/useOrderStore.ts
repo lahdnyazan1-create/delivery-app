@@ -32,6 +32,8 @@ interface OrderState {
     zoneId: string;
     deliveryAddressDetails: string;
     paymentMethod?: PaymentMethod;
+    customerLat?: number | null;
+    customerLng?: number | null;
   }) => Promise<{ ok: boolean; orderId?: string; message?: string }>;
   updateOrderStatus: (
     orderId: string,
@@ -98,6 +100,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     zoneId,
     deliveryAddressDetails,
     paymentMethod,
+    customerLat,
+    customerLng,
   }) => {
     if (!restaurantId) return { ok: false, message: "لم يتم تحديد مطعم" };
 
@@ -108,6 +112,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       zoneId,
       deliveryAddressDetails,
       paymentMethod,
+      customerLat,
+      customerLng,
     });
 
     if (!result.ok) return { ok: false, message: result.message };

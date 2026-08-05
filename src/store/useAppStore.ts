@@ -1,7 +1,10 @@
 // src/store/useAppStore.ts
 // ============================================================================
-// تم تحديث الملف لمنع مشاكل TypeScript أثناء بناء المشروع في Vercel.
-// تم استخدام Optional Chaining والقيم الافتراضية للتعامل مع خصائص Cart المتغيرة.
+// التعديل: placeOrder يقرأ zoneId + deliveryAddressDetails تلقائياً من
+// useCartStore (بدل تمريرهما يدوياً بكل استدعاء)، تماشياً مع الشكل الأصلي
+// البسيط الذي كانت تستخدمه شاشة السلة (placeOrder() بدون معطيات).
+// تم أيضاً تعريض zones + selectedZoneId + setSelectedZoneId +
+// deliveryAddressDetails + setDeliveryAddressDetails لاستخدامها في الواجهة.
 // ============================================================================
 
 import { useAuthStore } from "./useAuthStore";
@@ -19,7 +22,7 @@ export { useAuthStore, useDataStore, useCartStore, useOrderStore };
 export const useAppStore = () => {
   const auth = useAuthStore();
   const data = useDataStore();
-  const cart = useCartStore() as any; // لتفادي مشاكل الأنواع المفقودة في CartState
+  const cart = useCartStore();
   const order = useOrderStore();
 
   return {
@@ -51,14 +54,15 @@ export const useAppStore = () => {
     getZone: data.getZone,
 
     // Cart Module
-    cart: cart.cart || [],
-    cartRestaurantId: cart.cartRestaurantId || null,
-    appliedPromo: cart.appliedPromo || null,
-    selectedZoneId: cart.selectedZoneId || null,
-    deliveryAddressDetails: cart.deliveryAddressDetails || "",
-    setSelectedZoneId: cart.setSelectedZoneId || (() => {}),
-    setDeliveryAddressDetails: cart.setDeliveryAddressDetails || (() => {}),
+    cart: cart.cart,
+    cartRestaurantId: cart.cartRestaurantId,
+    appliedPromo: cart.appliedPromo,
+    selectedZoneId: cart.selectedZoneId,
+    deliveryAddressDetails: cart.deliveryAddressDetails,
+    setSelectedZoneId: cart.setSelectedZoneId,
+    setDeliveryAddressDetails: cart.setDeliveryAddressDetails,
     addToCart: cart.addToCart,
+    replaceCartAndAdd: cart.replaceCartAndAdd,
     removeFromCart: cart.removeFromCart,
     updateQuantity: cart.updateQuantity,
     clearCart: cart.clearCart,
@@ -73,52 +77,38 @@ export const useAppStore = () => {
     unsubscribeFromOrders: order.unsubscribeFromOrders,
 
     /**
-     * ✅ يدعم الاستدعيين:
-     * 1. placeOrder({ zoneId, deliveryAddressDetails, paymentMethod })
-     * 2. placeOrder(paymentMethod) مع قراءة المعطيات من المتجر تلقائياً
+     * ✅ يقرأ zoneId وdeliveryAddressDetails تلقائياً من useCartStore
+     * (اختارهما المستخدم مسبقاً في شاشة السلة عبر setSelectedZoneId /
+     * setDeliveryAddressDetails). يمكن تمرير paymentMethod اختيارياً فقط.
      */
-    placeOrder: async (
-      optsOrPayment?:
-        | PaymentMethod
-        | {
-            zoneId?: string;
-            deliveryAddressDetails?: string;
-            paymentMethod?: PaymentMethod;
-          }
-    ) => {
-      let zoneId = cart.selectedZoneId;
-      let deliveryAddressDetails = cart.deliveryAddressDetails;
-      let paymentMethod: PaymentMethod | undefined;
+    placeOrder: async (paymentMethod?: PaymentMethod) => {
+      const { selectedZoneId, deliveryAddressDetails } = cart;
 
-      if (typeof optsOrPayment === "object" && optsOrPayment !== null) {
-        zoneId = optsOrPayment.zoneId || zoneId;
-        deliveryAddressDetails = optsOrPayment.deliveryAddressDetails || deliveryAddressDetails;
-        paymentMethod = optsOrPayment.paymentMethod;
-      } else if (typeof optsOrPayment === "string") {
-        paymentMethod = optsOrPayment;
-      }
-
-      if (!zoneId) {
+      if (!selectedZoneId) {
         return { ok: false, message: "يرجى اختيار منطقة التوصيل" };
+      }
+      if (!deliveryAddressDetails || deliveryAddressDetails.trim().length < 3) {
+        return { ok: false, message: "يرجى إدخال تفاصيل عنوان التوصيل" };
       }
 
       const result = await order.placeOrder({
         cart: cart.cart,
         restaurantId: cart.cartRestaurantId,
         promoCode: cart.appliedPromo,
-        zoneId,
-        deliveryAddressDetails: deliveryAddressDetails || "",
+        zoneId: selectedZoneId,
+        deliveryAddressDetails,
         paymentMethod,
+        // ✅ إحداثيات GPS المحفوظة بالبروفايل (إن وُجدت) تُرفق تلقائياً
+        // لزيادة موثوقية الموقع لدى المندوب، دون إجبار المستخدم على أي خطوة إضافية
+        customerLat: auth.user?.lat ?? null,
+        customerLng: auth.user?.lng ?? null,
       });
-
       if (result.ok) {
         cart.clearCart();
       }
       return result;
     },
 
-    addDish: (order as any).addDish,
-    updateDish: (order as any).updateDish,
     updateOrderStatus: order.updateOrderStatus,
     claimOrder: (orderId: string) => order.claimOrder(orderId),
     assignDriverToOrder: (orderId: string, driverId: string) =>
@@ -127,13 +117,13 @@ export const useAppStore = () => {
     updateActiveOrderStatus: order.updateActiveOrderStatus,
 
     // Admin & Management Helpers
-    toggleRestaurantActive: async (id: string, activeStatus?: boolean) => {
+    toggleRestaurantActive: async (id: string) => {
       const restaurant = data.restaurants.find((r) => r.id === id);
-      const newStatus = activeStatus !== undefined ? activeStatus : !restaurant?.active;
-      await toggleRestaurantActiveFirestore(id, newStatus);
+      if (!restaurant) return;
+      await toggleRestaurantActiveFirestore(id, !restaurant.active);
     },
     addRestaurant: async (restaurant: Omit<Restaurant, "id">) => {
       return await addRestaurantFirestore(restaurant);
     },
   };
-};
+};	

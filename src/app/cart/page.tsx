@@ -1,21 +1,21 @@
 // src/app/cart/page.tsx
 // ============================================================================
-// التعديلات:
-// - ✅ إضافة قسم "اختيار منطقة التوصيل" (zones) — يحدد رسوم التوصيل الفعلية.
-// - ✅ استبدال الاعتماد على user.address بحقل deliveryAddressDetails حر
-//   (تفاصيل العنوان لهذا الطلب تحديداً: شارع/مبنى/طابق...).
-// - ✅ canCheckout الآن يتطلب أيضاً اختيار منطقة وإدخال تفاصيل عنوان صحيحة.
-// - ✅ placeOrder() لم يعد يحتاج معطيات (يقرأها من useCartStore تلقائياً).
+// التعديلات الجديدة:
+// - ✅ حُذف <ScratchCard /> نهائياً (كان يفعّل كود "ZEST30" المخفي تلقائياً
+//   بميكانيكية "اخدش واربح"). خانة كود الخصم اليدوية بقيت كما هي بالأسفل.
+// - ✅ العنوان صار موحّداً مع صفحة البروفايل: يُملأ تلقائياً من
+//   user.address عند فتح السلة إن لم يكن قد كُتب شيء بعد، مع زر
+//   "استخدام عنواني المحفوظ" وعرض حالة GPS إن وُجدت إحداثيات محفوظة.
+// - ✅ رسائل أوضح لحالة عدم وجود مناطق توصيل بعد.
 // ============================================================================
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Minus, Plus, Trash2, MapPin, Check } from "lucide-react";
+import { Minus, Plus, Trash2, MapPin, Check, LocateFixed } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/layout/AppShell";
-import { ScratchCard } from "@/components/promo/ScratchCard";
 import { SwipeButton } from "@/components/checkout/SwipeButton";
 import { useAppStore } from "@/store/useAppStore";
 import { formatPrice } from "@/constants/currency";
@@ -50,12 +50,20 @@ export default function CartPage() {
   const isAuthenticated = Boolean(user);
 
   // ✅ إن لم تُختر منطقة بعد ووُجدت مناطق متاحة، اختر أول منطقة تلقائياً
-  // لتسهيل التجربة (المستخدم يقدر يغيّرها من القائمة بأي وقت).
   useEffect(() => {
     if (!selectedZoneId && zones.length > 0) {
       setSelectedZoneId(zones[0].id);
     }
   }, [zones, selectedZoneId, setSelectedZoneId]);
+
+  // ✅ توحيد العنوان مع البروفايل: إن كان عند المستخدم عنوان محفوظ ولم يكتب
+  // شيئاً بعد بهذه الجلسة، نعبّئه تلقائياً (يقدر يعدّله وقتها براحته)
+  useEffect(() => {
+    if (!deliveryAddressDetails && user?.address) {
+      setDeliveryAddressDetails(user.address);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.address]);
 
   const hasZone = Boolean(selectedZoneId);
   const hasAddressDetails = Boolean(deliveryAddressDetails.trim().length >= 3);
@@ -63,6 +71,10 @@ export default function CartPage() {
     isAuthenticated && hasZone && hasAddressDetails && cart.length > 0,
   );
   const cartRestaurant = getRestaurant(cartRestaurantId || "");
+
+  const useSavedAddress = () => {
+    if (user?.address) setDeliveryAddressDetails(user.address);
+  };
 
   const handleConfirm = async () => {
     const result = await placeOrder();
@@ -75,7 +87,7 @@ export default function CartPage() {
     return true;
   };
 
-  const visibleCart = cart.filter((item: any) => getDish(item.dishId));
+  const visibleCart = cart.filter((item) => getDish(item.dishId));
 
   const checkoutLabel = !isAuthenticated
     ? "يتطلب تسجيل الدخول"
@@ -119,7 +131,7 @@ export default function CartPage() {
         <>
           <ul className="mb-5 space-y-3">
             <AnimatePresence initial={false}>
-              {visibleCart.map((item: any) => {
+              {visibleCart.map((item) => {
                 const dish = getDish(item.dishId)!;
                 return (
                   <motion.li
@@ -187,7 +199,7 @@ export default function CartPage() {
             </AnimatePresence>
           </ul>
 
-          {/* ✅ قسم اختيار منطقة التوصيل + تفاصيل العنوان (جديد بالكامل) */}
+          {/* قسم اختيار منطقة التوصيل + تفاصيل العنوان (موحّد مع البروفايل) */}
           <div className="glass mb-5 rounded-3xl p-4" dir="rtl">
             <div className="mb-3 flex items-center gap-2">
               <MapPin className="size-4 text-primary" />
@@ -208,8 +220,9 @@ export default function CartPage() {
                   اختر منطقتك
                 </p>
                 {zones.length === 0 ? (
-                  <p className="rounded-xl bg-secondary px-3 py-2.5 text-xs text-foreground-muted">
-                    لا توجد مناطق توصيل متاحة حالياً، حاول لاحقاً.
+                  <p className="mb-4 rounded-xl bg-secondary px-3 py-2.5 text-xs text-foreground-muted">
+                    لا توجد مناطق توصيل مُضافة بعد من الإدارة. تواصل معنا أو
+                    حاول لاحقاً.
                   </p>
                 ) : (
                   <div className="mb-4 flex flex-wrap gap-2">
@@ -234,9 +247,21 @@ export default function CartPage() {
                   </div>
                 )}
 
-                <p className="mb-2 text-xs font-bold text-foreground-muted">
-                  تفاصيل العنوان (اسم الشارع، رقم المبنى، الطابق...)
-                </p>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-bold text-foreground-muted">
+                    تفاصيل العنوان (اسم الشارع، رقم المبنى، الطابق...)
+                  </p>
+                  {user?.address && (
+                    <button
+                      type="button"
+                      onClick={useSavedAddress}
+                      className="flex items-center gap-1 text-[11px] font-bold text-accent"
+                    >
+                      <LocateFixed className="size-3" />
+                      استخدام عنواني المحفوظ
+                    </button>
+                  )}
+                </div>
                 <textarea
                   value={deliveryAddressDetails}
                   onChange={(e) => setDeliveryAddressDetails(e.target.value)}
@@ -244,12 +269,27 @@ export default function CartPage() {
                   rows={2}
                   className="w-full resize-none rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none placeholder:text-foreground-muted/60"
                 />
+                {(user?.lat != null || user?.locationLabel) && (
+                  <p className="mt-1.5 text-[11px] text-foreground-muted">
+                    📍 موقعك الدقيق محفوظ ({user.locationLabel || "GPS"}) —
+                    سيُرفق تلقائياً مع الطلب لمساعدة المندوب على الوصول.
+                  </p>
+                )}
+                {!user?.lat && (
+                  <p className="mt-1.5 text-[11px] text-foreground-muted">
+                    لتحديد موقعك بدقة أكبر عبر GPS، فعّله من صفحة{" "}
+                    <button
+                      type="button"
+                      onClick={() => router.push("/profile")}
+                      className="font-bold text-accent underline"
+                    >
+                      الملف الشخصي
+                    </button>
+                    .
+                  </p>
+                )}
               </>
             )}
-          </div>
-
-          <div className="mb-5">
-            <ScratchCard />
           </div>
 
           <div className="glass mb-5 flex gap-2 rounded-3xl p-3">

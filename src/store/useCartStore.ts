@@ -1,3 +1,10 @@
+// src/store/useCartStore.ts
+// ============================================================================
+// التعديلات:
+// - ✅ إضافة selectedZoneId + deliveryAddressDetails (تُحفظان محلياً/persisted)
+// - ✅ getCartTotal يحسب رسوم التوصيل من zone.deliveryFee بدل restaurant.deliveryFee
+// ============================================================================
+
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { CartItem } from "@/types/database";
@@ -8,17 +15,23 @@ interface CartState {
   cart: CartItem[];
   cartRestaurantId: string | null;
   appliedPromo: string | null;
+  selectedZoneId: string | null;
+  deliveryAddressDetails: string;
 
   // Actions
   addToCart: (
     dishId: string,
     restaurantId: string,
-  ) => { ok: boolean; message?: string };
+  ) => { ok: boolean; message?: string; conflict?: boolean };
+  /** يفرّغ السلة الحالية ثم يضيف الطبق الجديد مباشرة — لحالة تعارض المطعم */
+  replaceCartAndAdd: (dishId: string, restaurantId: string) => void;
   removeFromCart: (dishId: string) => void;
   updateQuantity: (dishId: string, quantity: number) => void;
   clearCart: () => void;
   applyPromo: (code: string) => { ok: boolean; message: string };
   removePromo: () => void;
+  setSelectedZoneId: (zoneId: string | null) => void;
+  setDeliveryAddressDetails: (details: string) => void;
   getCartTotal: () => {
     subtotal: number;
     discount: number;
@@ -33,11 +46,18 @@ export const useCartStore = create<CartState>()(
       cart: [],
       cartRestaurantId: null,
       appliedPromo: null,
+      selectedZoneId: null,
+      deliveryAddressDetails: "",
 
       addToCart: (dishId, restaurantId) => {
         const state = get();
         if (state.cartRestaurantId && state.cartRestaurantId !== restaurantId) {
-          return { ok: false, message: "لا يمكن إضافة أطباق من مطعم آخر" };
+          // ✅ conflict:true يسمح للواجهة بعرض تأكيد واضح بدل تجاهل الفشل بصمت
+          return {
+            ok: false,
+            message: "سلتك تحتوي أصناف من مطعم آخر",
+            conflict: true,
+          };
         }
         const existing = state.cart.find((item) => item.dishId === dishId);
         let newCart;
@@ -52,6 +72,14 @@ export const useCartStore = create<CartState>()(
         }
         set({ cart: newCart, cartRestaurantId: restaurantId });
         return { ok: true };
+      },
+
+      replaceCartAndAdd: (dishId, restaurantId) => {
+        set({
+          cart: [{ dishId, quantity: 1 }],
+          cartRestaurantId: restaurantId,
+          appliedPromo: null,
+        });
       },
 
       removeFromCart: (dishId) => {
@@ -77,6 +105,8 @@ export const useCartStore = create<CartState>()(
       },
 
       clearCart: () => {
+        // ✅ نُبقي على selectedZoneId بعد تفريغ السلة (تفضيل المستخدم على
+        // الأرجح يبقى نفسه لطلبه القادم)، ونمسح فقط محتوى السلة والبرومو.
         set({ cart: [], cartRestaurantId: null, appliedPromo: null });
       },
 
@@ -90,12 +120,16 @@ export const useCartStore = create<CartState>()(
 
       removePromo: () => set({ appliedPromo: null }),
 
+      setSelectedZoneId: (zoneId) => set({ selectedZoneId: zoneId }),
+      setDeliveryAddressDetails: (details) =>
+        set({ deliveryAddressDetails: details }),
+
       getCartTotal: () => {
-        const { cart, appliedPromo } = get();
-        const { dishes, promoCodes, restaurants } = useDataStore.getState();
-        const { cartRestaurantId } = get();
-        const restaurant = restaurants.find((r) => r.id === cartRestaurantId);
-        const deliveryFee = restaurant ? restaurant.deliveryFee : 0;
+        const { cart, appliedPromo, selectedZoneId } = get();
+        const { dishes, promoCodes, zones } = useDataStore.getState();
+        const zone = zones.find((z) => z.id === selectedZoneId);
+        // ✅ الرسوم الآن من المنطقة المختارة، وليس من المطعم
+        const deliveryFee = zone ? zone.deliveryFee : 0;
         return calcTotals(cart, dishes, appliedPromo, promoCodes, deliveryFee);
       },
     }),
@@ -106,8 +140,11 @@ export const useCartStore = create<CartState>()(
         cart: state.cart,
         cartRestaurantId: state.cartRestaurantId,
         appliedPromo: state.appliedPromo,
+        selectedZoneId: state.selectedZoneId,
+        deliveryAddressDetails: state.deliveryAddressDetails,
       }),
       skipHydration: true,
     },
   ),
 );
+
