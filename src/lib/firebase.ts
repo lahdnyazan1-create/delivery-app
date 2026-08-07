@@ -1,7 +1,16 @@
+// src/lib/firebase.ts
+// ============================================================================
+// التعديل: إضافة تصدير storage (Firebase Storage) لدعم رفع صور المطاعم
+// والمنتجات فعلياً بدل الاعتماد على روابط خارجية (Google Drive وغيره).
+// يتطلب أن يكون NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET معرّفاً بملف .env.local
+// (كان معرّفاً أصلاً بـ firebaseConfig تحت، فقط لم يكن يُستخدم).
+// ============================================================================
+
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getFunctions } from "firebase/functions";
+import { getStorage } from "firebase/storage";
 
 // ✅ App Check — يحمي المفاتيح العامة من الاستخدام الخارجي
 // يتطلب إعداد reCAPTCHA v3 في Firebase Console
@@ -21,6 +30,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const functions = getFunctions(app);
+export const storage = getStorage(app);
 
 // ✅ تهيئة App Check (async — لا تمنع التطبيق من العمل)
 export async function initAppCheck() {

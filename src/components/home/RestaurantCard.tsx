@@ -1,10 +1,17 @@
+// src/components/home/RestaurantCard.tsx
+// ============================================================================
+// التعديلات:
+// - ✅ يعرض restaurant.image الفعلية إن وُجدت بدل الاعتماد فقط على تدرج لوني
+// - ✅ حُذف نص "توصيل X₪" المعتمد على restaurant.deliveryFee المهجور (الرسوم
+//   الفعلية تختلف حسب منطقة العميل الآن وليست خاصية ثابتة بالمطعم)
+// ============================================================================
+
 "use client";
 
 import Link from "next/link";
 import { Clock, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Restaurant } from "@/types/database";
-import { formatPrice } from "@/constants/currency";
 
 type RestaurantCardProps = {
   restaurant: Restaurant;
@@ -28,8 +35,17 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
         className="no-select glass block overflow-hidden rounded-3xl transition-transform active:scale-[0.985]"
       >
         <div
-          className={`relative aspect-[16/7] bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
+          className={`relative aspect-[16/7] overflow-hidden bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
         >
+          {restaurant.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={restaurant.image}
+              alt={restaurant.name}
+              loading="lazy"
+              className="absolute inset-0 size-full object-cover"
+            />
+          )}
           <div
             className={`absolute -bottom-5 left-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br ${restaurant.logoGradient || "from-primary to-orange-600"} text-lg font-extrabold text-white shadow-lg ring-2 ring-background`}
           >
@@ -62,14 +78,11 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
               {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} دقيقة
             </span>
             <span>·</span>
-            <span>
-              {restaurant.deliveryFee === 0
-                ? "توصيل مجاني"
-                : `توصيل ${formatPrice(restaurant.deliveryFee)}`}
-            </span>
+            <span>رسوم التوصيل حسب منطقتك</span>
           </div>
         </div>
       </Link>
     </motion.li>
   );
 }
+

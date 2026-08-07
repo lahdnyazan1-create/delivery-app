@@ -1,3 +1,10 @@
+// src/components/tracking/OrderStageTracker.tsx
+// ============================================================================
+// التعديل: أُضيفت مرحلة "Accepted" (كانت غائبة تماماً) — قبلها كان أي طلب
+// بحالة Accepted يُعرض بصرياً وكأنه لا يزال "Pending" لأن findIndex كانت
+// ترجع -1 ويُصحَّح إلى 0 (أول مرحلة) بدل مكانه الحقيقي بالتسلسل.
+// ============================================================================
+
 "use client";
 
 import { motion } from "framer-motion";
@@ -14,6 +21,12 @@ const STAGES: {
     titleAr: "تم استلام الطلب",
     titleEn: "Order Received",
     icon: "📝",
+  },
+  {
+    status: "Accepted",
+    titleAr: "المطعم وافق على طلبك",
+    titleEn: "Order Accepted",
+    icon: "👍",
   },
   {
     status: "Preparing",
@@ -144,7 +157,7 @@ export function OrderStageTracker({ status }: OrderStageTrackerProps) {
           animate={{ width: `${progress * 100}%` }}
           transition={{ type: "spring", stiffness: 180, damping: 24 }}
         />
-        <ul className="relative grid grid-cols-5 gap-1">
+        <ul className="relative grid grid-cols-6 gap-1">
           {STAGES.map((stage, i) => {
             const done = i <= activeIndex;
             const current = i === activeIndex;

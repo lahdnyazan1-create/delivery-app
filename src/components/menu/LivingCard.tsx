@@ -92,10 +92,19 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
     >
       <div
         ref={mediaRef}
-        className={`relative aspect-[4/3] bg-gradient-to-br ${
+        className={`relative aspect-[4/3] overflow-hidden bg-gradient-to-br ${
           dish.gradient || "from-gray-600 to-gray-800"
         }`}
       >
+        {dish.image && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={dish.image}
+            alt={dish.name}
+            loading="lazy"
+            className="absolute inset-0 size-full object-cover"
+          />
+        )}
         {dish.isHot && canAdd && <Steam />}
         {dish.isHot && (
           <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-secondary/70 px-2.5 py-1 text-[11px] font-semibold text-primary-soft backdrop-blur-md">

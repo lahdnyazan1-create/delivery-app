@@ -1,12 +1,16 @@
 // scripts/seed.js
 //
 // تشغيل: node scripts/seed.js
-// يتطلب: ملف serviceAccountKey.json بجانب هذا السكربت (شرح التحميل بالأسفل)
+// يتطلب: ملف serviceAccountKey.json بجانب هذا السكربت
 //
-// يحشو Firestore بمطاعم وأطباق وأكواد خصم وهمية للتجربة.
-// يستخدم Admin SDK اللي يتجاوز قواعد Firestore بالكامل، فيشتغل بغض النظر
-// عن أي قاعدة أمان — هذا مقصود ومخصص فقط للتشغيل من جهازك المحل
-// scripts/seed.js
+// ============================================================================
+// التعديلات:
+// - ✅ حُذف ذكر "ZEST30" من نص البانر (كان يروّج لكود غير موجود أصلاً —
+//   الأكواد الحقيقية المُنشأة بهذا السكربت هي ZEST10 وWELCOME20 فقط)
+// - ✅ أُضيف seeding لمجموعة zones (كانت مفقودة تماماً — هذا كان سبب ظهور
+//   "لا توجد مناطق توصيل" بشاشة السلة عند أول تشغيل للمشروع)
+// ============================================================================
+
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const serviceAccount = require("./serviceAccountKey.json");
@@ -22,8 +26,9 @@ const restaurants = [
     id: "rest-pizza-house",
     name: "بيت البيتزا",
     cuisineId: "pizza",
+    cuisine: "بيتزا",
     rating: 4.6,
-    deliveryFee: 12,
+    deliveryFee: 12, // ⚠️ مهجور — الرسوم الفعلية من zones الآن، أُبقي عليه فقط للتوافق
     etaMinutes: 30,
     tagline: "بيتزا إيطالية أصلية على الحطب",
     address: "شارع رفيديا، نابلس",
@@ -33,6 +38,7 @@ const restaurants = [
     id: "rest-burger-lab",
     name: "برغر لاب",
     cuisineId: "burger",
+    cuisine: "برغر",
     rating: 4.4,
     deliveryFee: 10,
     etaMinutes: 25,
@@ -44,6 +50,7 @@ const restaurants = [
     id: "rest-oriental-taste",
     name: "مذاق الشرق",
     cuisineId: "oriental",
+    cuisine: "شرقي",
     rating: 4.8,
     deliveryFee: 8,
     etaMinutes: 35,
@@ -55,6 +62,7 @@ const restaurants = [
     id: "rest-sushi-corner",
     name: "زاوية السوشي",
     cuisineId: "sushi",
+    cuisine: "سوشي",
     rating: 4.3,
     deliveryFee: 15,
     etaMinutes: 40,
@@ -66,6 +74,7 @@ const restaurants = [
     id: "rest-sweet-corner",
     name: "زاوية الحلا",
     cuisineId: "sweets",
+    cuisine: "حلويات",
     rating: 4.9,
     deliveryFee: 7,
     etaMinutes: 20,
@@ -195,6 +204,13 @@ const dishes = [
   },
 ];
 
+// ✅ جديد — مناطق التوصيل. بدونها شاشة السلة تبقى فارغة من خيارات التوصيل.
+const zones = [
+  { id: "zone-downtown", name: "نابلس - وسط البلد", deliveryFee: 5, estimatedMinutes: 20, active: true },
+  { id: "zone-rafidia", name: "نابلس - رفيديا", deliveryFee: 7, estimatedMinutes: 30, active: true },
+  { id: "zone-university", name: "نابلس - الجامعة الجديدة", deliveryFee: 8, estimatedMinutes: 35, active: true },
+];
+
 const promoCodes = [
   { code: "ZEST10", percentOff: 10, active: true },
   { code: "WELCOME20", percentOff: 20, active: true },
@@ -222,8 +238,9 @@ const banners = [
   },
   {
     id: "banner-promo",
-    title: "خصم 30% على أول طلب",
-    subtitle: "استخدم كود ZEST30 عند الدفع",
+    title: "خصم 10% على أول طلب",
+    // ✅ صار يشير لكود حقيقي فعلاً موجود بقائمة promoCodes فوق (ZEST10)
+    subtitle: "استخدم كود ZEST10 عند الدفع",
     ctaText: "اطلب الآن",
     ctaLink: "/cart",
     gradient: "from-secondary to-primary",
@@ -250,6 +267,15 @@ async function seed() {
     batch.set(ref, { ...dish, createdAt: Date.now() });
   }
 
+  // ✅ مناطق التوصيل بمعرّفات ثابتة
+  for (const zone of zones) {
+    const { id, ...data } = zone;
+    batch.set(db.collection("zones").doc(id), {
+      ...data,
+      createdAt: Date.now(),
+    });
+  }
+
   // أكواد الخصم (معرّف الوثيقة = نص الكود نفسه)
   for (const promo of promoCodes) {
     const { code, ...data } = promo;
@@ -268,7 +294,7 @@ async function seed() {
 
   await batch.commit();
   console.log(
-    `تم إدخال ${restaurants.length} مطاعم، ${dishes.length} طبق، ${categories.length} فئة، ${banners.length} بانر، ${promoCodes.length} كود خصم بنجاح ✅`,
+    `تم إدخال ${restaurants.length} مطاعم، ${dishes.length} طبق، ${zones.length} منطقة توصيل، ${categories.length} فئة، ${banners.length} بانر، ${promoCodes.length} كود خصم بنجاح ✅`,
   );
 }
 

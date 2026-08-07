@@ -1,16 +1,28 @@
+// src/app/order-tracking/page.tsx
+// ============================================================================
+// التعديلات:
+// - ✅ أُضيفت "Accepted" لقائمة STEPS (كانت غائبة، نفس باق OrderStageTracker)
+// - ✅ عرض deliveryAddressDetails بدل deliveryAddress المهجور
+// - ✅ fallback: لو المستخدم عمل Refresh للصفحة، activeOrder بالمتجر بيصير
+//   null (غير محفوظ محلياً)، فنجيب أحدث طلب غير منتهٍ من قائمة orders
+//   (اللي بتوصل عبر subscribeToOrders) بدل ما نقول "لا يوجد طلب نشط" بالغلط
+// ============================================================================
+
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { OrderStageTracker } from "@/components/tracking/OrderStageTracker";
-import { useOrderStore } from "@/store/useOrderStore";
+import { useAppStore } from "@/store/useAppStore";
 import { formatPrice } from "@/constants/currency";
 import type { OrderStatus } from "@/types/database";
 
 const STEPS: OrderStatus[] = [
   "Pending",
+  "Accepted",
   "Preparing",
   "Ready",
   "OutForDelivery",
@@ -19,7 +31,7 @@ const STEPS: OrderStatus[] = [
 
 const STEP_LABELS: Record<OrderStatus, string> = {
   Pending: "قيد الانتظار",
-  Accepted: "تم القبول",
+  Accepted: "تم القبول من المطعم",
   Preparing: "قيد التحضير",
   Ready: "جاهز للتوصيل",
   OutForDelivery: "في الطريق إليك",
@@ -29,7 +41,32 @@ const STEP_LABELS: Record<OrderStatus, string> = {
 
 export default function OrderTrackingPage() {
   const router = useRouter();
-  const activeOrder = useOrderStore((state) => state.activeOrder);
+  const {
+    activeOrder,
+    orders,
+    setActiveOrder,
+    user,
+    subscribeToOrders,
+  } = useAppStore();
+
+  // ✅ يضمن وجود اشتراك مباشر بالطلبات حتى لو المستخدم فتح هذه الصفحة
+  // مباشرة (رابط محفوظ / تحديث الصفحة) بدون المرور بشاشة السلة أولاً
+  useEffect(() => {
+    if (user?.uid) subscribeToOrders(user.uid, user.role);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
+  // ✅ عند تحديث الصفحة يفرغ activeOrder المؤقت بالمتجر — نعيد ربطه بأحدث
+  // طلب غير منتهٍ (Delivered/Cancelled) من قائمة orders المشترك بها فعلياً
+  useEffect(() => {
+    if (!activeOrder && orders.length > 0) {
+      const ongoing = orders.find(
+        (o) => o.status !== "Delivered" && o.status !== "Cancelled",
+      );
+      if (ongoing) setActiveOrder(ongoing);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrder, orders]);
 
   if (!activeOrder) {
     return (
@@ -131,7 +168,7 @@ export default function OrderTrackingPage() {
           {activeOrder.customerName} · {activeOrder.customerPhone}
         </p>
         <p className="mt-1 text-sm text-foreground">
-          {activeOrder.deliveryAddress}
+          {activeOrder.deliveryAddressDetails || activeOrder.deliveryAddress}
         </p>
       </div>
 

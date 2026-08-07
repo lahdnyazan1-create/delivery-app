@@ -1,13 +1,21 @@
+// src/app/page.tsx
+// ============================================================================
+// التعديل: حُذف قسم "🚚 توصيل مجاني" بالكامل. كان مبنياً على
+// restaurant.deliveryFee === 0 — حقل مهجور الآن بعد التحول لنظام zones،
+// فأصبح هذا القسم مضللاً (لا علاقة له بالرسوم الفعلية التي تعتمد على منطقة
+// العميل وقت الطلب، وليست خاصية ثابتة بالمطعم).
+// ============================================================================
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search as SearchIcon } from "lucide-react";
-import { AppShell } from "@/components/layout/AppShell";
 import { CategoriesGrid } from "@/components/home/CategoriesGrid";
 import { BannerCarousel } from "@/components/home/BannerCarousel";
 import { RestaurantShelf } from "@/components/home/RestaurantShelf";
 import { RestaurantCard } from "@/components/home/RestaurantCard";
+import { AppShell } from "@/components/layout/AppShell";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function HomePage() {
@@ -45,11 +53,6 @@ export default function HomePage() {
         .filter((r) => r.active)
         .sort((a, b) => (b.rating || 0) - (a.rating || 0))
         .slice(0, 8),
-    [restaurants],
-  );
-
-  const freeDelivery = useMemo(
-    () => restaurants.filter((r) => r.active && r.deliveryFee === 0),
     [restaurants],
   );
 
@@ -91,12 +94,6 @@ export default function HomePage() {
               emptyHint="لا توجد مطاعم بعد"
             />
           </div>
-
-          {freeDelivery.length > 0 && (
-            <div className="mb-6">
-              <RestaurantShelf title="🚚 توصيل مجاني" restaurants={freeDelivery} />
-            </div>
-          )}
         </>
       )}
 

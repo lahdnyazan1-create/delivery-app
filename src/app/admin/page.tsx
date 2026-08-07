@@ -38,9 +38,14 @@ import {
   addBanner,
   updateBanner,
   deleteBannerDoc,
+  fetchDishes,
+  addDish,
+  updateDish,
 } from "@/lib/firestore";
 import { settleDriverCash } from "@/lib/orders";
 import { formatPrice } from "@/constants/currency";
+import { ImageUploader } from "@/components/ui/ImageUploader";
+import type { Dish } from "@/types/database";
 
 // أيقونات مقترحة (Emoji) لفئات الرئيسية — بسيطة وتعمل بدون رفع أي صور
 const CATEGORY_ICON_OPTIONS = [
@@ -80,6 +85,7 @@ function AdminDashboardContent() {
   const [activeTab, setActiveTab] = useState<
     | "orders"
     | "restaurants"
+    | "products"
     | "zones"
     | "promocodes"
     | "categories"
@@ -94,6 +100,7 @@ function AdminDashboardContent() {
     deliveryFee: 5,
     etaMinutes: 30,
     address: "",
+    image: "",
   });
 
   const [driverForm, setDriverForm] = useState({
@@ -390,16 +397,17 @@ function AdminDashboardContent() {
     if (!bannerForm.title.trim()) return;
     setBannerBusy(true);
     try {
-      await addBanner({
+      const payload: Parameters<typeof addBanner>[0] = {
         title: bannerForm.title.trim(),
-        subtitle: bannerForm.subtitle.trim() || undefined,
-        ctaText: bannerForm.ctaText.trim() || undefined,
-        ctaLink: bannerForm.ctaLink.trim() || undefined,
-        imageUrl: bannerForm.imageUrl.trim() || undefined,
         gradient: "from-primary to-red-600",
         order: Number(bannerForm.order),
         active: true,
-      });
+      };
+      if (bannerForm.subtitle.trim()) payload.subtitle = bannerForm.subtitle.trim();
+      if (bannerForm.ctaText.trim()) payload.ctaText = bannerForm.ctaText.trim();
+      if (bannerForm.ctaLink.trim()) payload.ctaLink = bannerForm.ctaLink.trim();
+      if (bannerForm.imageUrl.trim()) payload.imageUrl = bannerForm.imageUrl.trim();
+      await addBanner(payload);
       setBannerForm({
         title: "",
         subtitle: "",
@@ -427,6 +435,83 @@ function AdminDashboardContent() {
     await loadBanners();
   };
 
+  // ---------------- Products (Dishes) state ----------------
+  const [dishesList, setDishesList] = useState<Dish[]>([]);
+  const [dishesLoading, setDishesLoading] = useState(false);
+  const [dishRestaurantFilter, setDishRestaurantFilter] = useState("");
+  const [dishForm, setDishForm] = useState({
+    name: "",
+    description: "",
+    price: 0,
+    category: "أطباق رئيسية",
+    image: "",
+  });
+  const [dishBusy, setDishBusy] = useState(false);
+
+  const loadDishes = async () => {
+    setDishesLoading(true);
+    try {
+      const list = await fetchDishes();
+      setDishesList(list);
+    } catch (error) {
+      console.error("Failed to load dishes", error);
+    } finally {
+      setDishesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "products") loadDishes();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!dishRestaurantFilter && restaurants.length > 0) {
+      setDishRestaurantFilter(restaurants[0].id);
+    }
+  }, [restaurants, dishRestaurantFilter]);
+
+  const handleAddDish = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dishForm.name.trim() || !dishRestaurantFilter) return;
+    setDishBusy(true);
+    try {
+      const payload: Parameters<typeof addDish>[0] = {
+        restaurantId: dishRestaurantFilter,
+        name: dishForm.name.trim(),
+        description: dishForm.description.trim(),
+        price: Number(dishForm.price),
+        category: dishForm.category.trim(),
+        available: true,
+      };
+      if (dishForm.image) payload.image = dishForm.image;
+      await addDish(payload);
+      setDishForm({
+        name: "",
+        description: "",
+        price: 0,
+        category: "أطباق رئيسية",
+        image: "",
+      });
+      await loadDishes();
+    } catch (error) {
+      console.error("Failed to add dish", error);
+    } finally {
+      setDishBusy(false);
+    }
+  };
+
+  const handleToggleDishAvailable = async (
+    dishId: string,
+    available: boolean,
+  ) => {
+    await updateDish(dishId, { available: !available });
+    await loadDishes();
+  };
+
+  const dishesForFilter = dishesList.filter(
+    (d) => d.restaurantId === dishRestaurantFilter,
+  );
+
   // ---------------- Restaurants / Promo ----------------
 
   const handleSavePromoTag = async (id: string) => {
@@ -453,6 +538,7 @@ function AdminDashboardContent() {
       coverGradient: "from-primary to-red-600",
       logoGradient: "from-primary to-orange-600",
     };
+    if (restForm.image) newRest.image = restForm.image;
 
     try {
       await addRestaurantFirestore(newRest);
@@ -462,6 +548,7 @@ function AdminDashboardContent() {
         deliveryFee: 5,
         etaMinutes: 30,
         address: "",
+        image: "",
       });
     } catch (error) {
       console.error("Failed to add restaurant", error);
@@ -590,6 +677,17 @@ function AdminDashboardContent() {
             }`}
           >
             المطاعم ({restaurants.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("products")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === "products"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            المنتجات
           </button>
           <button
             type="button"
@@ -803,6 +901,17 @@ function AdminDashboardContent() {
             </h2>
             <form onSubmit={handleAddRestaurant} className="space-y-4">
               <div>
+                <label className={labelClass}>صورة المطعم</label>
+                <ImageUploader
+                  folder="restaurants"
+                  entityId={restForm.name.trim() || `temp-${Date.now()}`}
+                  currentUrl={restForm.image}
+                  onUploaded={(url) =>
+                    setRestForm({ ...restForm, image: url })
+                  }
+                />
+              </div>
+              <div>
                 <label className={labelClass}>اسم المطعم</label>
                 <input
                   type="text"
@@ -947,6 +1056,173 @@ function AdminDashboardContent() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "products" && (
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="glass h-fit rounded-2xl p-6">
+            <h2 className="mb-4 text-lg font-bold text-primary">
+              إضافة منتج (طبق)
+            </h2>
+            <div className="mb-4">
+              <label className={labelClass}>المطعم *</label>
+              <select
+                value={dishRestaurantFilter}
+                onChange={(e) => setDishRestaurantFilter(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">اختر مطعماً...</option>
+                {restaurants.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <form onSubmit={handleAddDish} className="space-y-4">
+              <div>
+                <label className={labelClass}>صورة المنتج</label>
+                <ImageUploader
+                  folder="dishes"
+                  entityId={dishForm.name.trim() || `temp-${Date.now()}`}
+                  currentUrl={dishForm.image}
+                  onUploaded={(url) =>
+                    setDishForm({ ...dishForm, image: url })
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass}>اسم المنتج *</label>
+                <input
+                  type="text"
+                  required
+                  value={dishForm.name}
+                  onChange={(e) =>
+                    setDishForm({ ...dishForm, name: e.target.value })
+                  }
+                  className={inputClass}
+                  placeholder="مثال: برجر لحم مشوي"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>الوصف</label>
+                <textarea
+                  value={dishForm.description}
+                  onChange={(e) =>
+                    setDishForm({ ...dishForm, description: e.target.value })
+                  }
+                  rows={2}
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>السعر (₪) *</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step="0.5"
+                    value={dishForm.price}
+                    onChange={(e) =>
+                      setDishForm({
+                        ...dishForm,
+                        price: Number(e.target.value),
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>الفئة</label>
+                  <input
+                    type="text"
+                    value={dishForm.category}
+                    onChange={(e) =>
+                      setDishForm({ ...dishForm, category: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={dishBusy || !dishRestaurantFilter}
+                className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
+              >
+                {dishBusy ? "جارٍ الإضافة…" : "إضافة المنتج"}
+              </button>
+              {!dishRestaurantFilter && (
+                <p className="text-center text-xs text-foreground-muted">
+                  اختر مطعماً أولاً
+                </p>
+              )}
+            </form>
+          </div>
+
+          <div className="space-y-4 md:col-span-2">
+            <h2 className="text-lg font-bold">
+              منتجات{" "}
+              {restaurants.find((r) => r.id === dishRestaurantFilter)?.name ||
+                "—"}{" "}
+              ({dishesForFilter.length})
+            </h2>
+            {dishesLoading ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                جارٍ التحميل...
+              </div>
+            ) : dishesForFilter.length === 0 ? (
+              <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
+                لا توجد منتجات لهذا المطعم بعد
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {dishesForFilter.map((dish) => (
+                  <div
+                    key={dish.id}
+                    className="glass flex gap-3 rounded-2xl p-3"
+                  >
+                    <div
+                      className={`size-16 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${
+                        dish.gradient || "from-gray-600 to-gray-800"
+                      }`}
+                    >
+                      {dish.image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={dish.image}
+                          alt={dish.name}
+                          className="size-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">
+                        {dish.name}
+                      </p>
+                      <p className="text-xs text-foreground-muted">
+                        {formatPrice(dish.price)} · {dish.category}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleToggleDishAvailable(dish.id, dish.available)
+                        }
+                        className={`mt-1.5 rounded-lg px-2 py-1 text-[11px] font-bold ${
+                          dish.available
+                            ? "bg-accent/10 text-accent"
+                            : "bg-danger/10 text-danger"
+                        }`}
+                      >
+                        {dish.available ? "متوفر" : "غير متوفر"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1388,7 +1664,18 @@ function AdminDashboardContent() {
                 </div>
               </div>
               <div>
-                <label className={labelClass}>رابط صورة (اختياري)</label>
+                <label className={labelClass}>صورة الإعلان</label>
+                <ImageUploader
+                  folder="banners"
+                  entityId={bannerForm.title.trim() || `temp-${Date.now()}`}
+                  currentUrl={bannerForm.imageUrl}
+                  onUploaded={(url) =>
+                    setBannerForm({ ...bannerForm, imageUrl: url })
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass}>أو رابط صورة خارجي</label>
                 <input
                   type="text"
                   value={bannerForm.imageUrl}

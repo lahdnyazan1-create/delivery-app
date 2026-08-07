@@ -1,3 +1,11 @@
+// src/app/restaurant/[id]/page.tsx
+// ============================================================================
+// التعديلات:
+// - ✅ يعرض restaurant.image كصورة غلاف فعلية إن وُجدت
+// - ✅ حُذف "توصيل ₪{restaurant.deliveryFee}" المهجور — استُبدل بنص عام
+//   لأن الرسوم الفعلية تعتمد الآن على منطقة العميل المختارة بالسلة
+// ============================================================================
+
 "use client";
 
 import Link from "next/link";
@@ -13,7 +21,8 @@ export default function RestaurantMenuPage() {
   const id = params?.id as string;
 
   const { getRestaurant, getDishesByRestaurant, cart } = useAppStore();
-  const cartCount = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
   const restaurant = getRestaurant(id);
   const menu = getDishesByRestaurant(id);
 
@@ -34,8 +43,17 @@ export default function RestaurantMenuPage() {
     <AppShell hideHeader>
       <div className="relative -mx-4 mb-5 overflow-hidden">
         <div
-          className={`aspect-[16/8] bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
-        />
+          className={`relative aspect-[16/8] overflow-hidden bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
+        >
+          {restaurant.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={restaurant.image}
+              alt={restaurant.name}
+              className="absolute inset-0 size-full object-cover"
+            />
+          )}
+        </div>
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-safe">
           <button
             type="button"
@@ -86,9 +104,7 @@ export default function RestaurantMenuPage() {
               <Clock className="size-3.5" />
               {restaurant.etaMinutes}–{restaurant.etaMinutes + 10} دقيقة
             </span>
-            <span>
-              توصيل ₪{restaurant.deliveryFee?.toFixed(2) ?? "0.00"}
-            </span>
+            <span>رسوم التوصيل تُحدَّد حسب منطقتك بالسلة</span>
           </div>
         </div>
       </div>

@@ -1,0 +1,41 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      // ✅ Storage Rules تدعم قراءة Firestore مباشرة عبر firestore.get()
+      // (متاحة افتراضياً لمعظم مشاريع Firebase الحديثة)، فنتحقق من نفس
+      // حقل role المستخدم في users/{uid} تماماً مثل Firestore Rules.
+      return isSignedIn() &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // صور المطاعم والمنتجات: قراءة عامة (لعرضها بالتطبيق للجميع)
+    // وكتابة لأي مستخدم مسجّل دخول حالياً (يمكن تشديدها لاحقاً بـ custom
+    // claims إن رغبت بحصرها بالأدمن فقط من السيرفر).
+    match /restaurants/{restaurantId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin()
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    match /dishes/{dishId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin()
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    match /banners/{bannerId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin()
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

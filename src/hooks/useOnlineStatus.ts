@@ -1,66 +1,53 @@
 // src/hooks/useOnlineStatus.ts
 // ============================================================================
-// المشكلة السابقة: الاعتماد فقط على navigator.onLine قد يكون غير دقيق في
-// بعض المتصفحات/الأجهزة (وأشهر سبب عملي: خانة "Offline" مفعّلة بالغلط في
-// Chrome DevTools ← Network conditions، تبقى مفعّلة حتى بعد إغلاق الأدوات).
-//
-// الحل: نثق بحدثي online/offline من المتصفح فوراً كإشارة أولية، لكن أيضاً
-// نتحقق دورياً بطلب شبكة خفيف فعلي (HEAD request) لتفادي False Positives،
-// حتى لو navigator.onLine قال "متصل" أو "غير متصل" بشكل خاطئ.
+// نسخة مُبسّطة مع تسجيل واضح بالـ console لتشخيص سبب "دائماً غير متصل":
+// - تفترض "متصل" افتراضياً (لا وميض عند التحميل)
+// - تتحقق فعلياً بطلب شبكة كل 5 ثوانٍ بدل الثقة بـ navigator.onLine فقط
+// - تطبع بالـ console بالضبط سبب أي فشل — افتح Console بالمتصفح (F12) لو
+//   ما زال الإشعار يظهر، وابعتلي اللي يطبعه بالضبط.
 // ============================================================================
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
-const CHECK_INTERVAL_MS = 15000;
-// ملف صغير جداً وموجود دائماً على أي دومين Next.js — يكفي للتحقق من الشبكة
+const CHECK_INTERVAL_MS = 5000;
 const PING_URL = "/favicon.ico";
 
 export function useOnlineStatus(): boolean {
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
-  const checkingRef = useRef(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    const verifyRealConnection = async () => {
-      if (checkingRef.current) return;
-      checkingRef.current = true;
+    const check = async () => {
       try {
-        await fetch(`${PING_URL}?_=${Date.now()}`, {
-          method: "HEAD",
+        const res = await fetch(`${PING_URL}?_=${Date.now()}`, {
+          method: "GET",
           cache: "no-store",
         });
-        if (!cancelled) setIsOnline(true);
-      } catch {
-        // فشل الطلب الفعلي = غير متصل فعلاً بغض النظر عن navigator.onLine
-        if (!cancelled) setIsOnline(false);
-      } finally {
-        checkingRef.current = false;
+        // أي رد من السيرفر (حتى 404) يعني الاتصال شغّال فعلياً
+        if (!cancelled) {
+          if (!isOnline) console.log("✅ الاتصال عاد — رد بحالة", res.status);
+          setIsOnline(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          // ✅ هذا السطر هو المفتاح للتشخيص: افتح Console وشوف شو بيطبع بالضبط
+          console.warn("⚠️ فشل التحقق من الاتصال بالشبكة:", err);
+          setIsOnline(false);
+        }
       }
     };
 
-    const handleOnline = () => verifyRealConnection();
-    const handleOffline = () => verifyRealConnection();
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    // تحقق فوري عند التحميل (يصحح أي حالة أولية خاطئة من navigator.onLine)
-    verifyRealConnection();
-
-    // وتحقق دوري خفيف كل 15 ثانية كطبقة أمان إضافية
-    const interval = setInterval(verifyRealConnection, CHECK_INTERVAL_MS);
+    check();
+    const interval = setInterval(check, CHECK_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
       clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return isOnline;

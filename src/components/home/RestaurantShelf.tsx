@@ -1,3 +1,11 @@
+// src/components/home/RestaurantShelf.tsx
+// ============================================================================
+// التعديلات:
+// - ✅ يعرض restaurant.image الفعلية إن وُجدت
+// - ✅ حُذفت شارة "توصيل مجاني" المبنية على restaurant.deliveryFee (مهجور
+//   الآن، الرسوم تُحدَّد بمنطقة العميل وقت الطلب وليست خاصية ثابتة للمطعم)
+// ============================================================================
+
 "use client";
 
 import Link from "next/link";
@@ -34,18 +42,22 @@ export function RestaurantShelf({
                   className="no-select glass block overflow-hidden rounded-2xl"
                 >
                   <div
-                    className={`relative aspect-[4/3] bg-gradient-to-br ${
+                    className={`relative aspect-[4/3] overflow-hidden bg-gradient-to-br ${
                       restaurant.coverGradient || "from-gray-700 to-gray-900"
                     }`}
                   >
+                    {restaurant.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={restaurant.image}
+                        alt={restaurant.name}
+                        loading="lazy"
+                        className="absolute inset-0 size-full object-cover"
+                      />
+                    )}
                     {restaurant.promoTag && (
                       <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[10px] font-bold text-white">
                         {restaurant.promoTag}
-                      </span>
-                    )}
-                    {restaurant.deliveryFee === 0 && (
-                      <span className="absolute left-2 top-2 rounded-full bg-accent px-2 py-1 text-[10px] font-bold text-secondary">
-                        توصيل مجاني
                       </span>
                     )}
                   </div>

@@ -225,25 +225,28 @@ export default function CartPage() {
                     حاول لاحقاً.
                   </p>
                 ) : (
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    {zones.map((zone) => {
-                      const isSelected = selectedZoneId === zone.id;
-                      return (
-                        <button
-                          key={zone.id}
-                          type="button"
-                          onClick={() => setSelectedZoneId(zone.id)}
-                          className={`no-select touch-target flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
-                            isSelected
-                              ? "bg-primary text-white"
-                              : "bg-secondary text-foreground-muted"
-                          }`}
-                        >
-                          {isSelected && <Check className="size-3.5" />}
-                          {zone.name} — {formatPrice(zone.deliveryFee)}
-                        </button>
-                      );
-                    })}
+                  <div className="-mx-4 mb-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <ul className="flex w-max gap-2 pb-1">
+                      {zones.map((zone) => {
+                        const isSelected = selectedZoneId === zone.id;
+                        return (
+                          <li key={zone.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedZoneId(zone.id)}
+                              className={`no-select touch-target flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-bold transition-all ${
+                                isSelected
+                                  ? "bg-primary text-white shadow-[0_6px_20px_rgb(255_107_53_/_0.35)]"
+                                  : "glass text-foreground-muted hover:text-foreground"
+                              }`}
+                            >
+                              {isSelected && <Check className="size-3.5" />}
+                              {zone.name} — {formatPrice(zone.deliveryFee)}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 )}
 
