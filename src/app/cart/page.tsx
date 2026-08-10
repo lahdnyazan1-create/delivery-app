@@ -39,6 +39,8 @@ export default function CartPage() {
     setSelectedZoneId,
     deliveryAddressDetails,
     setDeliveryAddressDetails,
+    orderNotes,
+    setOrderNotes,
   } = useAppStore();
 
   const { subtotal, discount, deliveryFee, total } = getCartTotal();
@@ -151,6 +153,11 @@ export default function CartPage() {
                           <p className="font-bold text-foreground">
                             {dish.name}
                           </p>
+                          {item.notes && (
+                            <p className="text-[11px] text-amber-400 bg-amber-400/10 rounded-md px-1.5 py-0.5 mt-0.5 w-fit">
+                              📝 {item.notes}
+                            </p>
+                          )}
                           <p className="text-xs text-foreground-muted">
                             {dish.category}
                           </p>
@@ -293,6 +300,19 @@ export default function CartPage() {
                 )}
               </>
             )}
+          </div>
+
+          <div className="glass mb-5 rounded-3xl p-4">
+            <p className="mb-2 text-xs font-bold text-foreground-muted">
+              ملاحظات عامة للطلب (للمطعم أو السائق)
+            </p>
+            <textarea
+              value={orderNotes}
+              onChange={(e) => setOrderNotes(e.target.value)}
+              placeholder="مثال: اتصل بي قبل الوصول، الباب مفتوح من اليمين..."
+              rows={2}
+              className="w-full resize-none rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none placeholder:text-foreground-muted/60"
+            />
           </div>
 
           <div className="glass mb-5 flex gap-2 rounded-3xl p-3">

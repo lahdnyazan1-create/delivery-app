@@ -127,6 +127,7 @@ export interface OrderItem {
   name: string;
   price: number;
   quantity: number;
+  notes?: string;
 }
 
 export interface Order {
@@ -156,6 +157,9 @@ export interface Order {
   zoneId: string;
   /** تفاصيل العنوان التي يكتبها المستخدم (اسم الشارع، رقم المبنى...) */
   deliveryAddressDetails: string;
+
+  /** ملاحظات عامة يكتبها العميل للمطعم أو السائق */
+  orderNotes?: string;
 
   /**
    * إحداثيات GPS اختيارية للعميل (من صفحة البروفايل أو من السلة مباشرة).

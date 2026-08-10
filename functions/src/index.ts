@@ -56,6 +56,7 @@ const STATUS_MESSAGES_AR: Record<OrderStatus, string> = {
 interface PlaceOrderItem {
   dishId: string;
   quantity: number;
+  notes?: string;
 }
 
 interface PlaceOrderInput {
@@ -65,6 +66,7 @@ interface PlaceOrderInput {
   idempotencyKey?: string;
   zoneId: string;
   deliveryAddressDetails: string;
+  orderNotes?: string;
   paymentMethod?: PaymentMethod;
   /** إحداثيات اختيارية لزيادة موثوقية تحديد الموقع — لا تُغني عن العنوان النصي */
   customerLat?: number | null;
@@ -90,6 +92,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
       idempotencyKey,
       zoneId,
       deliveryAddressDetails,
+      orderNotes,
       paymentMethod,
       customerLat,
       customerLng,
@@ -165,6 +168,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
         name: string;
         price: number;
         quantity: number;
+        notes?: string;
       }[] = [];
       let subtotal = 0;
 
@@ -197,6 +201,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
           name: dish.name,
           price: dish.price,
           quantity,
+          notes: item.notes || "",
         });
       }
 
@@ -237,6 +242,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
         customerPhone: userData.phone,
         zoneId,
         deliveryAddressDetails: deliveryAddressDetails.trim(),
+        orderNotes: orderNotes?.trim() || "",
         // نُبقي الحقل القديم متوافقاً مع الواجهات التي لم تُحدَّث بعد
         deliveryAddress: deliveryAddressDetails.trim(),
         paymentMethod: finalPaymentMethod,
@@ -314,7 +320,8 @@ export const updateOrderStatus = onCall<UpdateOrderStatusInput>(
 
       // ---------- التحقق من صحة الانتقال ضمن خط السير المسموح ----------
       const allowedNext = STATUS_TRANSITIONS[currentStatus] || [];
-      if (!allowedNext.includes(newStatus)) {
+      // Admins can bypass state machine to fix things, or cancel any order
+      if (role !== "admin" && !allowedNext.includes(newStatus)) {
         throw new HttpsError(
           "failed-precondition",
           `لا يمكن الانتقال من "${currentStatus}" إلى "${newStatus}"`,
@@ -330,7 +337,8 @@ export const updateOrderStatus = onCall<UpdateOrderStatusInput>(
       let restaurantOwnerId: string | undefined;
       if (
         role !== "admin" &&
-        restaurantVendorStatuses.includes(newStatus)
+        role !== "courier" &&
+        (restaurantVendorStatuses.includes(newStatus) || newStatus === "Cancelled")
       ) {
         const restaurantSnap = await t.get(
           db.doc(`restaurants/${order.restaurantId}`),

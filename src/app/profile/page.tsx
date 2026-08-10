@@ -231,7 +231,7 @@ export default function ProfilePage() {
       {ownedRestaurant && (
         <button
           type="button"
-          onClick={() => router.push("/restaurant")}
+          onClick={() => router.push("/vendor")}
           className="no-select glass touch-target flex w-full items-center gap-3 rounded-2xl p-4 text-left"
         >
           <span className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">

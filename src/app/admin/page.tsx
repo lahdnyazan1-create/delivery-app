@@ -1,3 +1,4 @@
+import { UserProfile } from "@/types/database";
 // src/app/admin/page.tsx
 // ============================================================================
 // التعديلات:
@@ -13,7 +14,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { Restaurant, OrderStatus, Zone, DriverWallet } from "@/types/database";
+import { Restaurant, OrderStatus, Zone, DriverWallet, STATUS_TRANSITIONS } from "@/types/database";
 import { RequireRole } from "@/components/auth/RequireRole";
 import {
   addRestaurant as addRestaurantFirestore,
@@ -41,6 +42,7 @@ import {
   fetchDishes,
   addDish,
   updateDish,
+  fetchAllUsers,
 } from "@/lib/firestore";
 import { settleDriverCash } from "@/lib/orders";
 import { formatPrice } from "@/constants/currency";
@@ -91,6 +93,7 @@ function AdminDashboardContent() {
     | "categories"
     | "banners"
     | "access"
+    | "customers"
     | "analytics"
   >("orders");
 
@@ -238,6 +241,26 @@ function AdminDashboardContent() {
       setSettlingDriverId(null);
     }
   };
+
+  // ---------------- Users state ----------------
+  const [usersList, setUsersList] = useState<UserProfile[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const list = await fetchAllUsers();
+      setUsersList(list);
+    } catch (error) {
+      console.error("Failed to load users", error);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "customers") loadUsers();
+  }, [activeTab]);
 
   // ---------------- Real Promo Codes state (منفصل عن promoTag الزخرفي) ----------------
   const [promoList, setPromoList] = useState<
@@ -746,6 +769,17 @@ function AdminDashboardContent() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("customers")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === "customers"
+                ? "bg-primary font-bold text-white"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            العملاء
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("analytics")}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
               activeTab === "analytics"
@@ -828,11 +862,18 @@ function AdminDashboardContent() {
 
                   <div className="space-y-1 rounded-xl bg-white/5 p-3 text-xs text-foreground-muted">
                     {order.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between">
-                        <span>
-                          {item.quantity}× {item.name}
-                        </span>
-                        <span>{formatPrice(item.price * item.quantity)}</span>
+                      <div key={idx} className="flex flex-col py-0.5">
+                        <div className="flex justify-between">
+                          <span>
+                            {item.quantity}× {item.name}
+                          </span>
+                          <span>{formatPrice(item.price * item.quantity)}</span>
+                        </div>
+                        {item.notes && (
+                          <span className="text-[10px] text-amber-500 mt-0.5">
+                            📝 {item.notes}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -873,7 +914,10 @@ function AdminDashboardContent() {
                         }
                         className="w-full rounded-lg border border-glass-border bg-secondary p-2 text-xs text-foreground outline-none focus:border-primary"
                       >
-                        {(Object.keys(STATUS_LABELS) as OrderStatus[]).map(
+                        <option value={order.status}>
+                          {STATUS_LABELS[order.status]} (الحالي)
+                        </option>
+                        {(STATUS_TRANSITIONS[order.status] || []).map(
                           (s) => (
                             <option key={s} value={s}>
                               {STATUS_LABELS[s]}
@@ -1991,16 +2035,56 @@ function AdminDashboardContent() {
         </div>
       )}
 
+      {activeTab === "customers" && (
+        <div className="space-y-4">
+          <h2 className="mb-4 text-xl font-bold">العملاء المسجلون ({usersList.length})</h2>
+          {usersLoading ? (
+            <div className="glass rounded-2xl p-8 text-center text-foreground-muted">جارٍ التحميل...</div>
+          ) : (
+            <div className="glass overflow-hidden rounded-2xl">
+              <table className="w-full text-right text-sm">
+                <thead className="bg-secondary text-xs text-foreground-muted">
+                  <tr>
+                    <th className="p-3">الاسم</th>
+                    <th className="p-3">رقم الهاتف</th>
+                    <th className="p-3">الدور</th>
+                    <th className="p-3">تاريخ التسجيل</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersList.map((u) => (
+                    <tr key={u.uid} className="border-t border-glass-border">
+                      <td className="p-3 font-bold">{u.displayName || "بدون اسم"}</td>
+                      <td className="p-3 font-mono text-xs" dir="ltr">{u.phone}</td>
+                      <td className="p-3">
+                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                          u.role === "admin" ? "bg-primary/10 text-primary" :
+                          u.role === "vendor" ? "bg-accent/10 text-accent" :
+                          u.role === "courier" ? "bg-amber-500/10 text-amber-500" :
+                          "bg-white/5 text-foreground-muted"
+                        }`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="p-3 text-xs text-foreground-muted">
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString("ar-EG") : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === "analytics" && (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-          <div className="glass rounded-2xl p-6">
-            <p className="text-sm text-foreground-muted">
-              إجمالي المبيعات المكتملة
-            </p>
-            <p className="mt-2 text-3xl font-extrabold text-accent">
-              {formatPrice(totalRevenue)}
-            </p>
-          </div>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            <div className="glass rounded-2xl p-6">
+              <p className="text-sm text-foreground-muted">إجمالي المبيعات المكتملة</p>
+              <p className="mt-2 text-3xl font-extrabold text-accent">{formatPrice(totalRevenue)}</p>
+            </div>
           <div className="glass rounded-2xl p-6">
             <p className="text-sm text-foreground-muted">
               الطلبات النشطة حالياً
@@ -2009,13 +2093,36 @@ function AdminDashboardContent() {
               {activeOrders.length}
             </p>
           </div>
+            <div className="glass rounded-2xl p-6">
+              <p className="text-sm text-foreground-muted">إجمالي الطلبات الكلي</p>
+              <p className="mt-2 text-3xl font-extrabold text-primary-soft">{orders.length}</p>
+            </div>
+          </div>
+
+          {/* ✅ رسم بياني لمبيعات آخر 7 أيام */}
           <div className="glass rounded-2xl p-6">
-            <p className="text-sm text-foreground-muted">
-              إجمالي الطلبات الكلي
-            </p>
-            <p className="mt-2 text-3xl font-extrabold text-primary-soft">
-              {orders.length}
-            </p>
+            <h3 className="mb-4 text-lg font-bold text-primary">مبيعات آخر 7 أيام</h3>
+            <div className="flex h-40 items-end justify-between gap-2">
+              {(() => {
+                const days = Array(7).fill(0);
+                const today = new Date();
+                orders.filter(o => o.status === "Delivered").forEach(o => {
+                  const diff = Math.floor((today.setHours(23,59,59,999) - (o.createdAt || 0)) / 86400000);
+                  if (diff >= 0 && diff < 7) days[6 - diff] += o.total;
+                });
+                const maxSale = Math.max(...days, 1);
+                return days.map((sale, i) => (
+                  <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                    <div className="text-[10px] text-accent">{sale > 0 ? sale.toFixed(0) : ""}</div>
+                    <div 
+                      className="w-full rounded-t-md bg-gradient-to-t from-primary to-primary-soft transition-all"
+                      style={{ height: `${(sale / maxSale) * 100}%`, minHeight: sale > 0 ? "4px" : "0" }}
+                    ></div>
+                    <div className="text-[10px] text-foreground-muted">{i === 6 ? "اليوم" : `-${6 - i}`}</div>
+                  </div>
+                ));
+              })()}
+            </div>
           </div>
         </div>
       )}

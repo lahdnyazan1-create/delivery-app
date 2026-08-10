@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import {
   ref as storageRef,
@@ -39,6 +39,16 @@ export function ImageUploader({
   const [preview, setPreview] = useState<string | null>(currentUrl || null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
+
+
+  // ✅ تنظيف ذاكرة المعاينة المحلية لتسريب الذاكرة (Memory Leak)
+  useEffect(() => {
+    return () => {
+      if (preview && preview.startsWith("blob:")) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
 
   const handleFile = (file: File | null) => {
     if (!file) return;

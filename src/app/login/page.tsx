@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -45,16 +45,19 @@ function LoginForm() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const pendingUserRef = useRef<FirebaseUser | null>(null);
 
-  const ensureRecaptcha = () => {
-    if (!recaptchaRef.current) {
-      recaptchaRef.current = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        { size: "invisible" },
-      );
-    }
-    return recaptchaRef.current;
-  };
+  // ✅ تهيئة reCAPTCHA مرة واحدة فقط عند تحميل الصفحة
+  useEffect(() => {
+    const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+      size: "invisible",
+    });
+    recaptchaRef.current = verifier;
+
+    return () => {
+      // تنظيف reCAPTCHA عند مغادرة الصفحة لمنع التراكم
+      try { verifier.clear(); } catch (e) {}
+      recaptchaRef.current = null;
+    };
+  }, []);
 
   const finishLogin = async (firebaseUser: FirebaseUser, name: string) => {
     const result = await completePhoneLogin(firebaseUser, name);
@@ -82,21 +85,28 @@ function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      const verifier = ensureRecaptcha();
+      const verifier = recaptchaRef.current;
+      if (!verifier) {
+        setError("خطأ في تهيئة حماية الدخول. يرجى تحديث الصفحة.");
+        setLoading(false);
+        return;
+      }
+      
       const e164Phone = toE164(phone);
-      const confirmation = await signInWithPhoneNumber(
-        auth,
-        e164Phone,
-        verifier,
-      );
+      const confirmation = await signInWithPhoneNumber(auth, e164Phone, verifier);
       confirmationRef.current = confirmation;
       setStep("otp");
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "تعذّر إرسال رمز التحقق";
+      const message = err instanceof Error ? err.message : "تعذّر إرسال رمز التحقق";
       setError(message);
-      recaptchaRef.current?.clear();
-      recaptchaRef.current = null;
+      
+      // ✅ إعادة تهيئة reCAPTCHA في حال فشل الإرسال لتجنب الخطأ
+      if (recaptchaRef.current) {
+        try { recaptchaRef.current.clear(); } catch (e) {}
+      }
+      recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "invisible",
+      });
     } finally {
       setLoading(false);
     }
@@ -114,7 +124,6 @@ function LoginForm() {
     try {
       const credential = await confirmationRef.current.confirm(otp);
 
-      // ✅ هل هذا الحساب موجود مسبقاً؟ إن كان كذلك، لا داعٍ لسؤاله عن اسمه مجدداً
       const existingSnap = await getDoc(doc(db, "users", credential.user.uid));
       if (existingSnap.exists()) {
         await finishLogin(credential.user, "");
@@ -123,8 +132,7 @@ function LoginForm() {
         setStep("name");
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "رمز التحقق غير صحيح";
+      const message = err instanceof Error ? err.message : "رمز التحقق غير صحيح";
       setError(message);
     } finally {
       setLoading(false);
@@ -163,17 +171,13 @@ function LoginForm() {
 
       <h1 className="text-2xl font-extrabold">تسجيل الدخول</h1>
       <p className="mt-1 text-sm text-foreground-muted">
-        {step === "phone" &&
-          "أدخل رقم جوالك، وسنرسل لك رمز تحقق عبر رسالة نصية"}
+        {step === "phone" && "أدخل رقم جوالك، وسنرسل لك رمز تحقق عبر رسالة نصية"}
         {step === "otp" && `أدخل رمز التحقق المرسل إلى ${phone}`}
         {step === "name" && "أهلاً بك لأول مرة! ما اسمك الكامل؟"}
       </p>
 
       {step === "phone" && (
-        <form
-          onSubmit={handleSendCode}
-          className="glass mt-6 space-y-3 rounded-3xl p-5"
-        >
+        <form onSubmit={handleSendCode} className="glass mt-6 space-y-3 rounded-3xl p-5">
           <label className="block text-xs font-semibold text-foreground-muted">
             رقم الجوال
             <input
@@ -199,10 +203,7 @@ function LoginForm() {
       )}
 
       {step === "otp" && (
-        <form
-          onSubmit={handleVerifyCode}
-          className="glass mt-6 space-y-3 rounded-3xl p-5"
-        >
+        <form onSubmit={handleVerifyCode} className="glass mt-6 space-y-3 rounded-3xl p-5">
           <label className="block text-xs font-semibold text-foreground-muted">
             رمز التحقق (6 أرقام)
             <input
@@ -234,10 +235,7 @@ function LoginForm() {
       )}
 
       {step === "name" && (
-        <form
-          onSubmit={handleSubmitName}
-          className="glass mt-6 space-y-3 rounded-3xl p-5"
-        >
+        <form onSubmit={handleSubmitName} className="glass mt-6 space-y-3 rounded-3xl p-5">
           <label className="block text-xs font-semibold text-foreground-muted">
             الاسم الكامل
             <input
@@ -270,11 +268,7 @@ export default function LoginPage() {
   return (
     <AppShell hideNav hideHeader>
       <Suspense
-        fallback={
-          <p className="pt-safe text-sm text-foreground-muted">
-            جارِ التحميل…
-          </p>
-        }
+        fallback={<p className="pt-safe text-sm text-foreground-muted">جارِ التحميل…</p>}
       >
         <LoginForm />
       </Suspense>

@@ -28,11 +28,12 @@ const functionsRegional = getFunctions(app, FUNCTIONS_REGION);
 
 export interface PlaceOrderPayload {
   restaurantId: string;
-  items: { dishId: string; quantity: number }[];
+  items: { dishId: string; quantity: number; notes?: string }[];
   promoCode?: string | null;
   idempotencyKey: string;
   zoneId: string;
   deliveryAddressDetails: string;
+  orderNotes?: string;
   paymentMethod?: PaymentMethod;
   customerLat?: number | null;
   customerLng?: number | null;
@@ -61,6 +62,7 @@ export async function placeOrder(params: {
   promoCode?: string | null;
   zoneId: string;
   deliveryAddressDetails: string;
+  orderNotes?: string;
   paymentMethod?: PaymentMethod;
   customerLat?: number | null;
   customerLng?: number | null;
@@ -76,6 +78,7 @@ export async function placeOrder(params: {
     promoCode = null,
     zoneId,
     deliveryAddressDetails,
+    orderNotes,
     paymentMethod = "CASH",
     customerLat = null,
     customerLng = null,
@@ -92,11 +95,12 @@ export async function placeOrder(params: {
   try {
     const response = await placeOrderFn({
       restaurantId,
-      items: cart.map((c) => ({ dishId: c.dishId, quantity: c.quantity })),
+      items: cart.map((c) => ({ dishId: c.dishId, quantity: c.quantity, notes: c.notes || "" })),
       promoCode,
       idempotencyKey: idempotencyKey || generateIdempotencyKey(),
       zoneId,
       deliveryAddressDetails: deliveryAddressDetails.trim(),
+      orderNotes: orderNotes?.trim() || "",
       paymentMethod,
       customerLat,
       customerLng,

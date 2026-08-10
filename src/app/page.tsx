@@ -20,7 +20,7 @@ import { useAppStore } from "@/store/useAppStore";
 
 export default function HomePage() {
   const router = useRouter();
-  const { hasSeenOnboarding, restaurants } = useAppStore();
+  const { hasSeenOnboarding, restaurants, zones, selectedZoneId, setSelectedZoneId } = useAppStore();
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -60,6 +60,20 @@ export default function HomePage() {
 
   return (
     <AppShell>
+      <div className="glass mb-3 flex items-center justify-between rounded-2xl px-4 py-2.5">
+        <span className="text-xs text-foreground-muted">التوصيل إلى:</span>
+        <select 
+          value={selectedZoneId || ""} 
+          onChange={(e) => setSelectedZoneId(e.target.value)}
+          className="bg-transparent text-sm font-bold text-primary outline-none cursor-pointer"
+        >
+          <option value="" disabled>اختر منطقتك</option>
+          {zones.map(z => (
+            <option key={z.id} value={z.id} className="bg-secondary">{z.name} ({z.deliveryFee}₪)</option>
+          ))}
+        </select>
+      </div>
+
       <label className="glass mb-5 flex items-center gap-3 rounded-2xl px-3 py-2.5">
         <SearchIcon className="size-5 text-foreground-muted" aria-hidden />
         <input

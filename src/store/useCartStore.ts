@@ -17,14 +17,16 @@ interface CartState {
   appliedPromo: string | null;
   selectedZoneId: string | null;
   deliveryAddressDetails: string;
+  orderNotes: string;
 
   // Actions
   addToCart: (
     dishId: string,
     restaurantId: string,
+    notes?: string,
   ) => { ok: boolean; message?: string; conflict?: boolean };
   /** يفرّغ السلة الحالية ثم يضيف الطبق الجديد مباشرة — لحالة تعارض المطعم */
-  replaceCartAndAdd: (dishId: string, restaurantId: string) => void;
+  replaceCartAndAdd: (dishId: string, restaurantId: string, notes?: string) => void;
   removeFromCart: (dishId: string) => void;
   updateQuantity: (dishId: string, quantity: number) => void;
   clearCart: () => void;
@@ -32,6 +34,7 @@ interface CartState {
   removePromo: () => void;
   setSelectedZoneId: (zoneId: string | null) => void;
   setDeliveryAddressDetails: (details: string) => void;
+  setOrderNotes: (notes: string) => void;
   getCartTotal: () => {
     subtotal: number;
     discount: number;
@@ -48,8 +51,9 @@ export const useCartStore = create<CartState>()(
       appliedPromo: null,
       selectedZoneId: null,
       deliveryAddressDetails: "",
+      orderNotes: "",
 
-      addToCart: (dishId, restaurantId) => {
+      addToCart: (dishId, restaurantId, notes = "") => {
         const state = get();
         if (state.cartRestaurantId && state.cartRestaurantId !== restaurantId) {
           // ✅ conflict:true يسمح للواجهة بعرض تأكيد واضح بدل تجاهل الفشل بصمت
@@ -59,24 +63,27 @@ export const useCartStore = create<CartState>()(
             conflict: true,
           };
         }
-        const existing = state.cart.find((item) => item.dishId === dishId);
+        // ✅ التحقق مما إذا كان الطبق موجوداً بنفس الملاحظات لزيادة الكمية
+        const existingIndex = state.cart.findIndex(
+          (item) => item.dishId === dishId && (item.notes || "") === notes,
+        );
         let newCart;
-        if (existing) {
-          newCart = state.cart.map((item) =>
-            item.dishId === dishId
+        if (existingIndex !== -1) {
+          newCart = state.cart.map((item, index) =>
+            index === existingIndex
               ? { ...item, quantity: item.quantity + 1 }
               : item,
           );
         } else {
-          newCart = [...state.cart, { dishId, quantity: 1 }];
+          newCart = [...state.cart, { dishId, quantity: 1, notes }];
         }
         set({ cart: newCart, cartRestaurantId: restaurantId });
         return { ok: true };
       },
 
-      replaceCartAndAdd: (dishId, restaurantId) => {
+      replaceCartAndAdd: (dishId, restaurantId, notes = "") => {
         set({
-          cart: [{ dishId, quantity: 1 }],
+          cart: [{ dishId, quantity: 1, notes }],
           cartRestaurantId: restaurantId,
           appliedPromo: null,
         });
@@ -123,6 +130,7 @@ export const useCartStore = create<CartState>()(
       setSelectedZoneId: (zoneId) => set({ selectedZoneId: zoneId }),
       setDeliveryAddressDetails: (details) =>
         set({ deliveryAddressDetails: details }),
+      setOrderNotes: (notes) => set({ orderNotes: notes }),
 
       getCartTotal: () => {
         const { cart, appliedPromo, selectedZoneId } = get();
@@ -142,8 +150,8 @@ export const useCartStore = create<CartState>()(
         appliedPromo: state.appliedPromo,
         selectedZoneId: state.selectedZoneId,
         deliveryAddressDetails: state.deliveryAddressDetails,
+        orderNotes: state.orderNotes,
       }),
-      skipHydration: true,
     },
   ),
 );

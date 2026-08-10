@@ -8,7 +8,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Flame, Plus, AlertTriangle } from "lucide-react";
+import { Flame, Plus, AlertTriangle, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Dish } from "@/types/database";
 import { useAppStore } from "@/store/useAppStore";
@@ -52,13 +52,19 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
   const { addToCart, replaceCartAndAdd, getRestaurant } = useAppStore();
   const mediaRef = useRef<HTMLDivElement>(null);
   const [hint, setHint] = useState("");
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [tempNotes, setTempNotes] = useState("");
   const [showConflict, setShowConflict] = useState(false);
   const restaurant = getRestaurant(dish.restaurantId);
   const canAdd = Boolean(dish.available && restaurant?.active);
   const price = Number.isFinite(dish.price) ? dish.price : 0;
 
   const handleAddClick = () => {
-    const result = addToCart(dish.id, dish.restaurantId);
+    setShowCustomize(true);
+  };
+
+  const handleConfirmAdd = () => {
+    const result = addToCart(dish.id, dish.restaurantId, tempNotes);
     if (!result.ok) {
       if (result.conflict) {
         setShowConflict(true);
@@ -67,11 +73,15 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
         window.setTimeout(() => setHint(""), 2200);
       }
     }
+    setShowCustomize(false);
+    setTempNotes("");
   };
 
   const handleReplaceConfirm = () => {
-    replaceCartAndAdd(dish.id, dish.restaurantId);
+    replaceCartAndAdd(dish.id, dish.restaurantId, tempNotes);
     setShowConflict(false);
+    setShowCustomize(false);
+    setTempNotes("");
   };
 
   return (
@@ -190,6 +200,51 @@ export function LivingCard({ dish, index = 0 }: LivingCardProps) {
                 </button>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ✅ نافذة تخصيص الطلب (إضافة ملاحظات) */}
+      <AnimatePresence>
+        {showCustomize && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 flex items-end justify-center bg-secondary/90 p-4 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="w-full space-y-3 rounded-2xl bg-background-elevated p-5"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-foreground">تخصيص: {dish.name}</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomize(false)}
+                  className="text-foreground-muted hover:text-foreground"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <textarea
+                value={tempNotes}
+                onChange={(e) => setTempNotes(e.target.value)}
+                placeholder="أضف ملاحظاتك هنا (مثال: بدون بصل، حار جداً...)"
+                rows={3}
+                className="w-full resize-none rounded-xl border border-glass-border bg-secondary p-3 text-sm text-foreground outline-none focus:border-primary"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleConfirmAdd}
+                className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white"
+              >
+                إضافة للسلة
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

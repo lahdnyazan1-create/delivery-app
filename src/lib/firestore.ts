@@ -10,6 +10,7 @@
 import { db } from "./firebase";
 import {
   collection,
+  limit,
   getDocs,
   addDoc,
   updateDoc,
@@ -93,6 +94,71 @@ export const subscribeOrders = (
 /**
  * ✅ اشتراك عام للمشرفين — يجلب كل الطلبات
  */
+
+/**
+ * ✅ اشتراك خاص بلوحة المندوب: يجلب الطلبات المسندة للمندوب + الطلبات المتاحة (Ready).
+ */
+export const subscribeCourierOrders = (
+  courierId: string,
+  callback: (orders: Order[]) => void,
+): Unsubscribe => {
+  const q1 = query(
+    collection(db, "orders"),
+    where("courierId", "==", courierId),
+    orderBy("createdAt", "desc"),
+  );
+
+  const q2 = query(
+    collection(db, "orders"),
+    where("status", "==", "Ready"),
+    orderBy("createdAt", "desc"),
+  );
+
+  let orders1: Order[] = [];
+  let orders2: Order[] = [];
+
+  const emit = () => {
+    const combined = [...orders1, ...orders2];
+    const unique = Array.from(new Map(combined.map((o) => [o.id, o])).values());
+    unique.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    callback(unique);
+  };
+
+  const unsub1 = onSnapshot(q1, (snapshot) => {
+    orders1 = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toMillis?.() || data.createdAt,
+        updatedAt: data.updatedAt?.toMillis?.() || data.updatedAt,
+      } as Order;
+    });
+    emit();
+  });
+
+  const unsub2 = onSnapshot(q2, (snapshot) => {
+    orders2 = snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toMillis?.() || data.createdAt,
+          updatedAt: data.updatedAt?.toMillis?.() || data.updatedAt,
+        } as Order;
+      })
+      .filter((o) => !o.courierId);
+    emit();
+  });
+
+  return () => {
+    unsub1();
+    unsub2();
+  };
+};
+
+
 export const subscribeAllOrders = (
   callback: (orders: Order[]) => void,
 ): Unsubscribe => {
@@ -149,6 +215,46 @@ export const subscribeRestaurantOrders = (
       callback([]);
     },
   );
+};
+
+
+/**
+ * ✅ اشتراك مباشر بالإشعارات الخاصة بالمستخدم
+ */
+export const subscribeToNotifications = (
+  userId: string,
+  callback: (notifications: any[]) => void,
+): Unsubscribe => {
+  const q = query(
+    collection(db, "notifications"),
+    where("userId", "==", userId),
+    orderBy("createdAt", "desc"),
+    limit(20),
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const notifications = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toMillis?.() || doc.data().createdAt,
+      }));
+      callback(notifications);
+    },
+    (error) => {
+      console.error("Notifications subscription error:", error);
+      callback([]);
+    },
+  );
+};
+
+
+/**
+ * ✅ جديد — يجلب كل المستخدمين المسجلين للوحة الإدارة
+ */
+export const fetchAllUsers = async (): Promise<UserProfile[]> => {
+  const snapshot = await getDocs(collection(db, "users"));
+  return snapshot.docs.map((doc) => ({ uid: doc.id, ...doc.data() }) as UserProfile);
 };
 
 export const updateUserProfile = async (

@@ -105,7 +105,9 @@ service cloud.firestore {
     // ويستطيع تعليمها كمقروءة (تحديث حقل read فقط).
     match /notifications/{notificationId} {
       allow read: if isSignedIn()
-                  && (resource.data.userId == request.auth.uid || isAdmin());
+                  && (resource.data.userId == request.auth.uid 
+                      || (resource.data.audience == "couriers" && isCourier())
+                      || isAdmin());
       allow create: if false;
       allow update: if isSignedIn()
                     && resource.data.userId == request.auth.uid
@@ -119,7 +121,7 @@ service cloud.firestore {
                   && (resource.data.userId == request.auth.uid
                       || isAdmin()
                       || (isCourier() && (resource.data.courierId == request.auth.uid
-                                          || resource.data.courierId == null))
+                                          || (resource.data.courierId == null && resource.data.status == "Ready")))
                       || isRestaurantOwner(resource.data.restaurantId));
 
       // الإنشاء حصراً عبر placeOrder (Admin SDK)

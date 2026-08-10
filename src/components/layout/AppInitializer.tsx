@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { subscribeToNotifications } from "@/lib/firestore";
 import { useDataStore } from "@/store/useDataStore";
 import { useOrderStore } from "@/store/useOrderStore";
 
@@ -31,6 +32,23 @@ export function AppInitializer() {
   useEffect(() => {
     if (user?.uid) {
       subscribeToOrders(user.uid, user.role);
+      
+      // ✅ الاستماع للإشعارات وتسجيلها بالكونسول (أو يمكن ربطها لاحقاً بجرس الإشعارات)
+      const unsubNotifs = subscribeToNotifications(user.uid, (notifs) => {
+        const lastNotif = notifs[0];
+        if (lastNotif && !lastNotif.read) {
+          console.log("🔔 إشعار جديد:", lastNotif.message);
+          // يمكن إضافة اهتزاز أو صوت هنا مستقبلاً
+          if (typeof window !== "undefined" && "vibrate" in navigator) {
+            navigator.vibrate(200);
+          }
+        }
+      });
+
+      return () => {
+        unsubscribeFromOrders();
+        unsubNotifs();
+      };
     }
     return () => {
       unsubscribeFromOrders();

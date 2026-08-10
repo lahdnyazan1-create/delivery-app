@@ -1,3 +1,10 @@
+// src/components/checkout/FloatingCartBar.tsx
+// ============================================================================
+// التعديل: أُضيف "/vendor" لقائمة المسارات المخفي عنها الشريط — كان مفقوداً
+// (الشريط مُرندَر عالمياً بـ layout.tsx خارج AppShell، فيظهر فوق أي صفحة
+// جديدة ما لم يُستثنَ صراحةً هنا، بغض النظر عن hideNav في AppShell).
+// ============================================================================
+
 "use client";
 
 import Link from "next/link";
@@ -17,9 +24,11 @@ export function FloatingCartBar() {
     pathname === "/cart" ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/driver") ||
+    pathname.startsWith("/vendor") ||
     pathname.startsWith("/restaurant") ||
     pathname.startsWith("/login") ||
-    pathname.startsWith("/order-tracking");
+    pathname.startsWith("/order-tracking") ||
+    pathname.startsWith("/onboarding");
 
   const items = cart
     .map((item) => ({ item, dish: dishes.find((d) => d.id === item.dishId) }))

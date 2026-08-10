@@ -238,20 +238,32 @@ function VendorDashboardContent() {
                     {order.items.map((item, idx) => (
                       <div
                         key={idx}
-                        className="flex justify-between text-xs py-0.5"
+                        className="flex flex-col py-1 border-b border-glass-border last:border-0"
                       >
-                        <span className="text-foreground">
-                          {item.quantity}x {item.name}
-                        </span>
-                        <span className="font-mono text-foreground-muted">
-                          {formatPrice(item.price * item.quantity)}
-                        </span>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-foreground font-bold">
+                            {item.quantity}x {item.name}
+                          </span>
+                          <span className="font-mono text-foreground-muted">
+                            {formatPrice(item.price * item.quantity)}
+                          </span>
+                        </div>
+                        {item.notes && (
+                          <span className="text-[11px] text-amber-400 mt-0.5">
+                            📝 {item.notes}
+                          </span>
+                        )}
                       </div>
                     ))}
                     <div className="flex items-start gap-2 pt-2 text-xs text-foreground-muted">
                       <Clock className="size-3.5 shrink-0 mt-0.5" />
                       <span>{order.deliveryAddressDetails}</span>
                     </div>
+                    {order.orderNotes && (
+                      <div className="mt-2 rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-400">
+                        📝 ملاحظة العميل: {order.orderNotes}
+                      </div>
+                    )}
                   </div>
                 )}
 

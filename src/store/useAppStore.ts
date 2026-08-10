@@ -59,8 +59,10 @@ export const useAppStore = () => {
     appliedPromo: cart.appliedPromo,
     selectedZoneId: cart.selectedZoneId,
     deliveryAddressDetails: cart.deliveryAddressDetails,
+    orderNotes: cart.orderNotes,
     setSelectedZoneId: cart.setSelectedZoneId,
     setDeliveryAddressDetails: cart.setDeliveryAddressDetails,
+    setOrderNotes: cart.setOrderNotes,
     addToCart: cart.addToCart,
     replaceCartAndAdd: cart.replaceCartAndAdd,
     removeFromCart: cart.removeFromCart,
@@ -82,7 +84,7 @@ export const useAppStore = () => {
      * setDeliveryAddressDetails). يمكن تمرير paymentMethod اختيارياً فقط.
      */
     placeOrder: async (paymentMethod?: PaymentMethod) => {
-      const { selectedZoneId, deliveryAddressDetails } = cart;
+      const { selectedZoneId, deliveryAddressDetails, orderNotes } = cart;
 
       if (!selectedZoneId) {
         return { ok: false, message: "يرجى اختيار منطقة التوصيل" };
@@ -97,6 +99,7 @@ export const useAppStore = () => {
         promoCode: cart.appliedPromo,
         zoneId: selectedZoneId,
         deliveryAddressDetails,
+        orderNotes,
         paymentMethod,
         // ✅ إحداثيات GPS المحفوظة بالبروفايل (إن وُجدت) تُرفق تلقائياً
         // لزيادة موثوقية الموقع لدى المندوب، دون إجبار المستخدم على أي خطوة إضافية

@@ -14,7 +14,7 @@ import {
   claimOrder as claimOrderApi,
   assignDriverToOrder as assignDriverToOrderApi,
 } from "@/lib/orders";
-import { subscribeOrders, subscribeAllOrders } from "@/lib/firestore";
+import { subscribeOrders, subscribeAllOrders, subscribeCourierOrders } from "@/lib/firestore";
 import type { Unsubscribe } from "firebase/firestore";
 
 interface OrderState {
@@ -31,6 +31,7 @@ interface OrderState {
     promoCode: string | null;
     zoneId: string;
     deliveryAddressDetails: string;
+    orderNotes?: string;
     paymentMethod?: PaymentMethod;
     customerLat?: number | null;
     customerLng?: number | null;
@@ -60,6 +61,15 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
     if (role === "admin") {
       unsub = subscribeAllOrders((orders) => {
+        set({ orders });
+        const { activeOrder } = get();
+        if (activeOrder) {
+          const updated = orders.find((o) => o.id === activeOrder.id);
+          if (updated) set({ activeOrder: updated });
+        }
+      });
+    } else if (role === "courier") {
+      unsub = subscribeCourierOrders(userId, (orders) => {
         set({ orders });
         const { activeOrder } = get();
         if (activeOrder) {
