@@ -1,3 +1,4 @@
+import { UserRole } from "@/types/database";
 import { UserProfile } from "@/types/database";
 // src/app/admin/page.tsx
 // ============================================================================
@@ -245,6 +246,17 @@ function AdminDashboardContent() {
   // ---------------- Users state ----------------
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+
+  const handleRoleChange = async (uid: string, newRole: UserRole) => {
+    try {
+      await setUserRole(uid, newRole);
+      setUsersList(prev => prev.map(u => u.uid === uid ? { ...u, role: newRole } : u));
+    } catch (error) {
+      console.error("Failed to update role", error);
+      alert("فشل تغيير الدور. تأكد أنك أدمن.");
+    }
+  };
 
   const loadUsers = async () => {
     setUsersLoading(true);
@@ -2037,40 +2049,63 @@ function AdminDashboardContent() {
 
       {activeTab === "customers" && (
         <div className="space-y-4">
-          <h2 className="mb-4 text-xl font-bold">العملاء المسجلون ({usersList.length})</h2>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-xl font-bold">العملاء المسجلون ({usersList.length})</h2>
+            <input
+              type="text"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              placeholder="🔍 ابحث برقم الهاتف أو الاسم..."
+              className="w-full rounded-xl border border-glass-border bg-secondary px-3 py-2 text-sm text-foreground outline-none focus:border-primary sm:w-72"
+            />
+          </div>
           {usersLoading ? (
             <div className="glass rounded-2xl p-8 text-center text-foreground-muted">جارٍ التحميل...</div>
           ) : (
-            <div className="glass overflow-hidden rounded-2xl">
+            <div className="glass overflow-x-auto rounded-2xl">
               <table className="w-full text-right text-sm">
                 <thead className="bg-secondary text-xs text-foreground-muted">
                   <tr>
                     <th className="p-3">الاسم</th>
                     <th className="p-3">رقم الهاتف</th>
-                    <th className="p-3">الدور</th>
+                    <th className="p-3">تغيير الدور</th>
                     <th className="p-3">تاريخ التسجيل</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {usersList.map((u) => (
+                  {usersList
+                    .filter((u) => u.phone.includes(userSearch) || (u.displayName || "").includes(userSearch))
+                    .map((u) => (
                     <tr key={u.uid} className="border-t border-glass-border">
                       <td className="p-3 font-bold">{u.displayName || "بدون اسم"}</td>
                       <td className="p-3 font-mono text-xs" dir="ltr">{u.phone}</td>
                       <td className="p-3">
-                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                          u.role === "admin" ? "bg-primary/10 text-primary" :
-                          u.role === "vendor" ? "bg-accent/10 text-accent" :
-                          u.role === "courier" ? "bg-amber-500/10 text-amber-500" :
-                          "bg-white/5 text-foreground-muted"
-                        }`}>
-                          {u.role}
-                        </span>
+                        <select
+                          value={u.role}
+                          onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
+                          className={`rounded-md px-2 py-1 text-[10px] font-bold outline-none cursor-pointer ${
+                            u.role === "admin" ? "bg-primary/10 text-primary" :
+                            u.role === "vendor" ? "bg-accent/10 text-accent" :
+                            u.role === "courier" ? "bg-amber-500/10 text-amber-500" :
+                            "bg-white/5 text-foreground-muted"
+                          }`}
+                        >
+                          <option value="customer" className="bg-secondary">عميل (customer)</option>
+                          <option value="admin" className="bg-secondary">مدير (admin)</option>
+                          <option value="vendor" className="bg-secondary">مطعم (vendor)</option>
+                          <option value="courier" className="bg-secondary">سائق (courier)</option>
+                        </select>
                       </td>
                       <td className="p-3 text-xs text-foreground-muted">
                         {u.createdAt ? new Date(u.createdAt).toLocaleDateString("ar-EG") : "—"}
                       </td>
                     </tr>
                   ))}
+                  {usersList.filter((u) => u.phone.includes(userSearch) || (u.displayName || "").includes(userSearch)).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-4 text-center text-foreground-muted">لا يوجد مستخدمون مطابقون للبحث</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
