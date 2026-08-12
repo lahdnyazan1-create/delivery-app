@@ -17,13 +17,7 @@ import { useAppStore } from "@/store/useAppStore";
 function toE164(localPhone: string, countryCode = "+970"): string {
   const digits = localPhone.replace(/[^\d+]/g, "");
   if (digits.startsWith("+")) return digits;
-  if (
-    digits.startsWith("970") ||
-    digits.startsWith("972") ||
-    digits.startsWith("966")
-  ) {
-    return `+${digits}`;
-  }
+  if (digits.startsWith("970") || digits.startsWith("972") || digits.startsWith("966")) return `+${digits}`;
   const withoutLeadingZero = digits.replace(/^0/, "");
   return `${countryCode}${withoutLeadingZero}`;
 }
@@ -45,25 +39,14 @@ function LoginForm() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const pendingUserRef = useRef<FirebaseUser | null>(null);
 
-  // ✅ تهيئة reCAPTCHA مرة واحدة فقط عند تحميل الصفحة لتفادي خطأ -39
+  // ✅ تهيئة الكابتشا مرة واحدة بشكل خفي (Invisible)
   useEffect(() => {
-    try {
-      // ✅ استخدام Invisible reCAPTCHA ليتجاوز مشايل النطاقات والأخطاء
+    if (!recaptchaRef.current) {
       recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
         size: "invisible",
-        callback: () => {}
       });
-      
-      // يجب استدعاء render صراحةً لضمان ظهور الكابتشا في المتصفح
-      if (typeof recaptchaRef.current.render === "function") {
-        recaptchaRef.current.render().catch((err) => console.error(err));
-      }      
-    } catch (e) {
-      console.error("Recaptcha initialization error:", e);
     }
-
     return () => {
-      // تنظيف الكائن عند مغادرة الصفحة فقط
       if (recaptchaRef.current) {
         try { recaptchaRef.current.clear(); } catch (e) {}
         recaptchaRef.current = null;
@@ -77,18 +60,8 @@ function LoginForm() {
       setError(result.message);
       return;
     }
-    const allowedPaths = [
-      "/",
-      "/profile",
-      "/cart",
-      "/order-tracking",
-      "/admin",
-      "/driver",
-      "/vendor",
-    ];
-    const safeNext = allowedPaths.some((p) => next.startsWith(p))
-      ? next
-      : "/profile";
+    const allowedPaths = ["/", "/profile", "/cart", "/order-tracking", "/admin", "/driver", "/vendor"];
+    const safeNext = allowedPaths.some((p) => next.startsWith(p)) ? next : "/profile";
     router.replace(safeNext);
   };
 
@@ -97,15 +70,13 @@ function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      const verifier = recaptchaRef.current;
-      if (!verifier) {
+      if (!recaptchaRef.current) {
         setError("خطأ في تحميل حماية الدخول. يرجى تحديث الصفحة.");
         setLoading(false);
         return;
       }
-      
       const e164Phone = toE164(phone);
-      const confirmation = await signInWithPhoneNumber(auth, e164Phone, verifier);
+      const confirmation = await signInWithPhoneNumber(auth, e164Phone, recaptchaRef.current);
       confirmationRef.current = confirmation;
       setStep("otp");
     } catch (err: unknown) {
@@ -127,7 +98,6 @@ function LoginForm() {
     setLoading(true);
     try {
       const credential = await confirmationRef.current.confirm(otp);
-
       const existingSnap = await getDoc(doc(db, "users", credential.user.uid));
       if (existingSnap.exists()) {
         await finishLogin(credential.user, "");
@@ -165,11 +135,7 @@ function LoginForm() {
 
   return (
     <div className="pt-safe" dir="rtl">
-      <button
-        type="button"
-        onClick={() => router.back()}
-        className="no-select touch-target mb-6 inline-flex items-center gap-2 text-sm text-foreground-muted"
-      >
+      <button type="button" onClick={() => router.back()} className="no-select touch-target mb-6 inline-flex items-center gap-2 text-sm text-foreground-muted">
         <ArrowLeft className="size-4" /> رجوع
       </button>
 
@@ -196,11 +162,7 @@ function LoginForm() {
             />
           </label>
           {error && <p className="text-xs text-primary">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60"
-          >
+          <button type="submit" disabled={loading} className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60">
             {loading ? "جارِ الإرسال..." : "إرسال رمز التحقق"}
           </button>
         </form>
@@ -221,18 +183,10 @@ function LoginForm() {
             />
           </label>
           {error && <p className="text-xs text-primary">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60"
-          >
+          <button type="submit" disabled={loading} className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60">
             {loading ? "جارِ التحقق..." : "تأكيد ودخول"}
           </button>
-          <button
-            type="button"
-            onClick={() => setStep("phone")}
-            className="w-full text-center text-xs font-semibold text-foreground-muted"
-          >
+          <button type="button" onClick={() => setStep("phone")} className="w-full text-center text-xs font-semibold text-foreground-muted">
             تغيير رقم الجوال
           </button>
         </form>
@@ -253,17 +207,12 @@ function LoginForm() {
             />
           </label>
           {error && <p className="text-xs text-primary">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60"
-          >
+          <button type="submit" disabled={loading} className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60">
             {loading ? "جارِ الحفظ..." : "متابعة"}
           </button>
         </form>
       )}
 
-      {/* حاوية الكابتشا يجب أن تبقى في الـ DOM دائماً */}
       <div id="recaptcha-container" className="mt-4"></div>
     </div>
   );
@@ -272,9 +221,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <AppShell hideNav hideHeader>
-      <Suspense
-        fallback={<p className="pt-safe text-sm text-foreground-muted">جارِ التحميل…</p>}
-      >
+      <Suspense fallback={<p className="pt-safe text-sm text-foreground-muted">جارِ التحميل…</p>}>
         <LoginForm />
       </Suspense>
     </AppShell>
