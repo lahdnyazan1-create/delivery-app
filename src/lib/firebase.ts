@@ -45,6 +45,7 @@ export async function initAppCheck() {
 
     // ⚠️ تم تعطيل App Check مؤقتاً لحل تعارض reCAPTCHA مع تسجيل الدخول
     /*
+    if (false) { // App Check disabled temporarily
     if (siteKey) {
       initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider(siteKey),
@@ -57,6 +58,7 @@ export async function initAppCheck() {
         "⚠️ App Check skipped: NEXT_PUBLIC_RECAPTCHA_SITE_KEY not set",
       );
     }
+    */
   } catch (err) {
     console.warn("⚠️ App Check failed:", err);
   }
