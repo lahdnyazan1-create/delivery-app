@@ -43,6 +43,8 @@ export async function initAppCheck() {
     // استخدم متغير بيئة للمفتاح
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
+    // ⚠️ تم تعطيل App Check مؤقتاً لحل تعارض reCAPTCHA مع تسجيل الدخول
+    /*
     if (siteKey) {
       initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider(siteKey),
