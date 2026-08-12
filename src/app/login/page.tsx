@@ -57,8 +57,9 @@ function LoginForm() {
       });
       
       // يجب استدعاء render صراحةً لضمان ظهور الكابتشا في المتصفح
-      recaptchaRef.current.render().catch((err) => console.error(err));
-      
+      if (typeof recaptchaRef.current.render === "function") {
+        recaptchaRef.current.render().catch((err) => console.error(err));
+      }      
     } catch (e) {
       console.error("Recaptcha initialization error:", e);
     }
