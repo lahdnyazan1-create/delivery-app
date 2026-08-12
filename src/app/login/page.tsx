@@ -14,12 +14,23 @@ import { AppShell } from "@/components/layout/AppShell";
 import { auth, db } from "@/lib/firebase";
 import { useAppStore } from "@/store/useAppStore";
 
+// ✅ دالة محسنة لإزالة كل الأصفار في البداية وتجنب تكرار كود الدولة
 function toE164(localPhone: string, countryCode = "+970"): string {
-  const digits = localPhone.replace(/[^\d+]/g, "");
+  let digits = localPhone.replace(/[^\d+]/g, "");
   if (digits.startsWith("+")) return digits;
-  if (digits.startsWith("970") || digits.startsWith("972") || digits.startsWith("966")) return `+${digits}`;
-  const withoutLeadingZero = digits.replace(/^0/, "");
-  return `${countryCode}${withoutLeadingZero}`;
+  
+  // إزالة جميع الأصفار في البداية لتفادي الأخطاء
+  digits = digits.replace(/^0+/, "");
+  
+  if (
+    digits.startsWith("970") ||
+    digits.startsWith("972") ||
+    digits.startsWith("966")
+  ) {
+    return `+${digits}`;
+  }
+  
+  return `${countryCode}${digits}`;
 }
 
 function LoginForm() {
