@@ -48,13 +48,15 @@ function LoginForm() {
   // ✅ تهيئة reCAPTCHA مرة واحدة فقط عند تحميل الصفحة لتفادي خطأ -39
   useEffect(() => {
     try {
+      // ✅ تمرير مفتاح reCAPTCHA v2 لحل مشكلة النطاقات المخصصة (Vercel)
+      const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
       recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
         size: "normal",
         callback: () => {},
         "expired-callback": () => {
           setError("انتهت صلاحية التحقق، يرجى تحديث الصفحة والمحاولة مجدداً.");
         }
-      });
+      }, siteKey as string);
       
       // يجب استدعاء render صراحةً لضمان ظهور الكابتشا في المتصفح
       if (typeof recaptchaRef.current.render === "function") {
