@@ -45,23 +45,33 @@ function LoginForm() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const pendingUserRef = useRef<FirebaseUser | null>(null);
 
-  const ensureRecaptcha = () => {
+  // ✅ تهيئة reCAPTCHA مرة واحدة فقط عند تحميل الصفحة لتفادي خطأ -39
+  useEffect(() => {
     try {
-      // مسح أي عناصر سابقة لمنع التضارب
-      const container = document.getElementById("recaptcha-container");
-      if (container) container.innerHTML = "";
-      
-      // ✅ تهيئة reCAPTCHA بشكل مستقل ومستقر
       recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "normal", // مرئي ليضمن حل الكابتشا بدون تعارض
-        callback: () => {}, // دالة فارغة لتفادي أخطاء الـ callback
+        size: "normal",
+        callback: () => {},
+        "expired-callback": () => {
+          setError("انتهت صلاحية التحقق، يرجى تحديث الصفحة والمحاولة مجدداً.");
+        }
       });
-      return recaptchaRef.current;
+      
+      // يجب استدعاء render صراحةً لضمان ظهور الكابتشا في المتصفح
+      recaptchaRef.current.render().catch((err) => console.error(err));
+      
     } catch (e) {
-      console.error("Recaptcha init error", e);
-      return null;
+      console.error("Recaptcha initialization error:", e);
     }
-  };
+
+    return () => {
+      // تنظيف الكائن عند مغادرة الصفحة فقط
+      if (recaptchaRef.current) {
+        try { recaptchaRef.current.clear(); } catch (e) {}
+        recaptchaRef.current = null;
+      }
+    };
+  }, []);
+
   const finishLogin = async (firebaseUser: FirebaseUser, name: string) => {
     const result = await completePhoneLogin(firebaseUser, name);
     if (!result.ok) {
@@ -75,7 +85,7 @@ function LoginForm() {
       "/order-tracking",
       "/admin",
       "/driver",
-      "/restaurant",
+      "/vendor",
     ];
     const safeNext = allowedPaths.some((p) => next.startsWith(p))
       ? next
@@ -88,10 +98,9 @@ function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      const verifier = ensureRecaptcha();
-      if (!verifier) { setError("خطأ في تهيئة الحماية. حدث الصفحة"); setLoading(false); return; }
+      const verifier = recaptchaRef.current;
       if (!verifier) {
-        setError("خطأ في تهيئة حماية الدخول. يرجى تحديث الصفحة.");
+        setError("خطأ في تحميل حماية الدخول. يرجى تحديث الصفحة.");
         setLoading(false);
         return;
       }
@@ -103,14 +112,6 @@ function LoginForm() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "تعذّر إرسال رمز التحقق";
       setError(message);
-      
-      // ✅ إعادة تهيئة reCAPTCHA في حال فشل الإرسال لتجنب الخطأ
-      if (recaptchaRef.current) {
-        try { recaptchaRef.current.clear(); } catch (e) {}
-      }
-      recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "invisible",
-      });
     } finally {
       setLoading(false);
     }
@@ -263,7 +264,8 @@ function LoginForm() {
         </form>
       )}
 
-      <div id="recaptcha-container" />
+      {/* حاوية الكابتشا يجب أن تبقى في الـ DOM دائماً */}
+      <div id="recaptcha-container" className="mt-4"></div>
     </div>
   );
 }
