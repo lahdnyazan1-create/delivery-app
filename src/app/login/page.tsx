@@ -45,20 +45,23 @@ function LoginForm() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const pendingUserRef = useRef<FirebaseUser | null>(null);
 
-  // ✅ تهيئة reCAPTCHA عند الحاجة فقط لتجنب التضارب
   const ensureRecaptcha = () => {
-    if (!recaptchaRef.current) {
-      try {
-        const container = document.getElementById("recaptcha-container");
-        if (container) container.innerHTML = "";
-        recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
-          size: "normal",
-        });
-      } catch (e) {}
+    try {
+      // مسح أي عناصر سابقة لمنع التضارب
+      const container = document.getElementById("recaptcha-container");
+      if (container) container.innerHTML = "";
+      
+      // ✅ تهيئة reCAPTCHA بشكل مستقل ومستقر
+      recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "normal", // مرئي ليضمن حل الكابتشا بدون تعارض
+        callback: () => {}, // دالة فارغة لتفادي أخطاء الـ callback
+      });
+      return recaptchaRef.current;
+    } catch (e) {
+      console.error("Recaptcha init error", e);
+      return null;
     }
-    return recaptchaRef.current;
   };
-
   const finishLogin = async (firebaseUser: FirebaseUser, name: string) => {
     const result = await completePhoneLogin(firebaseUser, name);
     if (!result.ok) {
