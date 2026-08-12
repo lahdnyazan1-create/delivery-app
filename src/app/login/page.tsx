@@ -52,7 +52,7 @@ function LoginForm() {
         const container = document.getElementById("recaptcha-container");
         if (container) container.innerHTML = "";
         recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
-          size: "invisible",
+          size: "normal",
         });
       } catch (e) {}
     }
