@@ -4,6 +4,8 @@ import "./globals.css";
 import { AppInitializer } from "@/components/layout/AppInitializer";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { FloatingCartBar } from "@/components/checkout/FloatingCartBar";
+import { MessageCircle } from "lucide-react";
+import Link from "next/link";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -59,6 +61,15 @@ export default function RootLayout({
         <OfflineBanner />
         {children}
         <FloatingCartBar />
+        <Link
+          href="https://wa.me/970599000000" // ⚠️ غيّر هذا الرقم لرقم الدعم الخاص بك
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-24 left-4 z-40 flex size-12 items-center justify-center rounded-full bg-green-500 text-white shadow-lg transition hover:bg-green-600 md:bottom-6 md:left-6"
+          aria-label="الدعم الفني"
+        >
+          <MessageCircle className="size-6" />
+        </Link>
       </body>
     </html>
   );

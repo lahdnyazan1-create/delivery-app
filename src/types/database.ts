@@ -45,6 +45,12 @@ export interface Restaurant {
   updatedAt?: number;
 }
 
+export interface DishAddon {
+  id: string;
+  name: string;
+  price: number;
+}
+
 export interface Dish {
   id: string;
   restaurantId: string;
@@ -56,6 +62,7 @@ export interface Dish {
   available: boolean;
   isHot?: boolean;
   gradient?: string;
+  addons?: DishAddon[];
   createdAt?: number;
   updatedAt?: number;
 }
@@ -185,6 +192,7 @@ export interface CartItem {
   dishId: string;
   quantity: number;
   notes?: string;
+  selectedAddons?: DishAddon[];
 }
 
 export type ActiveOrder = Order;

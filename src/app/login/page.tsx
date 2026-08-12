@@ -45,19 +45,19 @@ function LoginForm() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const pendingUserRef = useRef<FirebaseUser | null>(null);
 
-  // ✅ تهيئة reCAPTCHA مرة واحدة فقط عند تحميل الصفحة
-  useEffect(() => {
-    const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-      size: "invisible",
-    });
-    recaptchaRef.current = verifier;
-
-    return () => {
-      // تنظيف reCAPTCHA عند مغادرة الصفحة لمنع التراكم
-      try { verifier.clear(); } catch (e) {}
-      recaptchaRef.current = null;
-    };
-  }, []);
+  // ✅ تهيئة reCAPTCHA عند الحاجة فقط لتجنب التضارب
+  const ensureRecaptcha = () => {
+    if (!recaptchaRef.current) {
+      try {
+        const container = document.getElementById("recaptcha-container");
+        if (container) container.innerHTML = "";
+        recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
+          size: "invisible",
+        });
+      } catch (e) {}
+    }
+    return recaptchaRef.current;
+  };
 
   const finishLogin = async (firebaseUser: FirebaseUser, name: string) => {
     const result = await completePhoneLogin(firebaseUser, name);
@@ -85,7 +85,8 @@ function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      const verifier = recaptchaRef.current;
+      const verifier = ensureRecaptcha();
+      if (!verifier) { setError("خطأ في تهيئة الحماية. حدث الصفحة"); setLoading(false); return; }
       if (!verifier) {
         setError("خطأ في تهيئة حماية الدخول. يرجى تحديث الصفحة.");
         setLoading(false);

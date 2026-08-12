@@ -24,9 +24,10 @@ interface CartState {
     dishId: string,
     restaurantId: string,
     notes?: string,
+    selectedAddons?: any[],
   ) => { ok: boolean; message?: string; conflict?: boolean };
   /** يفرّغ السلة الحالية ثم يضيف الطبق الجديد مباشرة — لحالة تعارض المطعم */
-  replaceCartAndAdd: (dishId: string, restaurantId: string, notes?: string) => void;
+  replaceCartAndAdd: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => void;
   removeFromCart: (dishId: string) => void;
   updateQuantity: (dishId: string, quantity: number) => void;
   clearCart: () => void;
@@ -53,7 +54,7 @@ export const useCartStore = create<CartState>()(
       deliveryAddressDetails: "",
       orderNotes: "",
 
-      addToCart: (dishId, restaurantId, notes = "") => {
+      addToCart: (dishId, restaurantId, notes = "", selectedAddons = []) => {
         const state = get();
         if (state.cartRestaurantId && state.cartRestaurantId !== restaurantId) {
           // ✅ conflict:true يسمح للواجهة بعرض تأكيد واضح بدل تجاهل الفشل بصمت
@@ -75,15 +76,15 @@ export const useCartStore = create<CartState>()(
               : item,
           );
         } else {
-          newCart = [...state.cart, { dishId, quantity: 1, notes }];
+          newCart = [...state.cart, { dishId, quantity: 1, notes, selectedAddons }];
         }
         set({ cart: newCart, cartRestaurantId: restaurantId });
         return { ok: true };
       },
 
-      replaceCartAndAdd: (dishId, restaurantId, notes = "") => {
+      replaceCartAndAdd: (dishId, restaurantId, notes = "", selectedAddons = []) => {
         set({
-          cart: [{ dishId, quantity: 1, notes }],
+          cart: [{ dishId, quantity: 1, notes, selectedAddons }],
           cartRestaurantId: restaurantId,
           appliedPromo: null,
         });

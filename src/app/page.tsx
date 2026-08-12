@@ -111,30 +111,38 @@ export default function HomePage() {
         </>
       )}
 
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">
-            {isSearching ? "نتائج البحث" : "كل المطاعم"}
-          </h2>
-          <span className="text-xs font-medium text-foreground-muted">
-            {filteredRestaurants.length} مطعم
-          </span>
-        </div>
-
-        {filteredRestaurants.length === 0 ? (
-          <p className="glass rounded-2xl px-4 py-10 text-center text-sm text-foreground-muted">
-            لا توجد مطاعم مطابقة حالياً.
-          </p>
+      <section className="space-y-6">
+        {isSearching ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-foreground">نتائج البحث</h2>
+            {filteredRestaurants.length === 0 ? (
+              <p className="glass rounded-2xl px-4 py-10 text-center text-sm text-foreground-muted">
+                لا توجد مطاعم مطابقة حالياً.
+              </p>
+            ) : (
+              <ul className="space-y-4">
+                {filteredRestaurants.map((restaurant, index) => (
+                  <RestaurantCard key={restaurant.id} restaurant={restaurant} index={index} />
+                ))}
+              </ul>
+            )}
+          </div>
         ) : (
-          <ul className="space-y-4">
-            {filteredRestaurants.map((restaurant, index) => (
-              <RestaurantCard
-                key={restaurant.id}
-                restaurant={restaurant}
-                index={index}
-              />
-            ))}
-          </ul>
+          (() => {
+            // ✅ تجميع المطاعم حسب الفئة (cuisine)
+            const cuisines = [...new Set(restaurants.filter(r => r.active).map(r => r.cuisine || "أخرى"))];
+            return cuisines.map((cuisine) => {
+              const rests = restaurants.filter(r => r.active && (r.cuisine || "أخرى") === cuisine);
+              if (rests.length === 0) return null;
+              return (
+                <RestaurantShelf
+                  key={cuisine}
+                  title={cuisine || "مطاعم"}
+                  restaurants={rests}
+                />
+              );
+            });
+          })()
         )}
       </section>
     </AppShell>

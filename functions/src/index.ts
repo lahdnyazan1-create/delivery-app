@@ -53,10 +53,17 @@ const STATUS_MESSAGES_AR: Record<OrderStatus, string> = {
 // 1) placeOrder
 // ============================================================================
 
+interface PlaceOrderAddon {
+  id: string;
+  name: string;
+  price: number;
+}
+
 interface PlaceOrderItem {
   dishId: string;
   quantity: number;
   notes?: string;
+  selectedAddons?: PlaceOrderAddon[];
 }
 
 interface PlaceOrderInput {
@@ -167,8 +174,10 @@ export const placeOrder = onCall<PlaceOrderInput>(
         dishId: string;
         name: string;
         price: number;
+        basePrice?: number;
         quantity: number;
         notes?: string;
+        selectedAddons?: PlaceOrderAddon[];
       }[] = [];
       let subtotal = 0;
 
@@ -195,13 +204,29 @@ export const placeOrder = onCall<PlaceOrderInput>(
           throw new HttpsError("invalid-argument", "كمية غير منطقية");
         }
 
-        subtotal += dish.price * quantity;
+        // ✅ التحقق من الإضافات وحساب سعرها الحقيقي من قاعدة البيانات
+        let validatedAddons: PlaceOrderAddon[] = [];
+        let itemAddonsPrice = 0;
+        if (item.selectedAddons && Array.isArray(item.selectedAddons)) {
+          for (const addon of item.selectedAddons) {
+            const validAddon = dish.addons?.find((a) => a.id === addon.id);
+            if (validAddon) {
+              validatedAddons.push(validAddon);
+              itemAddonsPrice += validAddon.price;
+            }
+          }
+        }
+
+        const finalItemPrice = dish.price + itemAddonsPrice;
+        subtotal += finalItemPrice * quantity;
         orderItems.push({
           dishId: item.dishId,
           name: dish.name,
-          price: dish.price,
+          price: finalItemPrice,
+          basePrice: dish.price,
           quantity,
           notes: item.notes || "",
+          selectedAddons: validatedAddons,
         });
       }
 

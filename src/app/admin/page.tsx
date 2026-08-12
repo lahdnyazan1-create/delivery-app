@@ -83,6 +83,7 @@ function AdminDashboardContent() {
     drivers,
     updateOrderStatus,
     assignDriverToOrder,
+    loadInitialData,
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<
@@ -628,6 +629,8 @@ function AdminDashboardContent() {
         vehicle: "دراجة نارية",
         plateNumber: "",
       });
+      // ✅ إعادة تحليل السائقين ليظهروا فوراً في قائمة الإسناد
+      loadInitialData();
     } catch (error) {
       console.error("Failed to link driver", error);
       setDriverMsg(

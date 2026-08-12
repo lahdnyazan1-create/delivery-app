@@ -162,8 +162,13 @@ export default function CartPage() {
                             {dish.category}
                           </p>
                           <p className="text-sm text-primary">
-                            {formatPrice(dish.price)}
+                            {formatPrice(dish.price + (item.selectedAddons?.reduce((s, a) => s + a.price, 0) || 0))}
                           </p>
+                          {item.selectedAddons && item.selectedAddons.length > 0 && (
+                            <p className="text-[10px] text-foreground-muted">
+                              + {item.selectedAddons.map(a => a.name).join("، ")}
+                            </p>
+                          )}
                         </div>
                         <button
                           type="button"

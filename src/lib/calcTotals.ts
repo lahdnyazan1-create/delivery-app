@@ -10,7 +10,8 @@ export function calcTotals(
   const subtotal = cart.reduce((sum, item) => {
     const dish = dishes.find((d) => d.id === item.dishId);
     if (!dish) return sum;
-    return sum + dish.price * item.quantity;
+    const addonsPrice = (item.selectedAddons || []).reduce((s, a) => s + a.price, 0);
+    return sum + (dish.price + addonsPrice) * item.quantity;
   }, 0);
 
   const promo = appliedPromo
