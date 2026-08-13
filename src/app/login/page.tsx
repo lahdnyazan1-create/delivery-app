@@ -55,8 +55,7 @@ function LoginForm() {
     };
   }, []);
 
-  // ✅ إصلاح: تمرير undefined بدلاً من "" للمستخدمين الحاليين حتى لا يُمسح اسمهم
-  const finishLogin = async (firebaseUser: FirebaseUser, name: string | undefined) => {
+  const finishLogin = async (firebaseUser: FirebaseUser, name: string) => {
     const result = await completePhoneLogin(firebaseUser, name);
     if (!result.ok) {
       setError(result.message);
@@ -102,8 +101,8 @@ function LoginForm() {
       const credential = await confirmationRef.current.confirm(otp);
       const existingSnap = await getDoc(doc(db, "users", credential.user.uid));
       if (existingSnap.exists()) {
-        // ✅ تمرير undefined للحفاظ على بيانات المستخدم القديمة
-        await finishLogin(credential.user, undefined);
+        // ✅ تمرير نص فارغ آمن تماماً للمستخدمين الحاليين
+        await finishLogin(credential.user, "");
       } else {
         pendingUserRef.current = credential.user;
         setStep("name");
