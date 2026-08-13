@@ -1,0 +1,94 @@
+# ============================================================================
+# تحسينات UX المقترحة (كود جاهز للنسخ)
+# ============================================================================
+
+## 1. إضافة تنبيه صوتي للمطعم عند وصول طلب جديد
+# أضف هذا الكود في src/app/vendor/page.tsx داخل المكون:
+
+/*
+useEffect(() => {
+  if (activeOrders.length > 0 && typeof window !== 'undefined') {
+    const audio = new Audio('/notification-sound.mp3');
+    audio.play().catch(() => {}); // تجاهل الخطأ إذا لم يكن هناك صوت
+  }
+}, [activeOrders.length]);
+*/
+
+## 2. عرض رصيد السائق بوضوح
+# أضف هذه البطاقة في src/app/driver/page.tsx قبل التبويبات:
+
+/*
+<div className="mb-5 glass rounded-2xl p-4 bg-gradient-to-br from-primary/20 to-primary/5">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <div className="size-12 rounded-xl bg-primary/20 flex items-center justify-center">
+        <Wallet className="size-6 text-primary" />
+      </div>
+      <div>
+        <p className="text-xs text-foreground-muted">الرصيد النقدي الحالي</p>
+        <p className="text-xl font-extrabold text-primary">
+          {formatPrice(currentDriver?.totalCashInHand || 0)}
+        </p>
+      </div>
+    </div>
+    <div className="text-right">
+      <p className="text-xs text-foreground-muted">طلبات غير مسواة</p>
+      <p className="text-lg font-bold text-foreground">
+        {currentDriver?.cashOrdersSinceSettlement || 0}
+      </p>
+    </div>
+  </div>
+</div>
+*/
+
+## 3. تحسين رسائل الخطأ في السلة
+# استبدل extractErrorMessage في src/lib/orders.ts بهذا:
+
+/*
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === 'string' && msg.length > 0) {
+      // تحويل الأخطاء التقنية لرسائل إنسانية
+      if (msg.includes('failed-precondition')) {
+        if (msg.includes('المطعم')) return 'المطعم مغلق الآن، يرجى المحاولة لاحقاً';
+        if (msg.includes('الطبق')) return 'بعض الأطباق لم تعد متوفرة';
+        if (msg.includes('منطقة')) return 'منطقة التوصيل غير متاحة حالياً';
+      }
+      if (msg.includes('already-exists')) {
+        return 'هذا الطلب تم إرساله مسبقاً';
+      }
+      if (msg.includes('unauthenticated')) {
+        return 'يجب تسجيل الدخول أولاً';
+      }
+      return msg;
+    }
+  }
+  return fallback;
+}
+*/
+
+## 4. إضافة حالة تحميل واضحة عند الطلب
+# في src/app/cart/page.tsx، أضف حالة loading لزر السحب:
+
+/*
+const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
+const handleConfirm = async () => {
+  setIsPlacingOrder(true);
+  try {
+    const result = await placeOrder();
+    if (!result.ok) {
+      setCheckoutError(result.message || '');
+      return false;
+    }
+    setCheckoutError('');
+    router.push('/order-tracking');
+    return true;
+  } finally {
+    setIsPlacingOrder(false);
+  }
+};
+*/
+
+// ثم مرر isPlacingOrder إلى SwipeButton وعرض "جاري معالجة الطلب..." بدلاً من النص العادي

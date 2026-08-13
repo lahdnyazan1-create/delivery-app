@@ -2,16 +2,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null; }
-    function role() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
+    
+    // ✅ قراءة آمنة لوثيقة المستخدم مع معالجة حالة عدم الوجود
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function role() { 
+      let userData = getUserData();
+      return userData != null ? userData.role : null;
+    }
+    
     function isAdmin() { return isSignedIn() && role() == 'admin'; }
     function isCourier() { return isSignedIn() && role() == 'courier'; }
-    function restaurantOwnerId(restaurantId) { return get(/databases/$(database)/documents/restaurants/$(restaurantId)).data.ownerId; }
-    function isRestaurantOwner(restaurantId) { return isSignedIn() && restaurantId != null && restaurantOwnerId(restaurantId) == request.auth.uid; }
+    function isVendor() { return isSignedIn() && role() == 'vendor'; }
+    
+    function restaurantOwnerId(restaurantId) { 
+      let restData = get(/databases/$(database)/documents/restaurants/$(restaurantId)).data;
+      return restData != null ? restData.ownerId : null;
+    }
+    
+    function isRestaurantOwner(restaurantId) { 
+      return isSignedIn() && restaurantId != null && restaurantOwnerId(restaurantId) == request.auth.uid; 
+    }
 
     match /users/{userId} {
+      // ✅ المستخدم يقرأ فقط ملفه الخاص، والأدمن يقرأ الكل
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.uid == userId && request.resource.data.role == 'customer';
-      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && request.resource.data.role == resource.data.role);
+      
+      // ✅不允许用户自己创建账户 - 只能由 Cloud Functions 或管理员创建
+      allow create: if false;
+      
+      // ✅ المستخدم يمكنه تحديث بياناته فقط دون تغيير الدور
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId 
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'address', 'locationLabel', 'lat', 'lng']));
+      
       allow delete: if isAdmin();
     }
 
@@ -19,15 +45,22 @@ service cloud.firestore {
     match /dishes/{dishId} { allow read: if true; allow create: if isAdmin(); allow update: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available', 'updatedAt'])); allow delete: if isAdmin(); }
     match /promoCodes/{code} { allow read: if true; allow write: if isAdmin(); }
     
-    // ✅ السائق يقرأ ملفه فقط
-    match /drivers/{driverId} { allow read: if isSignedIn() && (request.auth.uid == driverId || isAdmin()); allow write: if isAdmin(); }
+    // ✅ السائق يقرأ ملفه فقط + الأدمن يقرأ الكل
+    match /drivers/{driverId} { 
+      allow read: if isSignedIn() && (request.auth.uid == driverId || isAdmin()); 
+      allow write: if isAdmin(); 
+    }
     
+    // ✅ محفظة السائق: القراءة للسائق نفسه والأدمن، الكتابة للأدمن فقط
+    match /driverWallets/{driverId} { 
+      allow read: if isSignedIn() && (request.auth.uid == driverId || isAdmin()); 
+      allow write: if isAdmin(); 
+    }
+
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /banners/{id} { allow read: if true; allow write: if isAdmin(); }
     match /zones/{zoneId} { allow read: if true; allow write: if isAdmin(); }
     
-    match /driverWallets/{driverId} { allow read: if isSignedIn() && (request.auth.uid == driverId || isAdmin()); allow write: if isAdmin(); }
-
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || (resource.data.audience == "couriers" && isCourier()) || isAdmin());
       allow create: if false;
@@ -36,17 +69,30 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      // ✅ السماح للسائق برؤية طلباته التي استلمها + الطلبات الجاهزة (Ready) ليتمكن من استلامها
+      // ✅ السماح بالسائق برؤية طلباته التي استلمها + الطلبات الجاهزة (Ready) ليتمكن من استلامها
       allow read: if isSignedIn()
                   && (resource.data.userId == request.auth.uid
                       || isAdmin()
                       || (isCourier() && (resource.data.courierId == request.auth.uid || resource.data.status == "Ready"))
                       || isRestaurantOwner(resource.data.restaurantId));
 
+      // ✅不允许客户端直接创建 الطلبات - 必须通过 Cloud Function
       allow create: if false;
+      
+      // ✅ المطعم يمكنه تحديث ETA والحالة حتى Preparing فقط
       allow update: if isAdmin()
-                    || (isRestaurantOwner(resource.data.restaurantId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['etaMinutes', 'updatedAt']));
+                    || (isRestaurantOwner(resource.data.restaurantId) 
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['etaMinutes', 'updatedAt', 'status'])
+                        && (request.resource.data.status == resource.data.status 
+                            || (resource.data.status == 'Pending' && request.resource.data.status == 'Accepted')
+                            || (resource.data.status == 'Accepted' && request.resource.data.status == 'Preparing')));
       allow delete: if isAdmin();
+    }
+    
+    // ✅ مجموعة IdempotencyKeys: كتابة من Cloud Functions فقط
+    match /idempotencyKeys/{keyId} {
+      allow read: if false;
+      allow write: if false;
     }
   }
 }
