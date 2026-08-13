@@ -21,7 +21,6 @@ export const placeOrder = onCall<PlaceOrderInput>(
     const { restaurantId, items, promoCode, idempotencyKey, zoneId, deliveryAddressDetails } = request.data || {};
     if (!restaurantId || !Array.isArray(items) || items.length === 0 || !zoneId) throw new HttpsError("invalid-argument", "بيانات الطلب غير مكتملة");
 
-    // ✅ حل مشكلة Idempotency: التحقق قبل بدء المعاملة
     if (idempotencyKey) {
       const idemSnap = await db.doc(`idempotencyKeys/${idempotencyKey}`).get();
       if (idemSnap.exists) throw new HttpsError("already-exists", "تم معالجة هذا الطلب مسبقاً");
@@ -73,7 +72,6 @@ export const placeOrder = onCall<PlaceOrderInput>(
         const promoSnap = await t.get(promoRef);
         if (promoSnap.exists && promoSnap.data()?.active === true) {
           const promo = promoSnap.data()!;
-          // ✅ منع إساءة استخدام الخصم: التحقق إذا استخدمه المستخدم مسبقاً
           if (promo.usedBy && Array.isArray(promo.usedBy) && promo.usedBy.includes(uid)) {
             throw new HttpsError("failed-precondition", "لقد قمت باستخدام كود الخصم هذا مسبقاً");
           }
@@ -95,13 +93,8 @@ export const placeOrder = onCall<PlaceOrderInput>(
       };
 
       t.set(orderRef, newOrder);
-      
       if (idempotencyKey) t.set(db.doc(`idempotencyKeys/${idempotencyKey}`), { createdAt: now, uid, orderId: orderRef.id });
-      
-      // ✅ تسجيل من استخدم الكود
-      if (validatedPromoCode) {
-        t.update(db.doc(`promoCodes/${validatedPromoCode}`), { usedBy: FieldValue.arrayUnion(uid) });
-      }
+      if (validatedPromoCode) t.update(db.doc(`promoCodes/${validatedPromoCode}`), { usedBy: FieldValue.arrayUnion(uid) });
 
       return { orderId: orderRef.id, order: newOrder };
     });
@@ -110,7 +103,6 @@ export const placeOrder = onCall<PlaceOrderInput>(
   }
 );
 
-// ✅ State Machine: منع القفز العشوائي بين الحالات
 const validTransitions: Record<string, string[]> = {
   "Pending": ["Accepted", "Cancelled"],
   "Accepted": ["Preparing", "Cancelled"],
@@ -143,8 +135,10 @@ export const updateOrderStatus = onCall(
     if (newStatus === "Delivered") {
       const orderData = orderSnap.data();
       if (orderData?.courierId) {
+        // ✅ إصلاح: استخدام totalCashInHand لتطابق الواجهة الأمامية
         await db.doc(`driverWallets/${orderData.courierId}`).set({
-          balance: FieldValue.increment(orderData.total),
+          totalCashInHand: FieldValue.increment(orderData.total),
+          cashOrdersSinceSettlement: FieldValue.increment(1),
           updatedAt: FieldValue.serverTimestamp()
         }, { merge: true });
       }
@@ -165,7 +159,14 @@ export const settleDriverCash = onCall(
     const userSnap = await db.doc(`users/${uid}`).get();
     if (userSnap.data()?.role !== 'admin') throw new HttpsError("permission-denied", "الإدارة فقط");
 
-    await db.doc(`driverWallets/${driverId}`).set({ balance: 0, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    // ✅ إصلاح: تصفير الحقول الصحيحة
+    await db.doc(`driverWallets/${driverId}`).set({
+      totalCashInHand: 0,
+      cashOrdersSinceSettlement: 0,
+      lastSettlementAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+    
     return { ok: true };
   }
 );
