@@ -1,46 +1,14 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# env files (يجب عدم رفعها أبداً)
-.env
+```
+# Environment files
 .env.local
-.env*.local
 
-# vercel
-.vercel
+# Logs and temporary files
+*.log
+*.tmp
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Editors
+.vscode/
 
-# Firebase
-firebase-debug.log
-firestore-debug.log
-ui-debug.log
-
-# Functions compiled output
-functions/lib
-functions/node_modules
-
-# Security & Reports
-project_context_report.txt
-scripts/serviceAccountKey.json
-scripts/*.json
+# Original rules preserved
+*.log
+```
