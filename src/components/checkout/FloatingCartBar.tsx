@@ -1,10 +1,3 @@
-// src/components/checkout/FloatingCartBar.tsx
-// ============================================================================
-// التعديل: أُضيف "/vendor" لقائمة المسارات المخفي عنها الشريط — كان مفقوداً
-// (الشريط مُرندَر عالمياً بـ layout.tsx خارج AppShell، فيظهر فوق أي صفحة
-// جديدة ما لم يُستثنَ صراحةً هنا، بغض النظر عن hideNav في AppShell).
-// ============================================================================
-
 "use client";
 
 import Link from "next/link";
@@ -35,10 +28,12 @@ export function FloatingCartBar() {
     .filter((x) => x.dish);
 
   const count = items.reduce((sum, { item }) => sum + item.quantity, 0);
-  const total = items.reduce(
-    (sum, { item, dish }) => sum + dish!.price * item.quantity,
-    0,
-  );
+  
+  // ✅ حساب السعر الصحيش شاملاً الإضافات
+  const total = items.reduce((sum, { item, dish }) => {
+    const addonsPrice = (item.selectedAddons || []).reduce((s, a) => s + a.price, 0);
+    return sum + (dish!.price + addonsPrice) * item.quantity;
+  }, 0);
 
   return (
     <AnimatePresence>

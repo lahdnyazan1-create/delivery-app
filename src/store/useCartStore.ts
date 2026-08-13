@@ -1,10 +1,3 @@
-// src/store/useCartStore.ts
-// ============================================================================
-// التعديلات:
-// - ✅ إضافة selectedZoneId + deliveryAddressDetails (تُحفظان محلياً/persisted)
-// - ✅ getCartTotal يحسب رسوم التوصيل من zone.deliveryFee بدل restaurant.deliveryFee
-// ============================================================================
-
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { CartItem } from "@/types/database";
@@ -19,14 +12,7 @@ interface CartState {
   deliveryAddressDetails: string;
   orderNotes: string;
 
-  // Actions
-  addToCart: (
-    dishId: string,
-    restaurantId: string,
-    notes?: string,
-    selectedAddons?: any[],
-  ) => { ok: boolean; message?: string; conflict?: boolean };
-  /** يفرّغ السلة الحالية ثم يضيف الطبق الجديد مباشرة — لحالة تعارض المطعم */
+  addToCart: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => { ok: boolean; message?: string; conflict?: boolean };
   replaceCartAndAdd: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => void;
   removeFromCart: (dishId: string) => void;
   updateQuantity: (dishId: string, quantity: number) => void;
@@ -36,12 +22,7 @@ interface CartState {
   setSelectedZoneId: (zoneId: string | null) => void;
   setDeliveryAddressDetails: (details: string) => void;
   setOrderNotes: (notes: string) => void;
-  getCartTotal: () => {
-    subtotal: number;
-    discount: number;
-    deliveryFee: number;
-    total: number;
-  };
+  getCartTotal: () => { subtotal: number; discount: number; deliveryFee: number; total: number };
 }
 
 export const useCartStore = create<CartState>()(
@@ -57,23 +38,19 @@ export const useCartStore = create<CartState>()(
       addToCart: (dishId, restaurantId, notes = "", selectedAddons = []) => {
         const state = get();
         if (state.cartRestaurantId && state.cartRestaurantId !== restaurantId) {
-          // ✅ conflict:true يسمح للواجهة بعرض تأكيد واضح بدل تجاهل الفشل بصمت
-          return {
-            ok: false,
-            message: "سلتك تحتوي أصناف من مطعم آخر",
-            conflict: true,
-          };
+          return { ok: false, message: "سلتك تحتوي أصناف من مطعم آخر", conflict: true };
         }
-        // ✅ التحقق مما إذا كان الطبق موجوداً بنفس الملاحظات لزيادة الكمية
+        
+        // ✅ مقارنة الإضافات كمعرّف فريد لمنع دمج أصناف لها إضافات مختلفة
+        const addonsKey = JSON.stringify(selectedAddons || []);
         const existingIndex = state.cart.findIndex(
-          (item) => item.dishId === dishId && (item.notes || "") === notes,
+          (item) => item.dishId === dishId && (item.notes || "") === notes && JSON.stringify(item.selectedAddons || []) === addonsKey
         );
+
         let newCart;
         if (existingIndex !== -1) {
           newCart = state.cart.map((item, index) =>
-            index === existingIndex
-              ? { ...item, quantity: item.quantity + 1 }
-              : item,
+            index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item,
           );
         } else {
           newCart = [...state.cart, { dishId, quantity: 1, notes, selectedAddons }];
@@ -83,40 +60,23 @@ export const useCartStore = create<CartState>()(
       },
 
       replaceCartAndAdd: (dishId, restaurantId, notes = "", selectedAddons = []) => {
-        set({
-          cart: [{ dishId, quantity: 1, notes, selectedAddons }],
-          cartRestaurantId: restaurantId,
-          appliedPromo: null,
-        });
+        set({ cart: [{ dishId, quantity: 1, notes, selectedAddons }], cartRestaurantId: restaurantId, appliedPromo: null });
       },
 
       removeFromCart: (dishId) => {
         const { cart } = get();
         const newCart = cart.filter((item) => item.dishId !== dishId);
-        set({
-          cart: newCart,
-          cartRestaurantId:
-            newCart.length === 0 ? null : get().cartRestaurantId,
-        });
+        set({ cart: newCart, cartRestaurantId: newCart.length === 0 ? null : get().cartRestaurantId });
       },
 
       updateQuantity: (dishId, quantity) => {
-        if (quantity <= 0) {
-          get().removeFromCart(dishId);
-          return;
-        }
+        if (quantity <= 0) { get().removeFromCart(dishId); return; }
         const { cart } = get();
-        const newCart = cart.map((item) =>
-          item.dishId === dishId ? { ...item, quantity } : item,
-        );
+        const newCart = cart.map((item) => (item.dishId === dishId ? { ...item, quantity } : item));
         set({ cart: newCart });
       },
 
-      clearCart: () => {
-        // ✅ نُبقي على selectedZoneId بعد تفريغ السلة (تفضيل المستخدم على
-        // الأرجح يبقى نفسه لطلبه القادم)، ونمسح فقط محتوى السلة والبرومو.
-        set({ cart: [], cartRestaurantId: null, appliedPromo: null });
-      },
+      clearCart: () => { set({ cart: [], cartRestaurantId: null, appliedPromo: null }); },
 
       applyPromo: (code) => {
         const { promoCodes } = useDataStore.getState();
@@ -127,17 +87,14 @@ export const useCartStore = create<CartState>()(
       },
 
       removePromo: () => set({ appliedPromo: null }),
-
       setSelectedZoneId: (zoneId) => set({ selectedZoneId: zoneId }),
-      setDeliveryAddressDetails: (details) =>
-        set({ deliveryAddressDetails: details }),
+      setDeliveryAddressDetails: (details) => set({ deliveryAddressDetails: details }),
       setOrderNotes: (notes) => set({ orderNotes: notes }),
 
       getCartTotal: () => {
         const { cart, appliedPromo, selectedZoneId } = get();
         const { dishes, promoCodes, zones } = useDataStore.getState();
         const zone = zones.find((z) => z.id === selectedZoneId);
-        // ✅ الرسوم الآن من المنطقة المختارة، وليس من المطعم
         const deliveryFee = zone ? zone.deliveryFee : 0;
         return calcTotals(cart, dishes, appliedPromo, promoCodes, deliveryFee);
       },
@@ -156,4 +113,3 @@ export const useCartStore = create<CartState>()(
     },
   ),
 );
-
