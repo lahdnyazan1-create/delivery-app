@@ -20,9 +20,4 @@ export const auth = getAuth(app);
 export const functions = getFunctions(app);
 export const storage = getStorage(app);
 
-// ✅ تم إزالة App Check بالكامل لتفادي تعارض reCAPTCHA مع تسجيل الدخول
-export async function initAppCheck() {
-  return;
-}
-
 export default app;
