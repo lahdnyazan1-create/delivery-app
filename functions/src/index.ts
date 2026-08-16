@@ -8,7 +8,7 @@ const db = getFirestore();
 interface PlaceOrderItem { dishId: string; quantity: number; notes?: string; selectedAddons?: { id: string; name: string; price: number }[]; }
 interface PlaceOrderInput {
   restaurantId: string; items: PlaceOrderItem[]; promoCode?: string | null; idempotencyKey?: string;
-  zoneId: string; deliveryAddressDetails: string; orderNotes?: string; paymentMethod?: string;
+  zoneId: string; deliveryAddressDetails: string; orderNotes?: string;
   customerLat?: number | null; customerLng?: number | null;
 }
 
@@ -21,12 +21,14 @@ export const placeOrder = onCall<PlaceOrderInput>(
     const { restaurantId, items, promoCode, idempotencyKey, zoneId, deliveryAddressDetails } = request.data || {};
     if (!restaurantId || !Array.isArray(items) || items.length === 0 || !zoneId) throw new HttpsError("invalid-argument", "بيانات الطلب غير مكتملة");
 
-    if (idempotencyKey) {
-      const idemSnap = await db.doc(`idempotencyKeys/${idempotencyKey}`).get();
-      if (idemSnap.exists) throw new HttpsError("already-exists", "تم معالجة هذا الطلب مسبقاً");
-    }
-
     const result = await db.runTransaction(async (t) => {
+      // ✅ التحقق من IdempotencyKey داخل الـ Transaction لمنع Race Condition
+      if (idempotencyKey) {
+        const idemRef = db.doc(`idempotencyKeys/${idempotencyKey}`);
+        const idemSnap = await t.get(idemRef);
+        if (idemSnap.exists) throw new HttpsError("already-exists", "تم معالجة هذا الطلب مسبقاً");
+      }
+
       const userRef = db.doc(`users/${uid}`);
       const userSnap = await t.get(userRef);
       if (!userSnap.exists) throw new HttpsError("failed-precondition", "الملف الشخصي غير موجود");
@@ -61,6 +63,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
         if (item.selectedAddons && Array.isArray(item.selectedAddons)) {
           addonsPrice = item.selectedAddons.reduce((sum, a) => sum + (a.price || 0), 0);
         }
+        // ✅ الإصلاح: حساب السعر بشكل صحيح (سعر الطبق + الإضافات) × الكمية
         subtotal += (dish.price + addonsPrice) * quantity;
         orderItems.push({ dishId: item.dishId, name: dish.name, price: dish.price, quantity, notes: item.notes || "", selectedAddons: item.selectedAddons || [], addonsPrice });
       }
@@ -85,11 +88,15 @@ export const placeOrder = onCall<PlaceOrderInput>(
       const orderRef = db.collection("orders").doc();
       const now = FieldValue.serverTimestamp();
 
+      // ✅ الإصلاح: إضافة paymentMethod و customerLat/customerLng للطلب
       const newOrder = {
         restaurantId, restaurantName: restaurant.name, items: orderItems, subtotal, discount, deliveryFee, total,
         promoCode: validatedPromoCode, status: "Pending", createdAt: now, updatedAt: now,
         customerName: userData.displayName || userData.phone, customerPhone: userData.phone,
         deliveryAddress: userData.address || deliveryAddressDetails, deliveryAddressDetails, zoneId, userId: uid,
+        paymentMethod: "CASH", // ✅ ثابت: الدفع عند الاستلام فقط
+        customerLat: request.data.customerLat || null, // ✅ إحداثيات GPS
+        customerLng: request.data.customerLng || null, // ✅ إحداثيات GPS
       };
 
       t.set(orderRef, newOrder);
@@ -106,9 +113,9 @@ export const placeOrder = onCall<PlaceOrderInput>(
 const validTransitions: Record<string, string[]> = {
   "Pending": ["Accepted", "Cancelled"],
   "Accepted": ["Preparing", "Cancelled"],
-  "Preparing": ["Ready"],
-  "Ready": ["OutForDelivery"],
-  "OutForDelivery": ["Delivered", "Cancelled"],
+  "Preparing": ["Ready", "Cancelled"],
+  "Ready": ["OutForDelivery"], // ✅ المطعم فقط يلغي قبل Ready
+  "OutForDelivery": ["Delivered"], // ✅ السائق لا يستطيع الإلغاء
   "Delivered": [],
   "Cancelled": []
 };
@@ -125,23 +132,34 @@ export const updateOrderStatus = onCall(
     
     if (!orderSnap.exists) throw new HttpsError("not-found", "الطلب غير موجود");
     
-    const currentStatus = orderSnap.data()?.status;
+    const orderData = orderSnap.data()!;
+    const currentStatus = orderData.status;
+    
+    // ✅ التحقق من صلاحية إلغاء الطلب
+    if (newStatus === "Cancelled") {
+      const userSnap = await db.doc(`users/${uid}`).get();
+      const role = userSnap.data()?.role;
+      
+      // فقط الأدمن أو الزبون صاحب الطلب يمكنهم الإلغاء
+      if (role !== "admin" && orderData.userId !== uid) {
+        throw new HttpsError("permission-denied", "ليس لديك صلاحية إلغاء هذا الطلب");
+      }
+    }
+    
     const allowed = validTransitions[currentStatus] || [];
     
     if (!allowed.includes(newStatus)) {
       throw new HttpsError("failed-precondition", `لا يمكن تغيير الحالة من ${currentStatus} إلى ${newStatus}`);
     }
 
-    if (newStatus === "Delivered") {
-      const orderData = orderSnap.data();
-      if (orderData?.courierId) {
-        // ✅ إصلاح: استخدام totalCashInHand لتطابق الواجهة الأمامية
-        await db.doc(`driverWallets/${orderData.courierId}`).set({
-          totalCashInHand: FieldValue.increment(orderData.total),
-          cashOrdersSinceSettlement: FieldValue.increment(1),
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
-      }
+    // ✅ ربط السائق بالطلب عند استلامه
+    if (newStatus === "OutForDelivery" && !orderData.courierId) {
+      await orderRef.update({ 
+        status: newStatus, 
+        courierId: uid,
+        updatedAt: FieldValue.serverTimestamp() 
+      });
+      return { ok: true };
     }
 
     await orderRef.update({ status: newStatus, updatedAt: FieldValue.serverTimestamp() });
@@ -159,7 +177,13 @@ export const settleDriverCash = onCall(
     const userSnap = await db.doc(`users/${uid}`).get();
     if (userSnap.data()?.role !== 'admin') throw new HttpsError("permission-denied", "الإدارة فقط");
 
-    // ✅ إصلاح: تصفير الحقول الصحيحة
+    // ✅ التحقق من وجود محفظة السائق
+    const walletSnap = await db.doc(`driverWallets/${driverId}`).get();
+    if (!walletSnap.exists) {
+      throw new HttpsError("not-found", "محفظة السائق غير موجودة");
+    }
+
+    // ✅ تصفير الحقول الصحيحة
     await db.doc(`driverWallets/${driverId}`).set({
       totalCashInHand: 0,
       cashOrdersSinceSettlement: 0,

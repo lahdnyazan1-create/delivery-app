@@ -85,7 +85,7 @@ export interface DriverWallet {
   updatedAt?: number;
 }
 
-export type PaymentMethod = "CASH" | "CARD";
+export type PaymentMethod = "CASH"; // ✅ الدفع عند الاستلام فقط خلال الـ 3 سنوات الأولى
 
 export type OrderStatus =
   | "Pending"
@@ -99,9 +99,9 @@ export type OrderStatus =
 export const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   Pending: ["Accepted", "Cancelled"],
   Accepted: ["Preparing", "Cancelled"],
-  Preparing: ["Ready", "Cancelled"],
-  Ready: ["OutForDelivery", "Cancelled"],
-  OutForDelivery: ["Delivered"],
+  Preparing: ["Ready", "Cancelled"], // ✅ المطعم يمكنه الإلغاء حتى مرحلة Ready
+  Ready: ["OutForDelivery"], // ✅ المطعم فقط يلغي قبل Ready
+  OutForDelivery: ["Delivered"], // ✅ السائق لا يستطيع الإلغاء
   Delivered: [],
   Cancelled: [],
 };
