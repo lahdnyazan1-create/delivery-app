@@ -15,6 +15,7 @@ export interface PlaceOrderPayload {
   orderNotes?: string;
   customerLat?: number | null;
   customerLng?: number | null;
+  paymentMethod?: PaymentMethod;
 }
 
 export interface PlaceOrderResponse {
