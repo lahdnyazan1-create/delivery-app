@@ -51,26 +51,33 @@ export function SwipeButton({
     void animate(x, 0, { type: "spring", stiffness: 400, damping: 32 });
   };
 
+  // ✅ مسار التأكيد الموحّد — يستخدمه السحب وزر البديل (نقرة/لوحة مفاتيح).
+  //    بدونه كان إتمام الطلب مستحيلاً بلا سحب بالإصبع (لا لوحة مفاتيح ولا نقرة)
+  const triggerConfirm = () => {
+    if (confirmed.current || disabled || busy) return;
+    setBusy(true);
+    void animate(x, maxX, { type: "spring", stiffness: 420, damping: 30 });
+    void Promise.resolve(onConfirm()).then((ok) => {
+      if (ok === false) {
+        reset();
+        return;
+      }
+      confirmed.current = true;
+      setComplete(true);
+      setBurst(true);
+      setBusy(false);
+      vibrate([40, 40, 100]);
+      playSuccessChime();
+    });
+  };
+
   const onDragEnd = () => {
     if (confirmed.current || disabled || busy) {
       reset();
       return;
     }
     if (x.get() > maxX * 0.82) {
-      setBusy(true);
-      void animate(x, maxX, { type: "spring", stiffness: 420, damping: 30 });
-      void Promise.resolve(onConfirm()).then((ok) => {
-        if (ok === false) {
-          reset();
-          return;
-        }
-        confirmed.current = true;
-        setComplete(true);
-        setBurst(true);
-        setBusy(false);
-        vibrate([40, 40, 100]);
-        playSuccessChime();
-      });
+      triggerConfirm();
     } else {
       reset();
     }
@@ -108,9 +115,14 @@ export function SwipeButton({
           disabled ? "opacity-50" : ""
         }`}
       >
-        <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold text-white/90">
+        <button
+          type="button"
+          onClick={triggerConfirm}
+          disabled={disabled || complete || busy}
+          className="absolute inset-0 z-0 flex items-center justify-center text-sm font-bold text-white/90 enabled:cursor-pointer disabled:cursor-default"
+        >
           {complete ? "تم تأكيد الطلب!" : busy ? "جارٍ التأكيد…" : label}
-        </p>
+        </button>
 
         <motion.button
           type="button"

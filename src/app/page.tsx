@@ -17,10 +17,33 @@ import { RestaurantShelf } from "@/components/home/RestaurantShelf";
 import { RestaurantCard } from "@/components/home/RestaurantCard";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAppStore } from "@/store/useAppStore";
+import { useDataStore } from "@/store/useDataStore";
+
+/** هيكل عظمي أثناء التحميل الأول — بدل "لا توجد مطاعم بعد" الكاذبة */
+function HomeSkeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-label="جارٍ تحميل المحتوى">
+      <div className="aspect-[16/9] animate-pulse rounded-3xl bg-white/5" />
+      <div className="flex gap-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="size-16 animate-pulse rounded-2xl bg-white/5" />
+        ))}
+      </div>
+      <div className="flex gap-3 overflow-hidden">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-40 w-48 shrink-0 animate-pulse rounded-2xl bg-white/5" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const router = useRouter();
   const { hasSeenOnboarding, restaurants, zones, selectedZoneId, setSelectedZoneId } = useAppStore();
+  const dataLoading = useDataStore((s) => s.loading);
+  const dataError = useDataStore((s) => s.error);
+  const reloadInitialData = useDataStore((s) => s.loadInitialData);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -58,6 +81,11 @@ export default function HomePage() {
 
   const isSearching = query.trim().length > 0;
 
+  // ✅ لا نعرض حالة "فارغ/لا مطاعم" إلا بعد انتهاء التحميل الفعلي —
+  //    وأخطاء المستمعات تُعرض كبطاقة إعادة محاولة بدل قوائم فارغة صامتة
+  const initialLoading = dataLoading && restaurants.length === 0 && !isSearching;
+  const loadFailed = !dataLoading && !!dataError && restaurants.length === 0 && !isSearching;
+
   return (
     <AppShell>
       <div className="glass mb-3 flex items-center justify-between rounded-2xl px-4 py-2.5">
@@ -85,66 +113,86 @@ export default function HomePage() {
         />
       </label>
 
-      {!isSearching && (
+      {loadFailed ? (
+        <div className="glass rounded-2xl px-4 py-10 text-center" role="alert">
+          <p className="text-sm font-bold text-danger">تعذّر تحميل المطاعم</p>
+          <p className="mt-1 text-xs text-foreground-muted">
+            تحقق من اتصالك بالإنترنت وحاول مجدداً.
+          </p>
+          <button
+            type="button"
+            onClick={() => reloadInitialData()}
+            className="mt-4 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white transition active:scale-95"
+          >
+            إعادة المحاولة
+          </button>
+        </div>
+      ) : initialLoading ? (
+        <HomeSkeleton />
+      ) : (
         <>
-          <div className="mb-6">
-            <BannerCarousel />
-          </div>
+          {!isSearching && (
+            <>
+              <div className="mb-6">
+                <BannerCarousel />
+              </div>
 
-          <div className="mb-6">
-            <CategoriesGrid limit={7} />
-          </div>
+              <div className="mb-6">
+                <CategoriesGrid limit={7} />
+              </div>
 
-          {featuredRestaurants.length > 0 && (
-            <div className="mb-6">
-              <RestaurantShelf title="🔥 وفّر معنا" restaurants={featuredRestaurants} />
-            </div>
+              {featuredRestaurants.length > 0 && (
+                <div className="mb-6">
+                  <RestaurantShelf title="🔥 وفّر معنا" restaurants={featuredRestaurants} />
+                </div>
+              )}
+
+              <div className="mb-6">
+                <RestaurantShelf
+                  title="⭐ الأعلى تقييماً"
+                  restaurants={topRated}
+                  emptyHint="لا توجد مطاعم بعد"
+                />
+              </div>
+            </>
           )}
 
-          <div className="mb-6">
-            <RestaurantShelf
-              title="⭐ الأعلى تقييماً"
-              restaurants={topRated}
-              emptyHint="لا توجد مطاعم بعد"
-            />
-          </div>
+          <section className="space-y-6">
+            {isSearching ? (
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-foreground">نتائج البحث</h2>
+                {filteredRestaurants.length === 0 ? (
+                  <p className="glass rounded-2xl px-4 py-10 text-center text-sm text-foreground-muted">
+                    لا توجد مطاعم مطابقة حالياً.
+                  </p>
+                ) : (
+                  <ul className="space-y-4">
+                    {filteredRestaurants.map((restaurant, index) => (
+                      <RestaurantCard key={restaurant.id} restaurant={restaurant} index={index} />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              (() => {
+                // ✅ تجميع المطاعم حسب الفئة (cuisine)
+                const cuisines = [...new Set(restaurants.filter(r => r.active).map(r => r.cuisine || "أخرى"))];
+                return cuisines.map((cuisine) => {
+                  const rests = restaurants.filter(r => r.active && (r.cuisine || "أخرى") === cuisine);
+                  if (rests.length === 0) return null;
+                  return (
+                    <RestaurantShelf
+                      key={cuisine}
+                      title={cuisine || "مطاعم"}
+                      restaurants={rests}
+                    />
+                  );
+                });
+              })()
+            )}
+          </section>
         </>
       )}
-
-      <section className="space-y-6">
-        {isSearching ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-foreground">نتائج البحث</h2>
-            {filteredRestaurants.length === 0 ? (
-              <p className="glass rounded-2xl px-4 py-10 text-center text-sm text-foreground-muted">
-                لا توجد مطاعم مطابقة حالياً.
-              </p>
-            ) : (
-              <ul className="space-y-4">
-                {filteredRestaurants.map((restaurant, index) => (
-                  <RestaurantCard key={restaurant.id} restaurant={restaurant} index={index} />
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : (
-          (() => {
-            // ✅ تجميع المطاعم حسب الفئة (cuisine)
-            const cuisines = [...new Set(restaurants.filter(r => r.active).map(r => r.cuisine || "أخرى"))];
-            return cuisines.map((cuisine) => {
-              const rests = restaurants.filter(r => r.active && (r.cuisine || "أخرى") === cuisine);
-              if (rests.length === 0) return null;
-              return (
-                <RestaurantShelf
-                  key={cuisine}
-                  title={cuisine || "مطاعم"}
-                  restaurants={rests}
-                />
-              );
-            });
-          })()
-        )}
-      </section>
     </AppShell>
   );
 }

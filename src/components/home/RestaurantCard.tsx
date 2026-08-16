@@ -9,6 +9,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Clock, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Restaurant } from "@/types/database";
@@ -38,12 +39,12 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
           className={`relative aspect-[16/7] overflow-hidden bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
         >
           {restaurant.image && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={restaurant.image}
               alt={restaurant.name}
-              loading="lazy"
-              className="absolute inset-0 size-full object-cover"
+              fill
+              sizes="(max-width: 512px) 100vw, 512px"
+              className="object-cover"
             />
           )}
           <div

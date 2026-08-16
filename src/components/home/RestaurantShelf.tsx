@@ -9,6 +9,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Clock, Star } from "lucide-react";
 import type { Restaurant } from "@/types/database";
 
@@ -46,15 +47,15 @@ export function RestaurantShelf({
                       restaurant.coverGradient || "from-gray-700 to-gray-900"
                     }`}
                   >
-                    {restaurant.image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={restaurant.image}
-                        alt={restaurant.name}
-                        loading="lazy"
-                        className="absolute inset-0 size-full object-cover"
-                      />
-                    )}
+                        {restaurant.image && (
+                          <Image
+                            src={restaurant.image}
+                            alt={restaurant.name}
+                            fill
+                            sizes="192px"
+                            className="object-cover"
+                          />
+                        )}
                     {restaurant.promoTag && (
                       <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[10px] font-bold text-white">
                         {restaurant.promoTag}

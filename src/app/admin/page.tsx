@@ -14,7 +14,10 @@ import { UserProfile } from "@/types/database";
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { useAppStore } from "@/store/useAppStore";
+import { useToastStore } from "@/store/useToastStore";
+import { STATUS_LABELS_AR as STATUS_LABELS } from "@/constants/orderStatuses";
 import { Restaurant, OrderStatus, Zone, DriverWallet, STATUS_TRANSITIONS } from "@/types/database";
 import { RequireRole } from "@/components/auth/RequireRole";
 import {
@@ -55,16 +58,6 @@ const CATEGORY_ICON_OPTIONS = [
   "🍔", "🍕", "🍗", "🌯", "🥗", "🍰", "☕", "🥤",
   "🍜", "🍣", "🥙", "🍟", "🧁", "🍦", "🥪", "🛒",
 ];
-
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  Pending: "قيد الانتظار",
-  Accepted: "مقبول من المطعم",
-  Preparing: "قيد التحضير",
-  Ready: "جاهز للتوصيل",
-  OutForDelivery: "خرج للتوصيل",
-  Delivered: "تم التسليم",
-  Cancelled: "ملغي",
-};
 
 function statusBadgeClass(status: OrderStatus) {
   if (status === "Delivered") {
@@ -237,7 +230,7 @@ function AdminDashboardContent() {
     setSettlingDriverId(driverId);
     try {
       const result = await settleDriverCash(driverId);
-      if (!result.ok) alert(result.message || "فشلت التسوية");
+      if (!result.ok) useToastStore.getState().error(result.message || "فشلت التسوية");
       await loadWallets();
     } finally {
       setSettlingDriverId(null);
@@ -255,7 +248,7 @@ function AdminDashboardContent() {
       setUsersList(prev => prev.map(u => u.uid === uid ? { ...u, role: newRole } : u));
     } catch (error) {
       console.error("Failed to update role", error);
-      alert("فشل تغيير الدور. تأكد أنك أدمن.");
+      useToastStore.getState().error("فشل تغيير الدور. تأكد أنك أدمن.");
     }
   };
 
@@ -323,7 +316,13 @@ function AdminDashboardContent() {
   };
 
   const handleDeletePromo = async (code: string) => {
-    if (!confirm(`حذف كود "${code}" نهائياً؟`)) return;
+    const ok = await useToastStore.getState().confirm({
+      title: `حذف كود "${code}"؟`,
+      message: "سيُحذف الكود نهائياً ولا يمكن التراجع.",
+      confirmText: "حذف",
+      danger: true,
+    });
+    if (!ok) return;
     await deletePromoCodeDoc(code);
     await loadPromoCodes();
   };
@@ -382,7 +381,13 @@ function AdminDashboardContent() {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!confirm("حذف هذه الفئة نهائياً؟")) return;
+    const ok = await useToastStore.getState().confirm({
+      title: "حذف هذه الفئة؟",
+      message: "ستُحذف الفئة نهائياً ولا يمكن التراجع.",
+      confirmText: "حذف",
+      danger: true,
+    });
+    if (!ok) return;
     await deleteCategoryDoc(id);
     await loadCategories();
   };
@@ -466,7 +471,13 @@ function AdminDashboardContent() {
   };
 
   const handleDeleteBanner = async (id: string) => {
-    if (!confirm("حذف هذا الإعلان نهائياً؟")) return;
+    const ok = await useToastStore.getState().confirm({
+      title: "حذف هذا الإعلان؟",
+      message: "سيُحذف الإعلان نهائياً ولا يمكن التراجع.",
+      confirmText: "حذف",
+      danger: true,
+    });
+    if (!ok) return;
     await deleteBannerDoc(id);
     await loadBanners();
   };
@@ -1249,11 +1260,12 @@ function AdminDashboardContent() {
                       }`}
                     >
                       {dish.image && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={dish.image}
                           alt={dish.name}
-                          className="size-full object-cover"
+                          fill
+                          sizes="64px"
+                          className="object-cover"
                         />
                       )}
                     </div>

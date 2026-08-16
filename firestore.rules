@@ -30,17 +30,25 @@ service cloud.firestore {
       // ✅ المستخدم يقرأ فقط ملفه الخاص، والأدمن يقرأ الكل
       // تعديل: السماح للجميع بقراءة بيانات السائقين لرؤية كود الدعوة
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || (resource.data.role == 'courier' && resource.data.referralCode != null));
-      
-      // ✅不允许用户自己创建账户 - 只能由 Cloud Functions 或管理员创建
-      allow create: if false;
-      
-      // ✅ المستخدم يمكنه تحديث بياناته فقط دون تغيير الدور
-      // تعديل: منع تغيير كود الدعوة بعد إنشائه
-      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId 
+
+      // ✅ إنشاء الملف الشخصي عند أول تسجيل دخول — قيود صارمة:
+      //    المستخدم نفسه فقط، بدور customer حصراً، وهاتفه يطابق رقمه
+      //    المُصادَق عليه في Firebase Auth (كان create:false يكسر
+      //    completePhoneLogin نهائياً في الواجهة)
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == 'customer'
+        && request.resource.data.phone == request.auth.token.phone_number
+        && request.resource.data.keys().hasOnly(['uid', 'phone', 'displayName', 'role', 'address', 'createdAt']);
+
+      // ✅ المستخدم يمكنه تحديث بياناته فقط دون تغيير الدور أو كود الدعوة
+      //    (referralCode يُدار حصراً عبر generateCourierReferralCode — لو سمحنا
+      //    للعميل بتعيينه لاستطاع سائق انتحال كود سائق آخر وسرقة دعواته)
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId
         && request.resource.data.role == resource.data.role
-        && (request.resource.data.referralCode == resource.data.referralCode || resource.data.referralCode == null)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'address', 'locationLabel', 'lat', 'lng', 'referralCode']));
-      
+        && request.resource.data.referralCode == resource.data.referralCode
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'address', 'locationLabel', 'lat', 'lng', 'updatedAt']));
+
       allow delete: if isAdmin();
     }
 

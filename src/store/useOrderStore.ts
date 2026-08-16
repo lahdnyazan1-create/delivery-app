@@ -109,6 +109,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     promoCode,
     zoneId,
     deliveryAddressDetails,
+    orderNotes,
     paymentMethod,
     customerLat,
     customerLng,
@@ -121,6 +122,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       promoCode,
       zoneId,
       deliveryAddressDetails,
+      orderNotes,
+      paymentMethod,
       customerLat,
       customerLng,
     });

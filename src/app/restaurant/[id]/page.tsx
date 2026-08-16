@@ -10,6 +10,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, Clock, Star, ShoppingBag } from "lucide-react";
 import { useState } from "react";
@@ -54,11 +55,13 @@ export default function RestaurantMenuPage() {
             className={`relative aspect-[16/8] overflow-hidden bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
           >
             {restaurant.image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={restaurant.image}
                 alt={restaurant.name}
-                className="absolute inset-0 size-full object-cover"
+                fill
+                priority
+                sizes="(max-width: 512px) 100vw, 512px"
+                className="object-cover"
               />
             )}
           </div>

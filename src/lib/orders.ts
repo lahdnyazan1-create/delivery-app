@@ -36,11 +36,12 @@ export async function placeOrder(params: {
   zoneId: string;
   deliveryAddressDetails: string;
   orderNotes?: string;
+  paymentMethod?: PaymentMethod;
   customerLat?: number | null;
   customerLng?: number | null;
   idempotencyKey?: string;
 }): Promise<{ ok: true; orderId: string; order: Order } | { ok: false; message: string }> {
-  const { restaurantId, cart, promoCode = null, zoneId, deliveryAddressDetails, orderNotes, customerLat = null, customerLng = null, idempotencyKey } = params;
+  const { restaurantId, cart, promoCode = null, zoneId, deliveryAddressDetails, orderNotes, paymentMethod, customerLat = null, customerLng = null, idempotencyKey } = params;
 
   if (cart.length === 0) return { ok: false, message: "السلة فارغة" };
   if (!restaurantId) return { ok: false, message: "لم يتم تحديد مطعم" };
@@ -57,6 +58,7 @@ export async function placeOrder(params: {
       zoneId,
       deliveryAddressDetails: deliveryAddressDetails.trim(),
       orderNotes: orderNotes?.trim() || "",
+      paymentMethod,
       customerLat,
       customerLng,
     });

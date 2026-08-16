@@ -65,10 +65,12 @@ export const subscribeOrders = (
   userId: string,
   callback: (orders: Order[]) => void,
 ): Unsubscribe => {
+  // ✅ حد 50 طلباً — سجل العميل يكبر إلى ما لا نهاية بدون Pagination
   const q = query(
     collection(db, "orders"),
     where("userId", "==", userId),
     orderBy("createdAt", "desc"),
+    limit(50),
   );
   return onSnapshot(
     q,
@@ -102,16 +104,20 @@ export const subscribeCourierOrders = (
   courierId: string,
   callback: (orders: Order[]) => void,
 ): Unsubscribe => {
+  // ✅ حدان لكل استعلام — لوحة المندوب لا تحتاج تاريخاً غير محدود،
+  //    واستعلام Ready كان يراكم الطلبات العالقة إلى ما لا نهاية
   const q1 = query(
     collection(db, "orders"),
     where("courierId", "==", courierId),
     orderBy("createdAt", "desc"),
+    limit(50),
   );
 
   const q2 = query(
     collection(db, "orders"),
     where("status", "==", "Ready"),
     orderBy("createdAt", "desc"),
+    limit(50),
   );
 
   let orders1: Order[] = [];
@@ -135,6 +141,9 @@ export const subscribeCourierOrders = (
       } as Order;
     });
     emit();
+  }, (error) => {
+    // ✅ كان الاستعلامان بلا معالج أخطاء — فشل الصلاحيات يبتلع بصمت
+    console.error("Courier orders (assigned) subscription error:", error);
   });
 
   const unsub2 = onSnapshot(q2, (snapshot) => {
@@ -150,6 +159,8 @@ export const subscribeCourierOrders = (
       })
       .filter((o) => !o.courierId);
     emit();
+  }, (error) => {
+    console.error("Courier orders (ready) subscription error:", error);
   });
 
   return () => {
@@ -162,7 +173,9 @@ export const subscribeCourierOrders = (
 export const subscribeAllOrders = (
   callback: (orders: Order[]) => void,
 ): Unsubscribe => {
-  const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+  // ✅ حد 100 — بث كامل مجموعة orders حياً كان يكلف ويعيد إرسال كل شيء
+  //    مع كل كتابة؛ لوحة الأدمن تحتاج الأحدث فقط (Pagination لاحقاً)
+  const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(100));
   return onSnapshot(
     q,
     (snapshot) => {
@@ -195,6 +208,7 @@ export const subscribeRestaurantOrders = (
     collection(db, "orders"),
     where("restaurantId", "==", restaurantId),
     orderBy("createdAt", "desc"),
+    limit(50),
   );
   return onSnapshot(
     q,

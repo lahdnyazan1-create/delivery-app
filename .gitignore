@@ -82,4 +82,14 @@ Thumbs.db
 
 # PyTest
 .pytest_cache/
-```
+
+# Build artifacts
+.next/
+*.tsbuildinfo
+
+# Secrets / keys
+serviceAccountKey.json
+*.private-key.json
+
+# Functions
+functions/node_modules/

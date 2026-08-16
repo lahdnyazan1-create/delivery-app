@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDataStore } from "@/store/useDataStore";
 
@@ -41,11 +42,13 @@ export function BannerCarousel() {
       }`}
     >
       {banner.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={banner.imageUrl}
           alt={banner.title}
-          className="absolute inset-0 size-full object-cover"
+          fill
+          priority={index === 0}
+          sizes="(max-width: 512px) 100vw, 512px"
+          className="object-cover"
         />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-secondary/85 via-secondary/10 to-transparent" />

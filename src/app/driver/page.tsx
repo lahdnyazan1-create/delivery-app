@@ -28,10 +28,12 @@ import {
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { useAppStore } from "@/store/useAppStore";
+import { useToastStore } from "@/store/useToastStore";
 import { formatPrice } from "@/constants/currency";
 
 function DriverDashboardContent() {
   const router = useRouter();
+  const showError = useToastStore((s) => s.error);
   const {
     orders,
     updateOrderStatus,
@@ -76,7 +78,7 @@ function DriverDashboardContent() {
     if (result?.ok) {
       setTab("my-orders");
     } else if (result?.message) {
-      alert(result.message);
+      showError(result.message);
     }
   };
 
@@ -85,7 +87,7 @@ function DriverDashboardContent() {
     const result = await updateOrderStatus(orderId, "Delivered");
     setDelivering(null);
     if (!result.ok && result.message) {
-      alert(result.message);
+      showError(result.message);
     }
   };
 

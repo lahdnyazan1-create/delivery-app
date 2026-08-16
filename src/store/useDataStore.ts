@@ -65,16 +65,13 @@ export const useDataStore = create<DataState>((set, get) => ({
     get().cleanupListeners();
     set({ loading: true, error: null });
 
+    // 1) المستمعات العامة (المسار الحرج) — لا تتطلب صلاحيات خاصة.
+    //    مهم: لا نربطها بجلب drivers/promoCodes لأن "Rules ليست فلاتر":
+    //    fetchDrivers يُرفض لغير الأدمن، وقيامه داخل نفس try كان يجهض
+    //    تسجيل كل المستمعات فيترك التطبيق فارغاً للعملاء.
+    const unsubs: Unsubscribe[] = [];
+
     try {
-      const [drivers, promoCodes] = await Promise.all([
-        fetchDrivers(),
-        fetchPromoCodes(),
-      ]);
-
-      set({ drivers, promoCodes, loading: false });
-
-      const unsubs: Unsubscribe[] = [];
-
       const restaurantsQuery = query(collection(db, "restaurants"), limit(50));
       unsubs.push(
         onSnapshot(
@@ -137,9 +134,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         ),
       );
 
-      // ✅ جديد — كل المناطق مرتبة بالاسم (نفلتر active==true بجهة العميل
-      // لتفادي الحاجة لفهرس مركّب where+orderBy غير معرّف في
-      // firestore.indexes.json الحالي؛ عدد المناطق عادة صغير فلا مشكلة أداء)
+      // كل المناطق مرتبة بالاسم (نفلتر active==true بجهة العميل لتفادي
+      // الحاجة لفهرس مركّب where+orderBy؛ عدد المناطق عادة صغير)
       const zonesQuery = query(collection(db, "zones"), orderBy("name", "asc"));
       unsubs.push(
         onSnapshot(
@@ -154,10 +150,27 @@ export const useDataStore = create<DataState>((set, get) => ({
         ),
       );
 
-      set({ _unsubs: unsubs });
+      set({ _unsubs: unsubs, loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
+      return;
     }
+
+    // 2) بيانات إدارية غير حرجة — كل استدعاء مستقل بمعالجة خطأ خاصة به،
+    //    وفشله (permission-denied لغير الأدمن مثلاً) لا يجهض أي شيء آخر.
+    fetchDrivers()
+      .then((drivers) => set({ drivers }))
+      .catch((err) => {
+        console.warn("Drivers fetch skipped:", err?.code || err?.message);
+        set({ drivers: [] });
+      });
+
+    fetchPromoCodes()
+      .then((promoCodes) => set({ promoCodes }))
+      .catch((err) => {
+        console.warn("Promo codes fetch skipped:", err?.code || err?.message);
+        set({ promoCodes: [] });
+      });
   },
 
   getRestaurant: (id) => get().restaurants.find((r) => r.id === id),

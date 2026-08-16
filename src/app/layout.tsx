@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { AppInitializer } from "@/components/layout/AppInitializer";
+import { ServiceWorkerRegister } from "@/components/layout/ServiceWorkerRegister";
+import { ToastHost } from "@/components/ui/Toast";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { FloatingCartBar } from "@/components/checkout/FloatingCartBar";
 import { MessageCircle } from "lucide-react";
@@ -37,6 +39,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`}>
       <body className="min-h-full font-sans text-foreground">
         <AppInitializer />
+        <ServiceWorkerRegister />
+        <ToastHost />
         <OfflineBanner />
         {children}
         <FloatingCartBar />

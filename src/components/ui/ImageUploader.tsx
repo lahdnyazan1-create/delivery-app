@@ -8,6 +8,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import {
   ref as storageRef,
@@ -105,11 +106,14 @@ export function ImageUploader({
         className="relative flex aspect-video w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-glass-border bg-secondary transition hover:border-primary"
       >
         {preview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // ✅ معاينة محلية (data URL) — next/image محذوف التحسين لهذا النوع
+          <Image
             src={preview}
             alt="معاينة"
-            className="size-full object-cover"
+            fill
+            unoptimized
+            sizes="400px"
+            className="object-cover"
           />
         ) : (
           <div className="flex flex-col items-center gap-1.5 text-foreground-muted">

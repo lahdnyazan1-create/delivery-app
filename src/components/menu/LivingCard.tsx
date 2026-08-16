@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { Flame } from "lucide-react";
 import type { Dish } from "@/types/database";
 import { useAppStore } from "@/store/useAppStore";
@@ -34,8 +35,13 @@ export function LivingCard({ dish, index = 0, onDishClick }: LivingCardProps) {
       {/* صورة الطبق */}
       <div className="relative size-20 shrink-0 overflow-hidden rounded-xl">
         {dish.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={dish.image} alt={dish.name} className="size-full object-cover" />
+          <Image
+            src={dish.image}
+            alt={dish.name}
+            fill
+            sizes="80px"
+            className="object-cover"
+          />
         ) : (
           <div className={`size-full bg-gradient-to-br ${dish.gradient || "from-gray-600 to-gray-800"}`} />
         )}

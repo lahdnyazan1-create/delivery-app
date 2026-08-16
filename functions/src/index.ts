@@ -38,7 +38,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "يجب تسجيل الدخول");
 
-    const { restaurantId, items, promoCode, idempotencyKey, zoneId, deliveryAddressDetails, referralCode } = request.data || {};
+    const { restaurantId, items, promoCode, idempotencyKey, zoneId, deliveryAddressDetails, orderNotes, referralCode } = request.data || {};
     if (!restaurantId || !Array.isArray(items) || items.length === 0 || !zoneId) throw new HttpsError("invalid-argument", "بيانات الطلب غير مكتملة");
 
     // ✅ التحقق من صحة إحداثيات GPS
@@ -116,12 +116,25 @@ export const placeOrder = onCall<PlaceOrderInput>(
         if (dish.available !== true) throw new HttpsError("failed-precondition", `الطبق غير متوفر: ${dish.name}`);
 
         let addonsPrice = 0;
+        const validatedAddons: { id: string; name: string; price: number }[] = [];
+        const seenAddonIds = new Set<string>();
         if (item.selectedAddons && Array.isArray(item.selectedAddons)) {
-          addonsPrice = item.selectedAddons.reduce((sum, a) => sum + (a.price || 0), 0);
+          // ✅ أسعار وأسماء الإضافات من Firestore حصراً — ما يرسله العميل
+          //    غير موثوق (كان يُقبل price:0 من العميل سابقاً)
+          for (const sel of item.selectedAddons) {
+            if (!sel?.id || seenAddonIds.has(sel.id)) continue;
+            const stored = (dish.addons || []).find((a: any) => a?.id === sel.id);
+            if (!stored) {
+              throw new HttpsError("invalid-argument", `إضافة غير معروفة لهذا الطبق: ${sel?.name || sel.id}`);
+            }
+            seenAddonIds.add(sel.id);
+            addonsPrice += stored.price || 0;
+            validatedAddons.push({ id: stored.id, name: stored.name, price: stored.price });
+          }
         }
-        // ✅ الإصلاح: حساب السعر بشكل صحيح (سعر الطبق + الإضافات) × الكمية
+        // ✅ حساب السعر بشكل صحيح (سعر الطبق + الإضافات) × الكمية
         subtotal += (dish.price + addonsPrice) * quantity;
-        orderItems.push({ dishId: item.dishId, name: dish.name, price: dish.price, quantity, notes: item.notes || "", selectedAddons: item.selectedAddons || [], addonsPrice });
+        orderItems.push({ dishId: item.dishId, name: dish.name, price: dish.price, quantity, notes: item.notes || "", selectedAddons: validatedAddons, addonsPrice });
       }
 
       let discount = 0;
@@ -151,6 +164,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
         promoCode: validatedPromoCode, status: "Pending", createdAt: now, updatedAt: now,
         customerName: userData.displayName || userData.phone, customerPhone: userData.phone,
         deliveryAddress: userData.address || deliveryAddressDetails, deliveryAddressDetails, zoneId, userId: uid,
+        orderNotes: (typeof orderNotes === "string" ? orderNotes.trim() : "").slice(0, 500), // ✅ ملاحظات العميل (حتى 500 حرف)
         paymentMethod: "CASH", // ✅ ثابت: الدفع عند الاستلام فقط
         customerLat: isValidCoordinate(customerLat, customerLng) ? customerLat : null, // ✅ إحداثيات GPS
         customerLng: isValidCoordinate(customerLat, customerLng) ? customerLng : null, // ✅ إحداثيات GPS
@@ -310,6 +324,24 @@ export const updateOrderStatus = onCall(
         return { ok: true };
       }
 
+      // ✅ حالات المطبخ (Accepted/Preparing/Ready): الأدمن أو مالك المطعم فقط.
+      //    Callable Functions تعمل بـ Admin SDK فتتجاوز firestore.rules —
+      //    لذا التحقق من الدور هنا إلزامي (سابقاً كان أي مستخدم يمرر الطلب لأي حالة).
+      if (newStatus === "Accepted" || newStatus === "Preparing" || newStatus === "Ready") {
+        const userSnap = await t.get(db.doc(`users/${uid}`));
+        const role = userSnap.data()?.role;
+
+        let authorized = role === "admin";
+        if (!authorized && role === "vendor") {
+          const restSnap = await t.get(db.doc(`restaurants/${orderData.restaurantId}`));
+          authorized = restSnap.exists && restSnap.data()?.ownerId === uid;
+        }
+
+        if (!authorized) {
+          throw new HttpsError("permission-denied", "غير مصرح بتغيير حالة هذا الطلب");
+        }
+      }
+
       // تحديث الحالة للحالات الأخرى
       t.update(orderRef, { status: newStatus, updatedAt: Timestamp.now() });
       return { ok: true };
@@ -372,9 +404,9 @@ export const respondToCourierInvite = onCall(
 
       const orderData = orderSnap.data()!;
       
-      // التحقق من أن المستخدم هو الشuffling المدعو
+      // التحقق من أن المستخدم هو السائق المدعو
       if (orderData.preferredCourierId !== uid) {
-        throw new HttpsError("permission-denied", "لست الشuffling المدعو لهذا الطلب");
+        throw new HttpsError("permission-denied", "لست السائق المدعو لهذا الطلب");
       }
 
       // التحقق من حالة الدعوة

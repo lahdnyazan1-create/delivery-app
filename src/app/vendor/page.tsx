@@ -6,15 +6,11 @@ import { Store, LogOut, Phone, ChevronDown, ChevronUp, Clock, ChefHat, PackageCh
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { useAppStore } from "@/store/useAppStore";
+import { useToastStore } from "@/store/useToastStore";
+import { STATUS_LABELS_AR } from "@/constants/orderStatuses";
 import { subscribeRestaurantOrders } from "@/lib/firestore";
 import { formatPrice } from "@/constants/currency";
 import type { Order, OrderStatus } from "@/types/database";
-
-const STATUS_LABELS_AR: Record<OrderStatus, string> = {
-  Pending: "بانتظار الموافقة", Accepted: "مقبول", Preparing: "قيد التحضير",
-  Ready: "جاهز — بانتظار مندوب", OutForDelivery: "في الطريق للعميل",
-  Delivered: "تم التسليم", Cancelled: "ملغى",
-};
 
 function VendorDashboardContent() {
   const router = useRouter();
@@ -41,7 +37,7 @@ function VendorDashboardContent() {
     setActingOn(orderId);
     const result = await updateOrderStatus(orderId, newStatus);
     setActingOn(null);
-    if (!result.ok && result.message) alert(result.message);
+    if (!result.ok && result.message) useToastStore.getState().error(result.message);
   };
 
   if (!myRestaurant) {

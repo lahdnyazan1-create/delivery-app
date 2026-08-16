@@ -3,6 +3,7 @@
 import React from "react";
 import { Order } from "@/types/database";
 import { useAppStore } from "@/store/useAppStore";
+import { STATUS_LABELS_AR } from "@/constants/orderStatuses";
 import { playSound, triggerHaptic } from "@/lib/sound-haptics";
 import { RotateCcw, PackageCheck } from "lucide-react";
 import { formatPrice } from "@/constants/currency";
@@ -55,7 +56,7 @@ export default function OrderHistory() {
               </span>
             </div>
             <span className="rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-bold text-primary">
-              {order.status}
+              {STATUS_LABELS_AR[order.status] ?? order.status}
             </span>
           </div>
 
