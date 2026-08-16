@@ -70,11 +70,13 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       // ✅ السماح بالسائق برؤية طلباته التي استلمها + الطلبات الجاهزة (Ready) ليتمكن من استلامها
+      // ✅ المطعم يرى فقط الطلبات النشطة (Pending, Accepted, Preparing) التابعة لمطعمه
       allow read: if isSignedIn()
                   && (resource.data.userId == request.auth.uid
                       || isAdmin()
                       || (isCourier() && (resource.data.courierId == request.auth.uid || resource.data.status == "Ready"))
-                      || isRestaurantOwner(resource.data.restaurantId));
+                      || (isRestaurantOwner(resource.data.restaurantId) 
+                          && resource.data.status in ['Pending', 'Accepted', 'Preparing']));
 
       // ✅不允许客户端直接创建 الطلبات - 必须通过 Cloud Function
       allow create: if false;

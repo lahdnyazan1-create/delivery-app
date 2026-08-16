@@ -13,7 +13,6 @@ export interface PlaceOrderPayload {
   zoneId: string;
   deliveryAddressDetails: string;
   orderNotes?: string;
-  paymentMethod?: PaymentMethod;
   customerLat?: number | null;
   customerLng?: number | null;
 }
@@ -36,12 +35,11 @@ export async function placeOrder(params: {
   zoneId: string;
   deliveryAddressDetails: string;
   orderNotes?: string;
-  paymentMethod?: PaymentMethod;
   customerLat?: number | null;
   customerLng?: number | null;
   idempotencyKey?: string;
 }): Promise<{ ok: true; orderId: string; order: Order } | { ok: false; message: string }> {
-  const { restaurantId, cart, promoCode = null, zoneId, deliveryAddressDetails, orderNotes, paymentMethod = "CASH", customerLat = null, customerLng = null, idempotencyKey } = params;
+  const { restaurantId, cart, promoCode = null, zoneId, deliveryAddressDetails, orderNotes, customerLat = null, customerLng = null, idempotencyKey } = params;
 
   if (cart.length === 0) return { ok: false, message: "السلة فارغة" };
   if (!restaurantId) return { ok: false, message: "لم يتم تحديد مطعم" };
@@ -58,7 +56,6 @@ export async function placeOrder(params: {
       zoneId,
       deliveryAddressDetails: deliveryAddressDetails.trim(),
       orderNotes: orderNotes?.trim() || "",
-      paymentMethod,
       customerLat,
       customerLng,
     });
@@ -95,8 +92,14 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
 }
 
 export async function claimOrder(orderId: string): Promise<{ ok: boolean; message: string }> {
-  const result = await updateOrderStatus(orderId, "OutForDelivery");
-  return { ok: result.ok, message: result.ok ? "تم استلام الطلب" : result.message || "فشل الاستلام" };
+  try {
+    // ✅ ربط السائق بالطلب عند تغيير الحالة إلى OutForDelivery
+    const updateOrderStatusFn = httpsCallable<UpdateOrderStatusPayload, UpdateOrderStatusResponse>(functionsRegional, "updateOrderStatus");
+    await updateOrderStatusFn({ orderId, newStatus: "OutForDelivery" });
+    return { ok: true, message: "تم استلام الطلب" };
+  } catch (error: unknown) {
+    return { ok: false, message: extractErrorMessage(error, "فشل الاستلام") };
+  }
 }
 
 export async function assignDriverToOrder(orderId: string, driverId: string): Promise<{ ok: boolean; message?: string }> {
