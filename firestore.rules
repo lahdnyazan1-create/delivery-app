@@ -28,15 +28,18 @@ service cloud.firestore {
 
     match /users/{userId} {
       // ✅ المستخدم يقرأ فقط ملفه الخاص، والأدمن يقرأ الكل
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // تعديل: السماح للجميع بقراءة بيانات السائقين لرؤية كود الدعوة
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || (resource.data.role == 'courier' && resource.data.referralCode != null));
       
       // ✅不允许用户自己创建账户 - 只能由 Cloud Functions 或管理员创建
       allow create: if false;
       
       // ✅ المستخدم يمكنه تحديث بياناته فقط دون تغيير الدور
+      // تعديل: منع تغيير كود الدعوة بعد إنشائه
       allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId 
         && request.resource.data.role == resource.data.role
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'address', 'locationLabel', 'lat', 'lng']));
+        && (request.resource.data.referralCode == resource.data.referralCode || resource.data.referralCode == null)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'address', 'locationLabel', 'lat', 'lng', 'referralCode']));
       
       allow delete: if isAdmin();
     }
@@ -69,24 +72,30 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      // ✅ السماح بالسائق برؤية طلباته التي استلمها + الطلبات الجاهزة (Ready) ليتمكن من استلامها
-      // ✅ المطعم يرى فقط الطلبات التابعة لمطعمه (بغض النظر عن الحالة)
+      // ✅ السائق يرى فقط طلباته الخاصة، المطعم يرى فقط طلبات مطعمه، والزبون يرى طلباته
+      // تعديل: السماح للسائقين برؤية الطلبات الجاهزة (Ready) لتوزيعها
       allow read: if isSignedIn()
                   && (resource.data.userId == request.auth.uid
                       || isAdmin()
-                      || (isCourier() && (resource.data.courierId == request.auth.uid || resource.data.status == "Ready"))
+                      || (isCourier() && (resource.data.courierId == request.auth.uid || resource.data.status == 'Ready' || resource.data.preferredCourierId == request.auth.uid))
                       || (isRestaurantOwner(resource.data.restaurantId)));
 
       // ✅不允许客户端直接创建 الطلبات - 必须通过 Cloud Function
       allow create: if false;
       
       // ✅ المطعم يمكنه تحديث ETA والحالة حتى Preparing فقط
+      // تعديل: إضافة الحقول الجديدة لنظام كود الدعوة
       allow update: if isAdmin()
                     || (isRestaurantOwner(resource.data.restaurantId) 
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['etaMinutes', 'updatedAt', 'status'])
                         && (request.resource.data.status == resource.data.status 
                             || (resource.data.status == 'Pending' && request.resource.data.status == 'Accepted')
-                            || (resource.data.status == 'Accepted' && request.resource.data.status == 'Preparing')));
+                            || (resource.data.status == 'Accepted' && request.resource.data.status == 'Preparing')))
+                    || (isCourier() 
+                        && resource.data.courierId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'driverLocation'])
+                        && ((resource.data.status == 'Accepted' && request.resource.data.status == 'PickedUp')
+                            || (resource.data.status == 'PickedUp' && request.resource.data.status == 'Delivered')));
       allow delete: if isAdmin();
     }
     
