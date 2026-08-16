@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 
 initializeApp();
 const db = getFirestore();
@@ -11,6 +11,9 @@ interface PlaceOrderInput {
   zoneId: string; deliveryAddressDetails: string; orderNotes?: string;
   customerLat?: number | null; customerLng?: number | null;
 }
+
+// ✅ حد أقصى للكمية لمنع الطلبات غير المنطقية
+const MAX_QUANTITY_PER_ITEM = 50;
 
 export const placeOrder = onCall<PlaceOrderInput>(
   { region: "europe-west1", memory: "256MiB", timeoutSeconds: 30 },
@@ -34,6 +37,11 @@ export const placeOrder = onCall<PlaceOrderInput>(
       if (!userSnap.exists) throw new HttpsError("failed-precondition", "الملف الشخصي غير موجود");
       const userData = userSnap.data()!;
 
+      // ✅ التحقق من أن المستخدم لديه دور 'customer' قبل السماح بالطلب
+      if (userData.role !== 'customer') {
+        throw new HttpsError("permission-denied", "فقط الزبائن يمكنهم تقديم الطلبات");
+      }
+
       const restaurantRef = db.doc(`restaurants/${restaurantId}`);
       const restaurantSnap = await t.get(restaurantRef);
       if (!restaurantSnap.exists || restaurantSnap.data()?.active !== true) throw new HttpsError("failed-precondition", "المطعم غير متاح حالياً");
@@ -55,6 +63,12 @@ export const placeOrder = onCall<PlaceOrderInput>(
       for (const item of items) {
         const dish = dishMap.get(item.dishId);
         const quantity = Math.max(1, Math.floor(Number(item.quantity) || 0));
+        
+        // ✅ التحقق من عدم تجاوز الحد الأقصى للكمية
+        if (quantity > MAX_QUANTITY_PER_ITEM) {
+          throw new HttpsError("invalid-argument", `الكمية القصوى المسموحة لكل صنف هي ${MAX_QUANTITY_PER_ITEM}`);
+        }
+        
         if (!dish) throw new HttpsError("invalid-argument", `طبق غير موجود: ${item.dishId}`);
         if (dish.restaurantId !== restaurantId) throw new HttpsError("invalid-argument", "الطبق لا يتبع هذا المطعم");
         if (dish.available !== true) throw new HttpsError("failed-precondition", `الطبق غير متوفر: ${dish.name}`);
@@ -86,7 +100,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
       const deliveryFee = zone.deliveryFee || 0;
       const total = Math.max(0, subtotal - discount) + deliveryFee;
       const orderRef = db.collection("orders").doc();
-      const now = FieldValue.serverTimestamp();
+      const now = Timestamp.now();
 
       // ✅ الإصلاح: إضافة paymentMethod و customerLat/customerLng للطلب
       const newOrder = {
@@ -114,11 +128,34 @@ const validTransitions: Record<string, string[]> = {
   "Pending": ["Accepted", "Cancelled"],
   "Accepted": ["Preparing", "Cancelled"],
   "Preparing": ["Ready", "Cancelled"],
-  "Ready": ["OutForDelivery"], // ✅ المطعم فقط يلغي قبل Ready
-  "OutForDelivery": ["Delivered"], // ✅ السائق لا يستطيع الإلغاء
+  "Ready": ["OutForDelivery"],
+  "OutForDelivery": ["Delivered"],
   "Delivered": [],
   "Cancelled": []
 };
+
+// ✅ دالة مساعدة لتحديث محفظة السائق عند التسليم
+async function updateDriverWallet(driverId: string, orderTotal: number, t: any) {
+  const walletRef = db.doc(`driverWallets/${driverId}`);
+  const walletSnap = await t.get(walletRef);
+  
+  if (!walletSnap.exists) {
+    // إنشاء محفظة جديدة للسائق إذا لم تكن موجودة
+    t.set(walletRef, {
+      driverId,
+      totalCashInHand: orderTotal,
+      cashOrdersSinceSettlement: 1,
+      lastSettlementAt: null,
+      updatedAt: Timestamp.now()
+    });
+  } else {
+    t.update(walletRef, {
+      totalCashInHand: FieldValue.increment(orderTotal),
+      cashOrdersSinceSettlement: FieldValue.increment(1),
+      updatedAt: Timestamp.now()
+    });
+  }
+}
 
 export const updateOrderStatus = onCall(
   { region: "europe-west1" },
@@ -127,43 +164,93 @@ export const updateOrderStatus = onCall(
     if (!uid) throw new HttpsError("unauthenticated", "غير مصرح");
 
     const { orderId, newStatus } = request.data;
-    const orderRef = db.doc(`orders/${orderId}`);
-    const orderSnap = await orderRef.get();
-    
-    if (!orderSnap.exists) throw new HttpsError("not-found", "الطلب غير موجود");
-    
-    const orderData = orderSnap.data()!;
-    const currentStatus = orderData.status;
-    
-    // ✅ التحقق من صلاحية إلغاء الطلب
-    if (newStatus === "Cancelled") {
-      const userSnap = await db.doc(`users/${uid}`).get();
-      const role = userSnap.data()?.role;
+    if (!orderId || !newStatus) throw new HttpsError("invalid-argument", "بيانات غير مكتملة");
+
+    // ✅ استخدام Transaction لمنع Race Condition
+    return await db.runTransaction(async (t) => {
+      const orderRef = db.doc(`orders/${orderId}`);
+      const orderSnap = await t.get(orderRef);
       
-      // فقط الأدمن أو الزبون صاحب الطلب يمكنهم الإلغاء
-      if (role !== "admin" && orderData.userId !== uid) {
-        throw new HttpsError("permission-denied", "ليس لديك صلاحية إلغاء هذا الطلب");
+      if (!orderSnap.exists) throw new HttpsError("not-found", "الطلب غير موجود");
+      
+      const orderData = orderSnap.data()!;
+      const currentStatus = orderData.status;
+      
+      // ✅ التحقق من صلاحية إلغاء الطلب
+      if (newStatus === "Cancelled") {
+        const userSnap = await t.get(db.doc(`users/${uid}`));
+        const role = userSnap.data()?.role;
+        
+        // فقط الأدمن أو الزبون صاحب الطلب يمكنهم الإلغاء
+        if (role !== "admin" && orderData.userId !== uid) {
+          throw new HttpsError("permission-denied", "ليس لديك صلاحية إلغاء هذا الطلب");
+        }
       }
-    }
-    
-    const allowed = validTransitions[currentStatus] || [];
-    
-    if (!allowed.includes(newStatus)) {
-      throw new HttpsError("failed-precondition", `لا يمكن تغيير الحالة من ${currentStatus} إلى ${newStatus}`);
-    }
+      
+      const allowed = validTransitions[currentStatus] || [];
+      
+      if (!allowed.includes(newStatus)) {
+        throw new HttpsError("failed-precondition", `لا يمكن تغيير الحالة من ${currentStatus} إلى ${newStatus}`);
+      }
 
-    // ✅ ربط السائق بالطلب عند استلامه
-    if (newStatus === "OutForDelivery" && !orderData.courierId) {
-      await orderRef.update({ 
-        status: newStatus, 
-        courierId: uid,
-        updatedAt: FieldValue.serverTimestamp() 
-      });
+      // ✅ ربط السائق بالطلب عند استلامه وتحديث المحفظة
+      if (newStatus === "OutForDelivery") {
+        // إذا كان هناك سائق مرتبط بالفعل، نتحقق أنه السائق الحالي
+        if (orderData.courierId && orderData.courierId !== uid) {
+          throw new HttpsError("permission-denied", "هذا الطلب مسند لسائق آخر");
+        }
+        
+        const userSnap = await t.get(db.doc(`users/${uid}`));
+        const role = userSnap.data()?.role;
+        
+        // فقط السائق يمكنه تغيير الحالة إلى OutForDelivery
+        if (role !== "courier") {
+          throw new HttpsError("permission-denied", "فقط المندوبون يمكنهم استلام الطلبات");
+        }
+        
+        t.update(orderRef, { 
+          status: newStatus, 
+          courierId: uid,
+          updatedAt: Timestamp.now() 
+        });
+        return { ok: true };
+      }
+
+      // ✅ عند التسليم، تحديث محفظة السائق
+      if (newStatus === "Delivered") {
+        const courierId = orderData.courierId;
+        if (!courierId) {
+          throw new HttpsError("failed-precondition", "لا يوجد سائق مرتبط بهذا الطلب");
+        }
+        
+        // التحقق من أن السائق هو من ينفذ التسليم
+        if (orderData.courierId !== uid) {
+          const userSnap = await t.get(db.doc(`users/${uid}`));
+          const role = userSnap.data()?.role;
+          if (role !== "admin") {
+            throw new HttpsError("permission-denied", "فقط السائق المسند أو الأدمن يمكنه تأكيد التسليم");
+          }
+        }
+        
+        // تحديث حالة الطلب
+        t.update(orderRef, { 
+          status: newStatus, 
+          deliveredAt: Timestamp.now(),
+          updatedAt: Timestamp.now() 
+        });
+        
+        // ✅ تحديث محفظة السائق - الإصلاح الرئيسي
+        if (orderData.paymentMethod === "CASH") {
+          await updateDriverWallet(courierId, orderData.total, t);
+        }
+        
+        return { ok: true };
+      }
+
+      // تحديث الحالة للحالات الأخرى
+      t.update(orderRef, { status: newStatus, updatedAt: Timestamp.now() });
       return { ok: true };
-    }
-
-    await orderRef.update({ status: newStatus, updatedAt: FieldValue.serverTimestamp() });
-    return { ok: true };
+    });
   }
 );
 
@@ -174,6 +261,8 @@ export const settleDriverCash = onCall(
     if (!uid) throw new HttpsError("unauthenticated", "غير مصرح");
 
     const { driverId } = request.data;
+    if (!driverId) throw new HttpsError("invalid-argument", "معرّف السائق مطلوب");
+    
     const userSnap = await db.doc(`users/${uid}`).get();
     if (userSnap.data()?.role !== 'admin') throw new HttpsError("permission-denied", "الإدارة فقط");
 
@@ -187,8 +276,8 @@ export const settleDriverCash = onCall(
     await db.doc(`driverWallets/${driverId}`).set({
       totalCashInHand: 0,
       cashOrdersSinceSettlement: 0,
-      lastSettlementAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
+      lastSettlementAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
     }, { merge: true });
     
     return { ok: true };
