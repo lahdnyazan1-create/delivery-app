@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import * as crypto from "crypto";
 
 initializeApp();
 const db = getFirestore();
@@ -10,10 +11,26 @@ interface PlaceOrderInput {
   restaurantId: string; items: PlaceOrderItem[]; promoCode?: string | null; idempotencyKey?: string;
   zoneId: string; deliveryAddressDetails: string; orderNotes?: string;
   customerLat?: number | null; customerLng?: number | null;
+  referralCode?: string | null; // ✅ كود دعوة الشوفير
 }
 
 // ✅ حد أقصى للكمية لمنع الطلبات غير المنطقية
 const MAX_QUANTITY_PER_ITEM = 50;
+
+/**
+ * توليد كود دعوة فريد للشوفير
+ */
+function generateReferralCode(): string {
+  return 'DRV' + crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+
+/**
+ * التحقق من صحة إحداثيات GPS
+ */
+function isValidCoordinate(lat: number | null | undefined, lng: number | null | undefined): boolean {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+  return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
 
 export const placeOrder = onCall<PlaceOrderInput>(
   { region: "europe-west1", memory: "256MiB", timeoutSeconds: 30 },
@@ -21,8 +38,16 @@ export const placeOrder = onCall<PlaceOrderInput>(
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "يجب تسجيل الدخول");
 
-    const { restaurantId, items, promoCode, idempotencyKey, zoneId, deliveryAddressDetails } = request.data || {};
+    const { restaurantId, items, promoCode, idempotencyKey, zoneId, deliveryAddressDetails, referralCode } = request.data || {};
     if (!restaurantId || !Array.isArray(items) || items.length === 0 || !zoneId) throw new HttpsError("invalid-argument", "بيانات الطلب غير مكتملة");
+
+    // ✅ التحقق من صحة إحداثيات GPS
+    const { customerLat, customerLng } = request.data;
+    if (customerLat !== null && customerLng !== null) {
+      if (!isValidCoordinate(customerLat, customerLng)) {
+        throw new HttpsError("invalid-argument", "إحداثيات الموقع غير صحيحة");
+      }
+    }
 
     const result = await db.runTransaction(async (t) => {
       // ✅ التحقق من IdempotencyKey داخل الـ Transaction لمنع Race Condition
@@ -40,6 +65,23 @@ export const placeOrder = onCall<PlaceOrderInput>(
       // ✅ التحقق من أن المستخدم لديه دور 'customer' قبل السماح بالطلب
       if (userData.role !== 'customer') {
         throw new HttpsError("permission-denied", "فقط الزبائن يمكنهم تقديم الطلبات");
+      }
+
+      // ✅ معالجة كود الدعوة: البحث عن الشوفير صاحب الكود
+      let preferredCourierId: string | null = null;
+      if (referralCode) {
+        const couriersQuery = await db.collection('users')
+          .where('role', '==', 'courier')
+          .where('referralCode', '==', referralCode)
+          .limit(1)
+          .get();
+        
+        if (couriersQuery.empty) {
+          throw new HttpsError("invalid-argument", "كود الدعوة غير صحيح");
+        }
+        
+        const courierDoc = couriersQuery.docs[0];
+        preferredCourierId = courierDoc.id;
       }
 
       const restaurantRef = db.doc(`restaurants/${restaurantId}`);
@@ -103,14 +145,18 @@ export const placeOrder = onCall<PlaceOrderInput>(
       const now = Timestamp.now();
 
       // ✅ الإصلاح: إضافة paymentMethod و customerLat/customerLng للطلب
+      // ✅ إضافة preferredCourierId للطلب
       const newOrder = {
         restaurantId, restaurantName: restaurant.name, items: orderItems, subtotal, discount, deliveryFee, total,
         promoCode: validatedPromoCode, status: "Pending", createdAt: now, updatedAt: now,
         customerName: userData.displayName || userData.phone, customerPhone: userData.phone,
         deliveryAddress: userData.address || deliveryAddressDetails, deliveryAddressDetails, zoneId, userId: uid,
         paymentMethod: "CASH", // ✅ ثابت: الدفع عند الاستلام فقط
-        customerLat: request.data.customerLat || null, // ✅ إحداثيات GPS
-        customerLng: request.data.customerLng || null, // ✅ إحداثيات GPS
+        customerLat: isValidCoordinate(customerLat, customerLng) ? customerLat : null, // ✅ إحداثيات GPS
+        customerLng: isValidCoordinate(customerLat, customerLng) ? customerLng : null, // ✅ إحداثيات GPS
+        preferredCourierId, // ✅ الشوفير المفضل عبر كود الدعوة
+        courierInviteStatus: preferredCourierId ? "pending" : null, // ✅ حالة دعوة الشوفير
+        courierInviteExpiresAt: preferredCourierId ? new Timestamp(now.seconds + 300, 0) : null, // ✅ تنتهي بعد 5 دقائق
       };
 
       t.set(orderRef, newOrder);
@@ -119,6 +165,23 @@ export const placeOrder = onCall<PlaceOrderInput>(
 
       return { orderId: orderRef.id, order: newOrder };
     });
+
+    // ✅ إرسال إشعار للشوفير المفضل إذا وجد
+    if (result.order.preferredCourierId) {
+      try {
+        await db.collection('notifications').add({
+          userId: result.order.preferredCourierId,
+          title: 'طلب جديد من زبونك!',
+          body: `لديك طلب جديد من ${result.order.customerName}. لديك 5 دقائق للقبول.`,
+          orderId: result.orderId,
+          type: 'priority_courier_invite',
+          createdAt: Timestamp.now(),
+          read: false
+        });
+      } catch (e) {
+        console.error('فشل إرسال إشعار للشوفير المفضل:', e);
+      }
+    }
 
     return { ok: true, orderId: result.orderId, order: result.order };
   }
@@ -281,5 +344,159 @@ export const settleDriverCash = onCall(
     }, { merge: true });
     
     return { ok: true };
+  }
+);
+
+/**
+ * ✅ دالة جديدة: قبول أو رفض دعوة الطلب المفضل
+ * يستخدمها الشوفير للرد على دعوات الطلبات ذات الأولوية
+ */
+export const respondToCourierInvite = onCall(
+  { region: "europe-west1", memory: "256MiB", timeoutSeconds: 30 },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "يجب تسجيل الدخول");
+
+    const { orderId, accept } = request.data;
+    if (!orderId || typeof accept !== 'boolean') {
+      throw new HttpsError("invalid-argument", "بيانات غير مكتملة");
+    }
+
+    return await db.runTransaction(async (t) => {
+      const orderRef = db.doc(`orders/${orderId}`);
+      const orderSnap = await t.get(orderRef);
+      
+      if (!orderSnap.exists) {
+        throw new HttpsError("not-found", "الطلب غير موجود");
+      }
+
+      const orderData = orderSnap.data()!;
+      
+      // التحقق من أن المستخدم هو الشuffling المدعو
+      if (orderData.preferredCourierId !== uid) {
+        throw new HttpsError("permission-denied", "لست الشuffling المدعو لهذا الطلب");
+      }
+
+      // التحقق من حالة الدعوة
+      if (orderData.courierInviteStatus !== 'pending') {
+        throw new HttpsError("failed-precondition", "هذه الدعوة لم تعد قيد الانتظار");
+      }
+
+      // التحقق من انتهاء صلاحية الدعوة
+      if (orderData.courierInviteExpiresAt && orderData.courierInviteExpiresAt.toDate() < new Date()) {
+        throw new HttpsError("failed-precondition", "انتهت صلاحية هذه الدعوة");
+      }
+
+      if (accept) {
+        // ✅ قبول الدعوة: تعيين السائق للطلب وتغيير الحالة
+        t.update(orderRef, {
+          courierId: uid,
+          status: 'Accepted',
+          courierInviteStatus: 'accepted',
+          courierInviteExpiresAt: null,
+          updatedAt: Timestamp.now()
+        });
+
+        // إرسال إشعار للزبون بأن شوفيره قبل الطلب
+        await db.collection('notifications').add({
+          userId: orderData.userId,
+          title: 'تم قبول طلبك!',
+          body: `${orderData.customerName}, شوفيرك الخاص قبل طلبك وسيبدأ بالتوصيل قريباً.`,
+          orderId,
+          type: 'courier_accepted',
+          createdAt: Timestamp.now(),
+          read: false
+        });
+      } else {
+        // ✅ رفض الدعوة: تحرير الطلب للجميع
+        t.update(orderRef, {
+          preferredCourierId: null,
+          courierInviteStatus: 'rejected',
+          courierInviteExpiresAt: null,
+          updatedAt: Timestamp.now()
+        });
+      }
+
+      return { ok: true };
+    });
+  }
+);
+
+/**
+ * ✅ دالة مجدولة: تحويل الطلبات المعلقة إلى عامة بعد انتهاء الوقت
+ * تعمل كل دقيقة للتحقق من الطلبات منتهية الصلاحية
+ */
+import { onSchedule } from "firebase-functions/v2/scheduler";
+
+export const checkExpiredCourierInvites = onSchedule(
+  { schedule: "every 1 minutes", region: "europe-west1", memory: "256MiB" },
+  async (event) => {
+    const now = Timestamp.now();
+    
+    // البحث عن الطلبات التي انتهت صلاحية دعوتها
+    const expiredOrders = await db.collection('orders')
+      .where('courierInviteStatus', '==', 'pending')
+      .where('courierInviteExpiresAt', '<=', now)
+      .limit(100)
+      .get();
+
+    if (expiredOrders.empty) {
+      console.log('لا توجد دعوات منتهية الصلاحية');
+      return;
+    }
+
+    const batch = db.batch();
+    let count = 0;
+
+    expiredOrders.forEach((doc) => {
+      batch.update(doc.ref, {
+        preferredCourierId: null,
+        courierInviteStatus: 'expired',
+        courierInviteExpiresAt: null,
+        updatedAt: now
+      });
+      count++;
+    });
+
+    await batch.commit();
+    console.log(`تم تحرير ${count} طلبات للدعوة العامة`);
+  }
+);
+
+/**
+ * ✅ دالة لإنشاء كود دعوة للشوفير عند تحويل حسابه إلى courier
+ */
+export const generateCourierReferralCode = onCall(
+  { region: "europe-west1" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "يجب تسجيل الدخول");
+
+    const userSnap = await db.doc(`users/${uid}`).get();
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "المستخدم غير موجود");
+    }
+
+    const userData = userSnap.data()!;
+    
+    // التحقق من أن المستخدم سائق
+    if (userData.role !== 'courier') {
+      throw new HttpsError("permission-denied", "فقط السائقين يمكنهم الحصول على كود دعوة");
+    }
+
+    // إذا كان لديه كود بالفعل، إرجاعه
+    if (userData.referralCode) {
+      return { ok: true, referralCode: userData.referralCode };
+    }
+
+    // توليد كود جديد
+    const referralCode = generateReferralCode();
+    
+    await db.doc(`users/${uid}`).update({
+      referralCode,
+      updatedAt: Timestamp.now()
+    });
+
+    return { ok: true, referralCode };
   }
 );
