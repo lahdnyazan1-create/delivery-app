@@ -1,14 +1,3 @@
 ```
-# Environment files
-.env.local
-
-# Logs and temporary files
-*.log
-*.tmp
-
-# Editors
-.vscode/
-
-# Original rules preserved
-*.log
+node_modules/
 ```
