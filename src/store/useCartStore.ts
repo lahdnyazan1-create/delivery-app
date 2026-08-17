@@ -2,26 +2,32 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { CartItem } from "@/types/database";
 import { calcTotals } from "@/lib/calcTotals";
+import { checkPromoCode } from "@/lib/orders";
 import { useDataStore } from "./useDataStore";
 
 interface CartState {
   cart: CartItem[];
   cartRestaurantId: string | null;
   appliedPromo: string | null;
+  /** نسبة الخصم المُتحقَّق منها من الخادم عبر checkPromo — مصدر الحقيقة للحساب */
+  appliedPromoPercent: number | null;
   selectedZoneId: string | null;
   deliveryAddressDetails: string;
   orderNotes: string;
+  /** كود دعوة سائق مفضل (اختياري) — يُمرَّر للخادم مع الطلب */
+  referralCode: string;
 
   addToCart: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => { ok: boolean; message?: string; conflict?: boolean };
   replaceCartAndAdd: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => void;
   removeFromCart: (dishId: string) => void;
   updateQuantity: (dishId: string, quantity: number) => void;
   clearCart: () => void;
-  applyPromo: (code: string) => { ok: boolean; message: string };
+  applyPromo: (code: string) => Promise<{ ok: boolean; message: string }>;
   removePromo: () => void;
   setSelectedZoneId: (zoneId: string | null) => void;
   setDeliveryAddressDetails: (details: string) => void;
   setOrderNotes: (notes: string) => void;
+  setReferralCode: (code: string) => void;
   getCartTotal: () => { subtotal: number; discount: number; deliveryFee: number; total: number };
 }
 
@@ -31,9 +37,11 @@ export const useCartStore = create<CartState>()(
       cart: [],
       cartRestaurantId: null,
       appliedPromo: null,
+      appliedPromoPercent: null,
       selectedZoneId: null,
       deliveryAddressDetails: "",
       orderNotes: "",
+      referralCode: "",
 
       addToCart: (dishId, restaurantId, notes = "", selectedAddons = []) => {
         const state = get();
@@ -76,27 +84,31 @@ export const useCartStore = create<CartState>()(
         set({ cart: newCart });
       },
 
-      clearCart: () => { set({ cart: [], cartRestaurantId: null, appliedPromo: null }); },
+      clearCart: () => { set({ cart: [], cartRestaurantId: null, appliedPromo: null, appliedPromoPercent: null }); },
 
-      applyPromo: (code) => {
-        const { promoCodes } = useDataStore.getState();
-        const promo = promoCodes.find((p) => p.code === code && p.active);
-        if (!promo) return { ok: false, message: "كود غير صالح" };
-        set({ appliedPromo: code });
-        return { ok: true, message: `تم تطبيق خصم ${promo.percentOff}%` };
+      // ✅ التحقق يتم عبر checkPromo Cloud Function — لم تعد قائمة الأكواد
+      //    تُقرأ من العميل إطلاقاً (خصوصية + استحالة التعداد)
+      applyPromo: async (code) => {
+        const trimmed = code.trim().toUpperCase();
+        if (!trimmed) return { ok: false, message: "أدخل كود الخصم" };
+        const result = await checkPromoCode(trimmed);
+        if (!result.ok) return { ok: false, message: result.message };
+        set({ appliedPromo: trimmed, appliedPromoPercent: result.percentOff });
+        return { ok: true, message: `تم تطبيق خصم ${result.percentOff}%` };
       },
 
-      removePromo: () => set({ appliedPromo: null }),
+      removePromo: () => set({ appliedPromo: null, appliedPromoPercent: null }),
       setSelectedZoneId: (zoneId) => set({ selectedZoneId: zoneId }),
       setDeliveryAddressDetails: (details) => set({ deliveryAddressDetails: details }),
       setOrderNotes: (notes) => set({ orderNotes: notes }),
+      setReferralCode: (code) => set({ referralCode: code.trim().toUpperCase() }),
 
       getCartTotal: () => {
-        const { cart, appliedPromo, selectedZoneId } = get();
-        const { dishes, promoCodes, zones } = useDataStore.getState();
+        const { cart, appliedPromoPercent, selectedZoneId } = get();
+        const { dishes, zones } = useDataStore.getState();
         const zone = zones.find((z) => z.id === selectedZoneId);
         const deliveryFee = zone ? zone.deliveryFee : 0;
-        return calcTotals(cart, dishes, appliedPromo, promoCodes, deliveryFee);
+        return calcTotals(cart, dishes, appliedPromoPercent, deliveryFee);
       },
     }),
     {
@@ -106,9 +118,11 @@ export const useCartStore = create<CartState>()(
         cart: state.cart,
         cartRestaurantId: state.cartRestaurantId,
         appliedPromo: state.appliedPromo,
+        appliedPromoPercent: state.appliedPromoPercent,
         selectedZoneId: state.selectedZoneId,
         deliveryAddressDetails: state.deliveryAddressDetails,
         orderNotes: state.orderNotes,
+        referralCode: state.referralCode,
       }),
     },
   ),

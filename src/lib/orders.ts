@@ -16,6 +16,7 @@ export interface PlaceOrderPayload {
   customerLat?: number | null;
   customerLng?: number | null;
   paymentMethod?: PaymentMethod;
+  referralCode?: string | null;
 }
 
 export interface PlaceOrderResponse {
@@ -39,9 +40,10 @@ export async function placeOrder(params: {
   paymentMethod?: PaymentMethod;
   customerLat?: number | null;
   customerLng?: number | null;
+  referralCode?: string | null;
   idempotencyKey?: string;
 }): Promise<{ ok: true; orderId: string; order: Order } | { ok: false; message: string }> {
-  const { restaurantId, cart, promoCode = null, zoneId, deliveryAddressDetails, orderNotes, paymentMethod, customerLat = null, customerLng = null, idempotencyKey } = params;
+  const { restaurantId, cart, promoCode = null, zoneId, deliveryAddressDetails, orderNotes, paymentMethod, customerLat = null, customerLng = null, referralCode = null, idempotencyKey } = params;
 
   if (cart.length === 0) return { ok: false, message: "السلة فارغة" };
   if (!restaurantId) return { ok: false, message: "لم يتم تحديد مطعم" };
@@ -59,6 +61,7 @@ export async function placeOrder(params: {
       deliveryAddressDetails: deliveryAddressDetails.trim(),
       orderNotes: orderNotes?.trim() || "",
       paymentMethod,
+      referralCode,
       customerLat,
       customerLng,
     });
@@ -123,6 +126,63 @@ export async function settleDriverCash(driverId: string): Promise<{ ok: boolean;
     return { ok: true };
   } catch (error: unknown) {
     return { ok: false, message: extractErrorMessage(error, "فشلت التسوية") };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// ✅ التحقق من كود خصم — بديل قراءة مجموعة promoCodes من العميل
+// ----------------------------------------------------------------------------
+
+const checkPromoFn = httpsCallable<{ code: string }, { ok: boolean; code: string; percentOff: number }>(
+  functionsRegional,
+  "checkPromo",
+);
+
+export async function checkPromoCode(
+  code: string,
+): Promise<{ ok: true; percentOff: number } | { ok: false; message: string }> {
+  try {
+    const res = await checkPromoFn({ code });
+    return { ok: true, percentOff: res.data.percentOff };
+  } catch (error: unknown) {
+    return { ok: false, message: extractErrorMessage(error, "تعذّر التحقق من الكود") };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// ✅ نظام كود الإحالة — أولوية استلام الطلب لسائق مفضل
+// ----------------------------------------------------------------------------
+
+const generateReferralFn = httpsCallable<Record<string, never>, { ok: boolean; referralCode: string }>(
+  functionsRegional,
+  "generateCourierReferralCode",
+);
+
+/** يجلب كود دعوة السائق أو يولّده أول مرة (للسائق المسجل فقط) */
+export async function getMyReferralCode(): Promise<{ ok: boolean; referralCode?: string; message?: string }> {
+  try {
+    const res = await generateReferralFn({});
+    return { ok: true, referralCode: res.data.referralCode };
+  } catch (error: unknown) {
+    return { ok: false, message: extractErrorMessage(error, "تعذّر توليد الكود") };
+  }
+}
+
+const respondInviteFn = httpsCallable<{ orderId: string; accept: boolean }, { ok: boolean }>(
+  functionsRegional,
+  "respondToCourierInvite",
+);
+
+/** قبول/رفض دعوة أولوية الاستلام الموجهة للسائق */
+export async function respondToCourierInvite(
+  orderId: string,
+  accept: boolean,
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await respondInviteFn({ orderId, accept });
+    return { ok: true, message: accept ? "تم قبول الدعوة" : "تم رفض الدعوة" };
+  } catch (error: unknown) {
+    return { ok: false, message: extractErrorMessage(error, "تعذّر تنفيذ الرد") };
   }
 }
 

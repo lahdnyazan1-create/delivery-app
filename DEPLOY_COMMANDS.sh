@@ -16,7 +16,7 @@ echo ""
 echo "📋 حالة الملفات قبل النشر:"
 echo "--------------------------"
 echo "📄 firestore.rules: $(wc -l < firestore.rules) سطر"
-echo "📄 storage.rules: $(wc -l < storage.rule) سطر"
+echo "📄 storage.rules: $(wc -l < storage.rules) سطر"
 echo "📄 firestore.indexes.json: $(cat firestore.indexes.json | grep -c '"fieldPath"') حقول مفهرسة"
 echo "📄 functions/src/index.ts: $(wc -l < functions/src/index.ts) سطر"
 echo ""
@@ -47,7 +47,7 @@ echo ""
 
 # نشر قواعد Storage
 echo "🗄️ نشر قواعد Storage..."
-firebase deploy --only storage:rules
+firebase deploy --only storage
 if [ $? -ne 0 ]; then
     echo "❌ فشل نشر قواعد Storage"
     exit 1

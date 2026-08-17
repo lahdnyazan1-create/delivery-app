@@ -33,6 +33,7 @@ interface OrderState {
     deliveryAddressDetails: string;
     orderNotes?: string;
     paymentMethod?: PaymentMethod;
+    referralCode?: string | null;
     customerLat?: number | null;
     customerLng?: number | null;
   }) => Promise<{ ok: boolean; orderId?: string; message?: string }>;
@@ -111,6 +112,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     deliveryAddressDetails,
     orderNotes,
     paymentMethod,
+    referralCode,
     customerLat,
     customerLng,
   }) => {
@@ -124,6 +126,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       deliveryAddressDetails,
       orderNotes,
       paymentMethod,
+      referralCode,
       customerLat,
       customerLng,
     });

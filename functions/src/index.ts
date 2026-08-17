@@ -349,6 +349,35 @@ export const updateOrderStatus = onCall(
   }
 );
 
+/**
+ * ✅ التحقق من كود خصم قبل الدفع — بديل قراءة مجموعة promoCodes كاملة
+ *    من العميل (كانت القراءة متاحة للجميع فيحصر أي شخص كل الأكوام النشطة).
+ *    يتحقق أيضاً من الاستخدام المسبق ليعرف العميل مبكراً بما كان سيفشل
+ *    عند placeOrder لاحقاً.
+ */
+export const checkPromo = onCall(
+  { region: "europe-west1" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "يجب تسجيل الدخول");
+
+    const code = typeof request.data?.code === "string" ? request.data.code.trim().toUpperCase() : "";
+    if (!code) throw new HttpsError("invalid-argument", "أدخل كود الخصم");
+
+    const promoSnap = await db.doc(`promoCodes/${code}`).get();
+    if (!promoSnap.exists) throw new HttpsError("not-found", "كود غير صالح");
+
+    const promo = promoSnap.data()!;
+    if (promo.active !== true) throw new HttpsError("failed-precondition", "هذا الكود غير مفعّل حالياً");
+
+    if (Array.isArray(promo.usedBy) && promo.usedBy.includes(uid)) {
+      throw new HttpsError("failed-precondition", "لقد استخدمت هذا الكود مسبقاً");
+    }
+
+    return { ok: true, code, percentOff: promo.percentOff || 0 };
+  }
+);
+
 export const settleDriverCash = onCall(
   { region: "europe-west1" },
   async (request) => {

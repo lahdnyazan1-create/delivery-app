@@ -12,7 +12,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bike,
@@ -29,6 +29,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { useAppStore } from "@/store/useAppStore";
 import { useToastStore } from "@/store/useToastStore";
+import { getMyReferralCode, respondToCourierInvite } from "@/lib/orders";
 import { formatPrice } from "@/constants/currency";
 
 function DriverDashboardContent() {
@@ -45,6 +46,40 @@ function DriverDashboardContent() {
   const [tab, setTab] = useState<"my-orders" | "available">("my-orders");
   const [claiming, setClaiming] = useState<string | null>(null);
   const [delivering, setDelivering] = useState<string | null>(null);
+
+  // ✅ نظام كود الإحالة — كود الدعوة الخاص بالسائق + الدعوات المعلقة الموجهة له
+  const [myReferralCode, setMyReferralCode] = useState<string | null>(null);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMyReferralCode().then((res) => {
+      if (!cancelled && res.ok && res.referralCode) setMyReferralCode(res.referralCode);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pendingInvites = useMemo(
+    () =>
+      orders.filter(
+        (o) => o.preferredCourierId === user?.uid && o.courierInviteStatus === "pending",
+      ),
+    [orders, user],
+  );
+
+  const handleInviteResponse = async (orderId: string, accept: boolean) => {
+    setRespondingTo(orderId);
+    const result = await respondToCourierInvite(orderId, accept);
+    setRespondingTo(null);
+    if (result.ok) {
+      useToastStore.getState().success(result.message || "تم");
+      if (accept) setTab("my-orders");
+    } else {
+      useToastStore.getState().error(result.message || "تعذّر تنفيذ الرد");
+    }
+  };
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const currentDriver = useMemo(
@@ -126,6 +161,62 @@ function DriverDashboardContent() {
           <LogOut className="size-5" />
         </button>
       </div>
+
+      {/* ✅ دعوات الأولوية المعلّقة — للسائق المدعو 5 دقائق للقبول قبل تحرير الطلب */}
+      {pendingInvites.length > 0 && (
+        <div className="mb-5 space-y-3">
+          {pendingInvites.map((invite) => (
+            <div key={invite.id} className="glass rounded-2xl border border-primary/40 p-4" role="alert">
+              <p className="text-sm font-extrabold text-primary">🔔 دعوة أولوية من زبونك!</p>
+              <p className="mt-1 text-xs text-foreground-muted">
+                طلب #{invite.id?.slice(0, 6)} من {invite.customerName} — لديك 5 دقائق للقبول قبل
+                تحرير الطلب لجميع المندوبين.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  disabled={respondingTo === invite.id}
+                  onClick={() => handleInviteResponse(invite.id, true)}
+                  className="flex-1 rounded-xl bg-accent py-2 text-xs font-bold text-white transition active:scale-95 disabled:opacity-50"
+                >
+                  {respondingTo === invite.id ? "جارٍ…" : "قبول الدعوة"}
+                </button>
+                <button
+                  type="button"
+                  disabled={respondingTo === invite.id}
+                  onClick={() => handleInviteResponse(invite.id, false)}
+                  className="flex-1 rounded-xl border border-glass-border bg-secondary py-2 text-xs font-bold text-foreground-muted transition active:scale-95 disabled:opacity-50"
+                >
+                  رفض
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ✅ كود الدعوة الخاص بالسائق — يشاركه مع زبائنه المفضلين */}
+      {myReferralCode && (
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard?.writeText(myReferralCode).then(() =>
+              useToastStore.getState().success("تم نسخ كود الدعوة"),
+            );
+          }}
+          className="glass mb-5 flex w-full items-center justify-between rounded-2xl p-4 text-right transition active:scale-[0.98]"
+        >
+          <div>
+            <p className="text-xs font-bold text-foreground-muted">كود الدعوة الخاص بك</p>
+            <p dir="ltr" className="mt-1 text-lg font-extrabold tracking-widest text-primary">
+              {myReferralCode}
+            </p>
+          </div>
+          <span className="rounded-xl bg-primary/15 px-3 py-1.5 text-xs font-bold text-primary">
+            اضغط للنسخ 📋
+          </span>
+        </button>
+      )}
 
       {/* التبويبات */}
       <div className="mb-5 flex rounded-2xl bg-secondary p-1 border border-glass-border">

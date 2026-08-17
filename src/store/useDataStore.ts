@@ -16,6 +16,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { fetchDrivers, fetchPromoCodes } from "@/lib/firestore";
+import { useAuthStore } from "./useAuthStore";
 
 interface DataState {
   restaurants: Restaurant[];
@@ -156,21 +157,25 @@ export const useDataStore = create<DataState>((set, get) => ({
       return;
     }
 
-    // 2) بيانات إدارية غير حرجة — كل استدعاء مستقل بمعالجة خطأ خاصة به،
-    //    وفشله (permission-denied لغير الأدمن مثلاً) لا يجهض أي شيء آخر.
-    fetchDrivers()
-      .then((drivers) => set({ drivers }))
-      .catch((err) => {
-        console.warn("Drivers fetch skipped:", err?.code || err?.message);
-        set({ drivers: [] });
-      });
+    // 2) بيانات إدارية غير حرجة — للأدمن فقط (القواعد ترفض غيره أصلاً،
+    //    فالاستدعاء لكل عميل كان يولّد permission-denied بلا داعٍ)،
+    //    وكل استدعاء مستقل بمعالجة خطأ خاصة به لا يجهض شيئاً آخر.
+    const role = useAuthStore.getState().user?.role;
+    if (role === "admin") {
+      fetchDrivers()
+        .then((drivers) => set({ drivers }))
+        .catch((err) => {
+          console.warn("Drivers fetch failed:", err?.code || err?.message);
+          set({ drivers: [] });
+        });
 
-    fetchPromoCodes()
-      .then((promoCodes) => set({ promoCodes }))
-      .catch((err) => {
-        console.warn("Promo codes fetch skipped:", err?.code || err?.message);
-        set({ promoCodes: [] });
-      });
+      fetchPromoCodes()
+        .then((promoCodes) => set({ promoCodes }))
+        .catch((err) => {
+          console.warn("Promo codes fetch failed:", err?.code || err?.message);
+          set({ promoCodes: [] });
+        });
+    }
   },
 
   getRestaurant: (id) => get().restaurants.find((r) => r.id === id),

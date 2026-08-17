@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/layout/AppShell";
 import { SwipeButton } from "@/components/checkout/SwipeButton";
 import { useAppStore } from "@/store/useAppStore";
+import { useCartStore } from "@/store/useCartStore";
 import { formatPrice } from "@/constants/currency";
 
 export default function CartPage() {
@@ -42,6 +43,8 @@ export default function CartPage() {
     orderNotes,
     setOrderNotes,
   } = useAppStore();
+  const referralCode = useCartStore((s) => s.referralCode);
+  const setReferralCode = useCartStore((s) => s.setReferralCode);
 
   const { subtotal, discount, deliveryFee, total } = getCartTotal();
 
@@ -329,8 +332,9 @@ export default function CartPage() {
             />
             <button
               type="button"
-              onClick={() => {
-                const result = applyPromo(promoInput);
+              onClick={async () => {
+                setPromoMsg("جارٍ التحقق…");
+                const result = await applyPromo(promoInput);
                 setPromoMsg(result.message);
               }}
               className="no-select touch-target rounded-xl bg-primary px-4 text-sm font-bold text-white"
@@ -343,6 +347,26 @@ export default function CartPage() {
               {promoMsg}
             </p>
           )}
+
+          {/* ✅ كود دعوة سائق مفضل (اختياري) — يمنح السائق صاحب الكود أولوية استلام الطلب */}
+          <div className="glass mb-5 flex gap-2 rounded-3xl p-3">
+            <input
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value)}
+              placeholder="كود دعوة مندوب مفضل (اختياري)"
+              aria-label="كود دعوة مندوب مفضل"
+              className="min-w-0 flex-1 rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none placeholder:text-foreground-muted/60"
+            />
+            {referralCode && (
+              <button
+                type="button"
+                onClick={() => setReferralCode("")}
+                className="no-select touch-target rounded-xl bg-secondary px-3 text-xs font-bold text-foreground-muted"
+              >
+                مسح
+              </button>
+            )}
+          </div>
 
           <div className="glass mb-5 space-y-2 rounded-3xl p-4 text-sm">
             <div className="flex justify-between text-foreground-muted">

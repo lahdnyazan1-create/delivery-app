@@ -84,7 +84,7 @@ export const useAppStore = () => {
      * setDeliveryAddressDetails). يمكن تمرير paymentMethod اختيارياً فقط.
      */
     placeOrder: async (paymentMethod?: PaymentMethod) => {
-      const { selectedZoneId, deliveryAddressDetails, orderNotes } = cart;
+      const { selectedZoneId, deliveryAddressDetails, orderNotes, referralCode } = cart;
 
       if (!selectedZoneId) {
         return { ok: false, message: "يرجى اختيار منطقة التوصيل" };
@@ -101,6 +101,7 @@ export const useAppStore = () => {
         deliveryAddressDetails,
         orderNotes,
         paymentMethod,
+        referralCode: referralCode || null,
         // ✅ إحداثيات GPS المحفوظة بالبروفايل (إن وُجدت) تُرفق تلقائياً
         // لزيادة موثوقية الموقع لدى المندوب، دون إجبار المستخدم على أي خطوة إضافية
         customerLat: auth.user?.lat ?? null,

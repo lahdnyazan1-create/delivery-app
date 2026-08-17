@@ -1,10 +1,13 @@
-import { CartItem, Dish, PromoCode } from "@/types/database";
+import { CartItem, Dish } from "@/types/database";
 
+/**
+ * ✅ حساب مجاميع السلة. نسبة الخصم تصل مُتحقَّقاً من الخادم عبر checkPromo
+ *    (كانت القائمة كاملة تُقرأ من العميل ليبحث عن الكود محلياً).
+ */
 export function calcTotals(
   cart: CartItem[],
   dishes: Dish[],
-  appliedPromo: string | null,
-  promoCodes: PromoCode[],
+  promoPercentOff: number | null,
   deliveryFee: number,
 ) {
   const subtotal = cart.reduce((sum, item) => {
@@ -14,10 +17,7 @@ export function calcTotals(
     return sum + (dish.price + addonsPrice) * item.quantity;
   }, 0);
 
-  const promo = appliedPromo
-    ? promoCodes.find((p) => p.code === appliedPromo && p.active)
-    : null;
-  const discount = promo ? (subtotal * promo.percentOff) / 100 : 0;
+  const discount = promoPercentOff ? (subtotal * promoPercentOff) / 100 : 0;
   const totalAfterDiscount = Math.max(0, subtotal - discount);
   const finalDeliveryFee = cart.length > 0 ? deliveryFee : 0;
 

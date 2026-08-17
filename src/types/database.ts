@@ -145,6 +145,10 @@ export interface Order {
   customerLng?: number | null;
   paymentMethod: PaymentMethod;
   deliveredAt?: number | null;
+  /** نظام كود الإحالة — السائق المفضل وحالة دعوته */
+  preferredCourierId?: string | null;
+  courierInviteStatus?: "pending" | "accepted" | "rejected" | "expired" | null;
+  courierInviteExpiresAt?: number | null;
 }
 
 export interface PromoCode {

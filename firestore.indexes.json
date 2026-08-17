@@ -84,13 +84,6 @@
       ]
     },
     {
-      "collectionGroup": "driverWallets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "driverId", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
