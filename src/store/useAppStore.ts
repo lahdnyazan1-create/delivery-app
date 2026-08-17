@@ -1,10 +1,13 @@
 // src/store/useAppStore.ts
 // ============================================================================
-// التعديل: placeOrder يقرأ zoneId + deliveryAddressDetails تلقائياً من
-// useCartStore (بدل تمريرهما يدوياً بكل استدعاء)، تماشياً مع الشكل الأصلي
-// البسيط الذي كانت تستخدمه شاشة السلة (placeOrder() بدون معطيات).
-// تم أيضاً تعريض zones + selectedZoneId + setSelectedZoneId +
-// deliveryAddressDetails + setDeliveryAddressDetails لاستخدامها في الواجهة.
+// واجهة موحّدة فوق المخازن الأربعة (auth/data/cart/order) مع نفس الشكل
+// العام الذي تستخدمه كل الصفحات.
+//
+// ✅ التعديل المهم: كل حقل يُقرأ الآن بمحدّد دقيق بدل الاشتراك الكامل في
+// المخازن الأربعة (كان الاستدعاء بلا محدد يعيد كائناً جديداً كل render
+// ويعيد رسم كل الـ 18 مكوّناً المستهلك عند أي تغيير في أي مخزن — الآن
+// كل مكوّن يُعاد رسمه فقط عندما تتغير الشرائح التي يقرأها فعلاً).
+// واجهة الاستخدام العامة لم تتغير إطلاقاً.
 // ============================================================================
 
 import { useAuthStore } from "./useAuthStore";
@@ -20,63 +23,119 @@ import { Restaurant, PaymentMethod } from "@/types/database";
 export { useAuthStore, useDataStore, useCartStore, useOrderStore };
 
 export const useAppStore = () => {
-  const auth = useAuthStore();
-  const data = useDataStore();
-  const cart = useCartStore();
-  const order = useOrderStore();
+  // ---------------- Auth ----------------
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const authReady = useAuthStore((s) => s.authReady);
+  const authLoading = useAuthStore((s) => s.loading);
+  const authError = useAuthStore((s) => s.error);
+  const hasSeenOnboarding = useAuthStore((s) => s.hasSeenOnboarding);
+  const completePhoneLogin = useAuthStore((s) => s.completePhoneLogin);
+  const logoutUser = useAuthStore((s) => s.logoutUser);
+  const initAuthListener = useAuthStore((s) => s.initAuthListener);
+  const updateUserProfile = useAuthStore((s) => s.updateUserProfile);
+  const updateUserLocation = useAuthStore((s) => s.updateUserLocation);
+  const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
+
+  // ---------------- Data ----------------
+  const restaurants = useDataStore((s) => s.restaurants);
+  const dishes = useDataStore((s) => s.dishes);
+  const drivers = useDataStore((s) => s.drivers);
+  const promoCodes = useDataStore((s) => s.promoCodes);
+  const zones = useDataStore((s) => s.zones);
+  const dataLoading = useDataStore((s) => s.loading);
+  const dataError = useDataStore((s) => s.error);
+  const loadInitialData = useDataStore((s) => s.loadInitialData);
+  const cleanupListeners = useDataStore((s) => s.cleanupListeners);
+  const getRestaurant = useDataStore((s) => s.getRestaurant);
+  const getDish = useDataStore((s) => s.getDish);
+  const getDishesByRestaurant = useDataStore((s) => s.getDishesByRestaurant);
+  const getZone = useDataStore((s) => s.getZone);
+
+  // ---------------- Cart ----------------
+  const cart = useCartStore((s) => s.cart);
+  const cartRestaurantId = useCartStore((s) => s.cartRestaurantId);
+  const appliedPromo = useCartStore((s) => s.appliedPromo);
+  const selectedZoneId = useCartStore((s) => s.selectedZoneId);
+  const deliveryAddressDetails = useCartStore((s) => s.deliveryAddressDetails);
+  const orderNotes = useCartStore((s) => s.orderNotes);
+  const referralCode = useCartStore((s) => s.referralCode);
+  const setSelectedZoneId = useCartStore((s) => s.setSelectedZoneId);
+  const setDeliveryAddressDetails = useCartStore((s) => s.setDeliveryAddressDetails);
+  const setOrderNotes = useCartStore((s) => s.setOrderNotes);
+  const addToCart = useCartStore((s) => s.addToCart);
+  const replaceCartAndAdd = useCartStore((s) => s.replaceCartAndAdd);
+  const removeFromCart = useCartStore((s) => s.removeFromCart);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const clearCart = useCartStore((s) => s.clearCart);
+  const applyPromo = useCartStore((s) => s.applyPromo);
+  const removePromo = useCartStore((s) => s.removePromo);
+  const getCartTotal = useCartStore((s) => s.getCartTotal);
+
+  // ---------------- Orders ----------------
+  const orders = useOrderStore((s) => s.orders);
+  const activeOrder = useOrderStore((s) => s.activeOrder);
+  const subscribeToOrders = useOrderStore((s) => s.subscribeToOrders);
+  const unsubscribeFromOrders = useOrderStore((s) => s.unsubscribeFromOrders);
+  const placeOrderInStore = useOrderStore((s) => s.placeOrder);
+  const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
+  const claimOrder = useOrderStore((s) => s.claimOrder);
+  const assignDriverToOrder = useOrderStore((s) => s.assignDriverToOrder);
+  const setActiveOrder = useOrderStore((s) => s.setActiveOrder);
+  const updateActiveOrderStatus = useOrderStore((s) => s.updateActiveOrderStatus);
 
   return {
     // Auth Module
-    user: auth.user,
-    isAuthenticated: auth.isAuthenticated,
-    authReady: auth.authReady,
-    hasSeenOnboarding: auth.hasSeenOnboarding,
-    completePhoneLogin: auth.completePhoneLogin,
-    logoutUser: auth.logoutUser,
-    initAuthListener: auth.initAuthListener,
-    updateUserProfile: auth.updateUserProfile,
-    updateUserLocation: auth.updateUserLocation,
-    completeOnboarding: auth.completeOnboarding,
+    user,
+    isAuthenticated,
+    authReady,
+    hasSeenOnboarding,
+    completePhoneLogin,
+    logoutUser,
+    initAuthListener,
+    updateUserProfile,
+    updateUserLocation,
+    completeOnboarding,
 
     // Data Module
-    restaurants: data.restaurants,
-    dishes: data.dishes,
-    drivers: data.drivers,
-    promoCodes: data.promoCodes,
-    zones: data.zones,
-    loading: data.loading || auth.loading,
-    error: data.error || auth.error,
-    loadInitialData: data.loadInitialData,
-    cleanupListeners: data.cleanupListeners,
-    getRestaurant: data.getRestaurant,
-    getDish: data.getDish,
-    getDishesByRestaurant: data.getDishesByRestaurant,
-    getZone: data.getZone,
+    restaurants,
+    dishes,
+    drivers,
+    promoCodes,
+    zones,
+    loading: dataLoading || authLoading,
+    error: dataError ?? authError,
+    loadInitialData,
+    cleanupListeners,
+    getRestaurant,
+    getDish,
+    getDishesByRestaurant,
+    getZone,
 
     // Cart Module
-    cart: cart.cart,
-    cartRestaurantId: cart.cartRestaurantId,
-    appliedPromo: cart.appliedPromo,
-    selectedZoneId: cart.selectedZoneId,
-    deliveryAddressDetails: cart.deliveryAddressDetails,
-    orderNotes: cart.orderNotes,
-    setSelectedZoneId: cart.setSelectedZoneId,
-    setDeliveryAddressDetails: cart.setDeliveryAddressDetails,
-    setOrderNotes: cart.setOrderNotes,
-    addToCart: cart.addToCart,
-    replaceCartAndAdd: cart.replaceCartAndAdd,
-    removeFromCart: cart.removeFromCart,
-    updateQuantity: cart.updateQuantity,
-    clearCart: cart.clearCart,
-    applyPromo: cart.applyPromo,
-    removePromo: cart.removePromo,
-    getCartTotal: cart.getCartTotal,
+    cart,
+    cartRestaurantId,
+    appliedPromo,
+    selectedZoneId,
+    deliveryAddressDetails,
+    orderNotes,
+    setSelectedZoneId,
+    setDeliveryAddressDetails,
+    setOrderNotes,
+    addToCart,
+    replaceCartAndAdd,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    applyPromo,
+    removePromo,
+    getCartTotal,
 
     // Orders Module
-    orders: order.orders,
-    activeOrder: order.activeOrder,
-    subscribeToOrders: order.subscribeToOrders,
-    unsubscribeFromOrders: order.unsubscribeFromOrders,
+    orders,
+    activeOrder,
+    subscribeToOrders,
+    unsubscribeFromOrders,
 
     /**
      * ✅ يقرأ zoneId وdeliveryAddressDetails تلقائياً من useCartStore
@@ -84,8 +143,6 @@ export const useAppStore = () => {
      * setDeliveryAddressDetails). يمكن تمرير paymentMethod اختيارياً فقط.
      */
     placeOrder: async (paymentMethod?: PaymentMethod) => {
-      const { selectedZoneId, deliveryAddressDetails, orderNotes, referralCode } = cart;
-
       if (!selectedZoneId) {
         return { ok: false, message: "يرجى اختيار منطقة التوصيل" };
       }
@@ -93,10 +150,10 @@ export const useAppStore = () => {
         return { ok: false, message: "يرجى إدخال تفاصيل عنوان التوصيل" };
       }
 
-      const result = await order.placeOrder({
-        cart: cart.cart,
-        restaurantId: cart.cartRestaurantId,
-        promoCode: cart.appliedPromo,
+      const result = await placeOrderInStore({
+        cart,
+        restaurantId: cartRestaurantId,
+        promoCode: appliedPromo,
         zoneId: selectedZoneId,
         deliveryAddressDetails,
         orderNotes,
@@ -104,25 +161,24 @@ export const useAppStore = () => {
         referralCode: referralCode || null,
         // ✅ إحداثيات GPS المحفوظة بالبروفايل (إن وُجدت) تُرفق تلقائياً
         // لزيادة موثوقية الموقع لدى المندوب، دون إجبار المستخدم على أي خطوة إضافية
-        customerLat: auth.user?.lat ?? null,
-        customerLng: auth.user?.lng ?? null,
+        customerLat: user?.lat ?? null,
+        customerLng: user?.lng ?? null,
       });
       if (result.ok) {
-        cart.clearCart();
+        clearCart();
       }
       return result;
     },
 
-    updateOrderStatus: order.updateOrderStatus,
-    claimOrder: (orderId: string) => order.claimOrder(orderId),
-    assignDriverToOrder: (orderId: string, driverId: string) =>
-      order.assignDriverToOrder(orderId, driverId),
-    setActiveOrder: order.setActiveOrder,
-    updateActiveOrderStatus: order.updateActiveOrderStatus,
+    updateOrderStatus,
+    claimOrder,
+    assignDriverToOrder,
+    setActiveOrder,
+    updateActiveOrderStatus,
 
     // Admin & Management Helpers
     toggleRestaurantActive: async (id: string) => {
-      const restaurant = data.restaurants.find((r) => r.id === id);
+      const restaurant = restaurants.find((r) => r.id === id);
       if (!restaurant) return;
       await toggleRestaurantActiveFirestore(id, !restaurant.active);
     },
@@ -130,4 +186,4 @@ export const useAppStore = () => {
       return await addRestaurantFirestore(restaurant);
     },
   };
-};	
+};
