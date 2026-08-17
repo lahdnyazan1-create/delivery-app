@@ -1,10 +1,41 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 import * as crypto from "crypto";
 
 initializeApp();
 const db = getFirestore();
+
+/**
+ * ✅ إرسال إشعار Push لمستخدم على كل أجهزته المسجلة (fcmTokens).
+ *    التوكنات غير الصالحة تُحذف تلقائياً (تطبيق حُذف أو جهاز تغيّر).
+ */
+async function sendPushToUser(uid: string, title: string, body: string, data?: Record<string, string>) {
+  try {
+    const userSnap = await db.doc(`users/${uid}`).get();
+    const tokens: string[] = userSnap.data()?.fcmTokens || [];
+    if (tokens.length === 0) return;
+
+    const response = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: { title, body },
+      data: data || {},
+    });
+
+    // تنظيف التوكنات الميتة
+    const deadTokens = response.responses
+      .map((res, i) => (res.error ? tokens[i] : null))
+      .filter((t): t is string => t !== null);
+    if (deadTokens.length > 0) {
+      await db.doc(`users/${uid}`).update({
+        fcmTokens: FieldValue.arrayRemove(...deadTokens),
+      });
+    }
+  } catch (e) {
+    console.warn(`[push] فشل الإرسال لـ ${uid}:`, e);
+  }
+}
 
 interface PlaceOrderItem { dishId: string; quantity: number; notes?: string; selectedAddons?: { id: string; name: string; price: number }[]; }
 interface PlaceOrderInput {
@@ -180,7 +211,7 @@ export const placeOrder = onCall<PlaceOrderInput>(
       return { orderId: orderRef.id, order: newOrder };
     });
 
-    // ✅ إرسال إشعار للشوفير المفضل إذا وجد
+    // ✅ إشعار للشوفير المفضل إذا وجد — داخل التطبيق + Push حتى والإشعار مغلق
     if (result.order.preferredCourierId) {
       try {
         await db.collection('notifications').add({
@@ -192,6 +223,12 @@ export const placeOrder = onCall<PlaceOrderInput>(
           createdAt: Timestamp.now(),
           read: false
         });
+        await sendPushToUser(
+          result.order.preferredCourierId,
+          'طلب جديد من زبونك! 🚀',
+          `لديك 5 دقائق لقبول طلب ${result.order.customerName} قبل تحريره لجميع المندوبين.`,
+          { url: '/driver', tag: `invite-${result.orderId}` },
+        );
       } catch (e) {
         console.error('فشل إرسال إشعار للشوفير المفضل:', e);
       }
@@ -285,11 +322,20 @@ export const updateOrderStatus = onCall(
           throw new HttpsError("permission-denied", "فقط المندوبون يمكنهم استلام الطلبات");
         }
         
-        t.update(orderRef, { 
-          status: newStatus, 
+        t.update(orderRef, {
+          status: newStatus,
           courierId: uid,
-          updatedAt: Timestamp.now() 
+          updatedAt: Timestamp.now()
         });
+
+        // ✅ إشعار Push للزبون — طلبه في الطريق إليه
+        sendPushToUser(
+          orderData.userId,
+          'طلبك في الطريق! 🛵',
+          `المندوب استلم طلبك من ${orderData.restaurantName} وهو متوجه إليك الآن.`,
+          { url: '/order-tracking', tag: `status-${orderId}` },
+        );
+
         return { ok: true };
       }
 
@@ -315,6 +361,14 @@ export const updateOrderStatus = onCall(
           deliveredAt: Timestamp.now(),
           updatedAt: Timestamp.now() 
         });
+        
+        // ✅ إشعار Push للزبون — تم التسليم
+        sendPushToUser(
+          orderData.userId,
+          'تم توصيل طلبك ✅',
+          `استمتعت بالوجبة؟ نتمنى لك يوماً سعيداً من ${orderData.restaurantName}!`,
+          { url: '/orders', tag: `status-${orderId}` },
+        );
         
         // ✅ تحديث محفظة السائق - الإصلاح الرئيسي
         if (orderData.paymentMethod === "CASH") {
@@ -375,6 +429,73 @@ export const checkPromo = onCall(
     }
 
     return { ok: true, code, percentOff: promo.percentOff || 0 };
+  }
+);
+
+/**
+ * ✅ "اطلب مندوب" — المطعم يطلب مندوب دلفري لطلب جاهز:
+ *    - يتحقق أن الطالب مالك المطعم أو أدمن
+ *    - الطلب يجب أن يكون Ready وبلا مندوب
+ *    - حد أقصى طلب كل دقيقتين لنفس الطلب (منع الإزعاج)
+ *    - Push لكل المندوبين المسجلين للإشعارات
+ */
+export const requestCourier = onCall(
+  { region: "europe-west1" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "غير مصرح");
+
+    const { orderId } = request.data;
+    if (!orderId) throw new HttpsError("invalid-argument", "معرّف الطلب مطلوب");
+
+    const orderRef = db.doc(`orders/${orderId}`);
+    const orderSnap = await orderRef.get();
+    if (!orderSnap.exists) throw new HttpsError("not-found", "الطلب غير موجود");
+
+    const orderData = orderSnap.data()!;
+
+    // صلاحية: أدمن أو مالك المطعم
+    const userSnap = await db.doc(`users/${uid}`).get();
+    const role = userSnap.data()?.role;
+    let authorized = role === "admin";
+    if (!authorized && role === "vendor") {
+      const restSnap = await db.doc(`restaurants/${orderData.restaurantId}`).get();
+      authorized = restSnap.exists && restSnap.data()?.ownerId === uid;
+    }
+    if (!authorized) throw new HttpsError("permission-denied", "غير مصرح بطلب مندوب لهذا الطلب");
+
+    if (orderData.status !== "Ready") throw new HttpsError("failed-precondition", "الطلب ليس جاهزاً للاستلام بعد");
+    if (orderData.courierId) throw new HttpsError("failed-precondition", "طلبك لديه مندوب بالفعل");
+
+    // حد الإزعاج: طلب كل دقيقتين كحد أقصى
+    const lastAt = orderData.lastCourierRequestedAt;
+    if (lastAt && Date.now() - lastAt.toMillis() < 2 * 60 * 1000) {
+      throw new HttpsError("resource-exhausted", "تم إرسال الطلب للمندوبين قبل قليل — انتظر دقيقتين");
+    }
+
+    await orderRef.update({ lastCourierRequestedAt: Timestamp.now() });
+
+    // Push لكل المندوبين
+    const couriersSnap = await db.collection("users")
+      .where("role", "==", "courier")
+      .limit(25)
+      .get();
+
+    const restaurantName = orderData.restaurantName || "مطعم";
+    await Promise.all(
+      couriersSnap.docs
+        .filter((d) => d.id !== orderData.preferredCourierId)
+        .map((d) =>
+          sendPushToUser(
+            d.id,
+            `مندوب مطلوب! 🛵 ${restaurantName}`,
+            "يوجد طلب جاهز بانتظار مندوب — افتح لوحة المندوب للاستلام.",
+            { url: "/driver", tag: `request-courier-${orderId}` },
+          ),
+        ),
+    );
+
+    return { ok: true, notified: couriersSnap.size };
   }
 );
 
@@ -449,6 +570,18 @@ export const respondToCourierInvite = onCall(
       }
 
       if (accept) {
+        // ✅ قبول الدعوة: منع السائق المشغول — لو لديه طلب قيد التوصيل
+        //    يُرفض قبوله فوراً ويبقى الطلب متاحاً له بعد انتهاء رحلته أو
+        //    يتحرر للسائق الآخر عند الرفض/انتهاء المهلة
+        //    (القراءة عبر t.get — كل قراءات الـ Transaction يجب أن تمر بها)
+        const busySnap = await t.get(db.collection('orders')
+          .where('courierId', '==', uid)
+          .where('status', '==', 'OutForDelivery')
+          .limit(1));
+        if (!busySnap.empty) {
+          throw new HttpsError("failed-precondition", "أنت مشغول بتوصيل طلب آخر — أكمل رحلتك الحالية أولاً");
+        }
+
         // ✅ قبول الدعوة: تعيين السائق للطلب وتغيير الحالة
         t.update(orderRef, {
           courierId: uid,

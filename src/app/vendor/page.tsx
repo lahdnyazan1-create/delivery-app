@@ -7,6 +7,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { useAppStore } from "@/store/useAppStore";
 import { useToastStore } from "@/store/useToastStore";
+import { requestCourierForOrder } from "@/lib/orders";
 import { STATUS_LABELS_AR } from "@/constants/orderStatuses";
 import { subscribeRestaurantOrders } from "@/lib/firestore";
 import { formatPrice } from "@/constants/currency";
@@ -21,6 +22,7 @@ function VendorDashboardContent() {
   const [tab, setTab] = useState<"active" | "history">("active");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [requestingCourierFor, setRequestingCourierFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!myRestaurant?.id) return;
@@ -181,7 +183,27 @@ function VendorDashboardContent() {
 
                 {order.status === "Ready" && (
                   <div className="border-t border-glass-border pt-3">
-                    <p className="text-center text-xs text-foreground-muted font-bold">بانتظار استلام مندوب...</p>
+                    <p className="mb-2 text-center text-xs font-bold text-foreground-muted">بانتظار استلام مندوب...</p>
+                    {/* ✅ "اطلب مندوب" — Push لكل المندوبين المسجلين للإشعارات */}
+                    <button
+                      type="button"
+                      disabled={requestingCourierFor === order.id}
+                      onClick={async () => {
+                        setRequestingCourierFor(order.id);
+                        const result = await requestCourierForOrder(order.id);
+                        setRequestingCourierFor(null);
+                        if (result.ok) {
+                          useToastStore.getState().success(result.message || "تم إرسال الطلب للمندوبين");
+                        } else {
+                          useToastStore.getState().error(result.message || "تعذّر إرسال الطلب");
+                        }
+                      }}
+                      className="no-select touch-target w-full rounded-xl bg-secondary py-2.5 text-xs font-bold text-primary transition active:scale-95 disabled:opacity-60"
+                    >
+                      {requestingCourierFor === order.id
+                        ? "جارٍ إرسال الطلب…"
+                        : "🛵 اطلب مندوب دلفري"}
+                    </button>
                   </div>
                 )}
               </div>

@@ -3,6 +3,7 @@ import { Cairo } from "next/font/google";
 import "./globals.css";
 import { AppInitializer } from "@/components/layout/AppInitializer";
 import { ServiceWorkerRegister } from "@/components/layout/ServiceWorkerRegister";
+import { SWUpdatePrompt } from "@/components/layout/SWUpdatePrompt";
 import { ToastHost } from "@/components/ui/Toast";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { FloatingCartBar } from "@/components/checkout/FloatingCartBar";
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="min-h-full font-sans text-foreground">
         <AppInitializer />
         <ServiceWorkerRegister />
+        <SWUpdatePrompt />
         <ToastHost />
         <OfflineBanner />
         {children}

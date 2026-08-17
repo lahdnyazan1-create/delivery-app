@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Zest — Food Delivery",
+    name: "Zest — توصيل الطعام",
     short_name: "Zest",
-    description: "Order from local restaurants with living micro-interactions.",
+    description: "اطلب من أفضل المطاعم المحلية بتجربة سلسة وتتبع مباشر لطلبك.",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",
@@ -19,6 +19,12 @@ export default function manifest(): MetadataRoute.Manifest {
       },
       {
         src: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icons/icon-512-maskable.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

@@ -4,11 +4,14 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { Pencil, Trash2 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToastStore } from "@/store/useToastStore";
 import {
   fetchDishes,
   addDish,
   updateDish,
+  deleteDish,
 } from "@/lib/firestore";
 import { formatPrice } from "@/constants/currency";
 import { ImageUploader } from "@/components/ui/ImageUploader";
@@ -30,6 +33,8 @@ export function ProductsTab() {
     image: "",
   });
   const [dishBusy, setDishBusy] = useState(false);
+  // ✅ وضع التحرير — الطبق قيد التعديل (null = وضع الإضافة)
+  const [editingDishId, setEditingDishId] = useState<string | null>(null);
 
   const loadDishes = async () => {
     setDishesLoading(true);
@@ -56,11 +61,73 @@ export function ProductsTab() {
     }
   }, [restaurants, dishRestaurantFilter]);
 
+  const resetForm = () => {
+    setEditingDishId(null);
+    setDishForm({
+      name: "",
+      description: "",
+      price: 0,
+      category: "أطباق رئيسية",
+      image: "",
+    });
+  };
+
+  const startEditDish = (dish: Dish) => {
+    setEditingDishId(dish.id);
+    setDishForm({
+      name: dish.name,
+      description: dish.description || "",
+      price: dish.price,
+      category: dish.category || "أطباق رئيسية",
+      image: dish.image || "",
+    });
+    // التمر إلى نموذج التحرير في الأعلى
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDeleteDish = async (dish: Dish) => {
+    const ok = await useToastStore.getState().confirm({
+      title: `حذف "${dish.name}"؟`,
+      message: "سيُحذف الطبق نهائياً من قائمة المطعم ولا يمكن التراجع.",
+      confirmText: "حذف",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteDish(dish.id);
+      if (editingDishId === dish.id) resetForm();
+      useToastStore.getState().success("تم حذف المنتج");
+      await loadDishes();
+    } catch (error: any) {
+      useToastStore.getState().error(
+        error?.code === "permission-denied"
+          ? "تم الرفض من Firestore — تأكد من نشر القواعد الأخيرة"
+          : `فشل الحذف: ${error?.message || "خطأ غير معروف"}`,
+      );
+    }
+  };
+
   const handleAddDish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dishForm.name.trim() || !dishRestaurantFilter) return;
     setDishBusy(true);
     try {
+      // ✅ وضع التحرير: تحديث الطبق القائم بدل إضافة جديد
+      if (editingDishId) {
+        const payload: Partial<Dish> = {
+          name: dishForm.name.trim(),
+          description: dishForm.description.trim(),
+          price: Number(dishForm.price),
+          category: dishForm.category.trim(),
+        };
+        if (dishForm.image) payload.image = dishForm.image;
+        await updateDish(editingDishId, payload);
+        resetForm();
+        useToastStore.getState().success("تم حفظ التعديلات");
+        await loadDishes();
+        return;
+      }
+
       const payload: Parameters<typeof addDish>[0] = {
         restaurantId: dishRestaurantFilter,
         name: dishForm.name.trim(),
@@ -71,16 +138,10 @@ export function ProductsTab() {
       };
       if (dishForm.image) payload.image = dishForm.image;
       await addDish(payload);
-      setDishForm({
-        name: "",
-        description: "",
-        price: 0,
-        category: "أطباق رئيسية",
-        image: "",
-      });
+      resetForm();
       await loadDishes();
-    } catch (error) {
-      console.error("Failed to add dish", error);
+    } catch (error: any) {
+      useToastStore.getState().error(`فشل الحفظ: ${error?.message || "خطأ غير معروف"}`);
     } finally {
       setDishBusy(false);
     }
@@ -102,7 +163,7 @@ export function ProductsTab() {
     <div className="grid gap-8 md:grid-cols-3">
       <div className="glass h-fit rounded-2xl p-6">
         <h2 className="mb-4 text-lg font-bold text-primary">
-          إضافة منتج (طبق)
+          {editingDishId ? "تعديل منتج (طبق)" : "إضافة منتج (طبق)"}
         </h2>
         <div className="mb-4">
           <label className={labelClass}>المطعم *</label>
@@ -190,8 +251,21 @@ export function ProductsTab() {
             disabled={dishBusy || !dishRestaurantFilter}
             className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
           >
-            {dishBusy ? "جارٍ الإضافة…" : "إضافة المنتج"}
+            {dishBusy
+              ? "جارٍ الحفظ…"
+              : editingDishId
+                ? "حفظ التعديلات"
+                : "إضافة المنتج"}
           </button>
+          {editingDishId && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="w-full rounded-xl border border-glass-border bg-secondary py-2.5 text-sm font-bold text-foreground-muted"
+            >
+              إلغاء التعديل
+            </button>
+          )}
           {!dishRestaurantFilter && (
             <p className="text-center text-xs text-foreground-muted">
               اختر مطعماً أولاً
@@ -257,6 +331,24 @@ export function ProductsTab() {
                   >
                     {dish.available ? "متوفر" : "غير متوفر"}
                   </button>
+                  <div className="mt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => startEditDish(dish)}
+                      aria-label={`تعديل ${dish.name}`}
+                      className="touch-target flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-[11px] font-bold text-foreground-muted transition hover:text-primary"
+                    >
+                      <Pencil className="size-3" aria-hidden /> تعديل
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteDish(dish)}
+                      aria-label={`حذف ${dish.name}`}
+                      className="touch-target flex items-center gap-1 rounded-lg bg-danger/10 px-2 py-1 text-[11px] font-bold text-danger transition hover:bg-danger/20"
+                    >
+                      <Trash2 className="size-3" aria-hidden /> حذف
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

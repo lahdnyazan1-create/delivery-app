@@ -305,6 +305,11 @@ export const updateDish = async (dishId: string, dish: Partial<Dish>) => {
   await updateDoc(ref, { ...dish, updatedAt: serverTimestamp() });
 };
 
+export const deleteDish = async (dishId: string) => {
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, "dishes", dishId));
+};
+
 export const addDriver = async (
   driver: Omit<Driver, "id">,
 ): Promise<string> => {

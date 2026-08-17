@@ -105,6 +105,28 @@ function DriverDashboardContent() {
     [orders],
   );
 
+  // ✅ تجميع الطلبيات (v1): أثناء رحلة نشطة نقترح طلبات "Ready" من نفس
+  //    منطقة التوصيل — المطاعم في نفس المربع السكني غالباً، فيستلم
+  //    المندوب رحلتين بنفس الخروج
+  const activeDeliveryZones = useMemo(
+    () =>
+      new Set(
+        myOrders
+          .filter((o) => o.status === "OutForDelivery")
+          .map((o) => o.zoneId),
+      ),
+    [myOrders],
+  );
+
+  const batchSuggestions = useMemo(
+    () =>
+      availableOrders.filter(
+        (o) =>
+          o.zoneId && activeDeliveryZones.has(o.zoneId) && !myOrders.some((m) => m.id === o.id),
+      ),
+    [availableOrders, activeDeliveryZones, myOrders],
+  );
+
   const handleClaim = async (orderId: string) => {
     if (!user) return;
     setClaiming(orderId);
@@ -216,6 +238,35 @@ function DriverDashboardContent() {
             اضغط للنسخ 📋
           </span>
         </button>
+      )}
+
+      {/* ✅ تجميع الطلبيات — طلبات جاهزة بنفس منطقة رحلتك النشطة */}
+      {tab === "my-orders" && batchSuggestions.length > 0 && (
+        <div className="glass mb-5 rounded-2xl border border-accent/30 p-4">
+          <p className="text-sm font-extrabold text-accent">📦 فرصة تجميع رحلة!</p>
+          <p className="mt-1 text-xs text-foreground-muted">
+            يوجد {batchSuggestions.length === 1 ? "طلب جاهز" : `${batchSuggestions.length} طلبات جاهزة`} في
+            نفس منطقة توصيلك الحالية — استلمها معك في نفس الخروج ووفّر وقتاً ومحروقاً.
+          </p>
+          <div className="mt-3 space-y-2">
+            {batchSuggestions.map((o) => (
+              <div key={o.id} className="flex items-center justify-between gap-3 rounded-xl bg-secondary p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-bold">{o.restaurantName} · طلب #{o.id?.slice(0, 6)}</p>
+                  <p className="text-[11px] text-foreground-muted">{o.customerName} — {o.deliveryAddressDetails?.slice(0, 40)}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={claiming === o.id}
+                  onClick={() => handleClaim(o.id)}
+                  className="shrink-0 rounded-xl bg-accent px-3 py-2 text-xs font-bold text-white transition active:scale-95 disabled:opacity-50"
+                >
+                  {claiming === o.id ? "…" : "ضم للرحلة"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* التبويبات */}

@@ -47,7 +47,7 @@ service cloud.firestore {
       allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId
         && request.resource.data.role == resource.data.role
         && request.resource.data.referralCode == resource.data.referralCode
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'address', 'locationLabel', 'lat', 'lng', 'updatedAt']));
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'address', 'locationLabel', 'lat', 'lng', 'updatedAt', 'fcmTokens']));
 
       allow delete: if isAdmin();
     }

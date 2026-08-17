@@ -186,6 +186,26 @@ export async function respondToCourierInvite(
   }
 }
 
+// ----------------------------------------------------------------------------
+// ✅ "اطلب مندوب" — المطعم يطلب مندوب دلفري لطلب جاهز
+// ----------------------------------------------------------------------------
+
+const requestCourierFn = httpsCallable<{ orderId: string }, { ok: boolean; notified: number }>(
+  functionsRegional,
+  "requestCourier",
+);
+
+export async function requestCourierForOrder(
+  orderId: string,
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const res = await requestCourierFn({ orderId });
+    return { ok: true, message: `تم إرسال الطلب إلى ${res.data.notified} مندوب 🛵` };
+  } catch (error: unknown) {
+    return { ok: false, message: extractErrorMessage(error, "تعذّر إرسال الطلب") };
+  }
+}
+
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "message" in error) {
     const msg = (error as { message?: unknown }).message;

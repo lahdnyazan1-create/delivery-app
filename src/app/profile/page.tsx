@@ -10,9 +10,11 @@ import {
   LogIn,
   LogOut,
   LocateFixed,
+  Bell,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAppStore } from "@/store/useAppStore";
+import { enablePushNotifications } from "@/lib/push";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -31,6 +33,8 @@ export default function ProfilePage() {
   const cartCount = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
   const [draftAddress, setDraftAddress] = useState<string | null>(null);
   const [geoMsg, setGeoMsg] = useState("");
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState("");
   const address = draftAddress ?? user?.address ?? "";
 
   const saveAddress = async () => {
@@ -157,6 +161,32 @@ export default function ProfilePage() {
         )}
         {geoMsg && <p className="text-xs text-accent">{geoMsg}</p>}
       </div>
+
+      {/* ✅ تفعيل الإشعارات الفورية — تصلك حتى والتطبيق مغلق (عند تثبيته كتطبيق) */}
+      {isAuthenticated && (
+        <div className="glass mb-5 space-y-3 rounded-2xl p-4" dir="rtl">
+          <p className="text-sm font-bold text-right">الإشعارات الفورية</p>
+          <p className="text-xs leading-5 text-foreground-muted">
+            فعّل الإشعارات ليصلك تنبيه عند تغيّر حالة طلبك (قيد التحضير، في الطريق، تم التسليم) حتى
+            والتطبيق مغلق أو يعمل بالخلفية.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              setPushBusy(true);
+              const result = await enablePushNotifications();
+              setPushBusy(false);
+              setPushMsg(result.message);
+            }}
+            disabled={pushBusy}
+            className="no-select touch-target flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-white disabled:opacity-50"
+          >
+            <Bell className="size-4" aria-hidden />
+            {pushBusy ? "جارٍ التفعيل…" : "تفعيل الإشعارات 🔔"}
+          </button>
+          {pushMsg && <p className="text-xs text-accent">{pushMsg}</p>}
+        </div>
+      )}
 
       <div className="mb-5 grid grid-cols-3 gap-3">
         {[
