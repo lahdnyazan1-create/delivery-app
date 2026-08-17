@@ -68,7 +68,9 @@ export const useCartStore = create<CartState>()(
       },
 
       replaceCartAndAdd: (dishId, restaurantId, notes = "", selectedAddons = []) => {
-        set({ cart: [{ dishId, quantity: 1, notes, selectedAddons }], cartRestaurantId: restaurantId, appliedPromo: null });
+        // ✅ يجب تصفير النسبة أيضاً — إبقاؤها كان يعرض خصماً وهمياً على السلة
+        //    الجديدة لا يعترف به الخادم وقت الطلب
+        set({ cart: [{ dishId, quantity: 1, notes, selectedAddons }], cartRestaurantId: restaurantId, appliedPromo: null, appliedPromoPercent: null });
       },
 
       removeFromCart: (dishId) => {
