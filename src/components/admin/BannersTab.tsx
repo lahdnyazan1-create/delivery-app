@@ -1,8 +1,9 @@
 // src/components/admin/BannersTab.tsx
-// تبويب "الإعلانات" — منقول كما هو من src/app/admin/page.tsx
+// تبويب "الإعلانات" — إضافة/تعديل/حذف من الأدمن
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Pencil } from "lucide-react";
 import { useToastStore } from "@/store/useToastStore";
 import {
   fetchAllBanners,
@@ -13,30 +14,33 @@ import {
 import { ImageUploader } from "@/components/ui/ImageUploader";
 import { inputClass, labelClass } from "./shared";
 
+type BannerListItem = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  ctaText?: string;
+  ctaLink?: string;
+  gradient?: string;
+  imageUrl?: string;
+  order: number;
+  active: boolean;
+};
+
+const emptyBannerForm = {
+  title: "",
+  subtitle: "",
+  ctaText: "",
+  ctaLink: "",
+  imageUrl: "",
+  order: 0,
+};
+
 export function BannersTab() {
   // ---------------- Banners state ----------------
-  const [bannersList, setBannersList] = useState<
-    {
-      id: string;
-      title: string;
-      subtitle?: string;
-      ctaText?: string;
-      ctaLink?: string;
-      gradient?: string;
-      imageUrl?: string;
-      order: number;
-      active: boolean;
-    }[]
-  >([]);
+  const [bannersList, setBannersList] = useState<BannerListItem[]>([]);
   const [bannersLoading, setBannersLoading] = useState(false);
-  const [bannerForm, setBannerForm] = useState({
-    title: "",
-    subtitle: "",
-    ctaText: "",
-    ctaLink: "",
-    imageUrl: "",
-    order: 0,
-  });
+  const [bannerForm, setBannerForm] = useState(emptyBannerForm);
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
   const [bannerBusy, setBannerBusy] = useState(false);
 
   const loadBanners = async () => {
@@ -58,11 +62,42 @@ export function BannersTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const startEditBanner = (banner: BannerListItem) => {
+    setEditingBannerId(banner.id);
+    setBannerForm({
+      title: banner.title,
+      subtitle: banner.subtitle || "",
+      ctaText: banner.ctaText || "",
+      ctaLink: banner.ctaLink || "",
+      imageUrl: banner.imageUrl || "",
+      order: Number(banner.order ?? 0),
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleAddBanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bannerForm.title.trim()) return;
     setBannerBusy(true);
     try {
+      // ✅ تعديل: فارغ يعني إزالة الحقل تماماً
+      const strOrDelete = (value: string) => value.trim();
+
+      if (editingBannerId) {
+        const payload: Parameters<typeof updateBanner>[1] = {
+          title: bannerForm.title.trim(),
+          order: Number(bannerForm.order),
+          imageUrl: strOrDelete(bannerForm.imageUrl),
+          gradient: "from-primary to-red-600",
+        };
+        await updateBanner(editingBannerId, payload);
+        setEditingBannerId(null);
+        setBannerForm(emptyBannerForm);
+        useToastStore.getState().success("تم حفظ تعديلات الإعلان");
+        await loadBanners();
+        return;
+      }
+
       const payload: Parameters<typeof addBanner>[0] = {
         title: bannerForm.title.trim(),
         gradient: "from-primary to-red-600",
@@ -74,17 +109,13 @@ export function BannersTab() {
       if (bannerForm.ctaLink.trim()) payload.ctaLink = bannerForm.ctaLink.trim();
       if (bannerForm.imageUrl.trim()) payload.imageUrl = bannerForm.imageUrl.trim();
       await addBanner(payload);
-      setBannerForm({
-        title: "",
-        subtitle: "",
-        ctaText: "",
-        ctaLink: "",
-        imageUrl: "",
-        order: 0,
-      });
+      setBannerForm(emptyBannerForm);
+      useToastStore.getState().success("تمت إضافة الإعلان");
       await loadBanners();
-    } catch (error) {
-      console.error("Failed to add banner", error);
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل الحفظ: ${error?.message || "خطأ غير معروف"}`,
+      );
     } finally {
       setBannerBusy(false);
     }
@@ -111,7 +142,7 @@ export function BannersTab() {
     <div className="grid gap-8 md:grid-cols-3">
       <div className="glass h-fit rounded-2xl p-6">
         <h2 className="mb-1 text-lg font-bold text-primary">
-          إضافة إعلان جديد
+          {editingBannerId ? "تعديل الإعلان" : "إضافة إعلان جديد"}
         </h2>
         <p className="mb-4 text-xs text-foreground-muted">
           رابط الصورة اختياري — إن تُرك فارغاً يظهر تدرج لوني بدلاً منه.
@@ -208,8 +239,24 @@ export function BannersTab() {
             disabled={bannerBusy}
             className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
           >
-            {bannerBusy ? "جارٍ الإضافة…" : "إضافة الإعلان"}
+            {bannerBusy
+              ? "جارٍ الحفظ…"
+              : editingBannerId
+                ? "حفظ التعديلات"
+                : "إضافة الإعلان"}
           </button>
+          {editingBannerId && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingBannerId(null);
+                setBannerForm(emptyBannerForm);
+              }}
+              className="w-full rounded-xl border border-glass-border bg-secondary py-2.5 text-sm font-bold text-foreground-muted"
+            >
+              إلغاء التعديل
+            </button>
+          )}
         </form>
       </div>
 
@@ -252,13 +299,22 @@ export function BannersTab() {
                     {banner.active ? "نشط" : "معطّل"}
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteBanner(banner.id)}
-                  className="mt-3 w-full rounded-lg bg-white/5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
-                >
-                  حذف
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => startEditBanner(banner)}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/5 py-1.5 text-xs font-bold text-foreground-muted hover:text-primary"
+                  >
+                    <Pencil className="size-3" aria-hidden /> تعديل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteBanner(banner.id)}
+                    className="flex-1 rounded-lg bg-white/5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
+                  >
+                    حذف
+                  </button>
+                </div>
               </div>
             ))}
           </div>

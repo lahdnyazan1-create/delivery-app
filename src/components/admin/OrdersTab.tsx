@@ -1,8 +1,9 @@
 // src/components/admin/OrdersTab.tsx
-// تبويب "الطلبات" — منقول كما هو من src/app/admin/page.tsx
+// تبويب "الطلبات" — متابعة حية + إسناد سائق + تغيير حالة + إلغاء
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
+import { useToastStore } from "@/store/useToastStore";
 import { STATUS_LABELS_AR as STATUS_LABELS } from "@/constants/orderStatuses";
 import { OrderStatus, STATUS_TRANSITIONS } from "@/types/database";
 import { formatPrice } from "@/constants/currency";
@@ -14,6 +15,24 @@ export function OrdersTab() {
 
   const handleAssignDriver = (orderId: string, driverId: string) => {
     assignDriverToOrder(orderId, driverId);
+  };
+
+  // ✅ إلغاء طلب من الأدمن — يمر عبر Cloud Function نفسه الذي تستخدمه
+  // واجهة الزبون (تحقق صلاحيات + انتقالات صالحة في Transaction)
+  const handleCancelOrder = async (orderId: string) => {
+    const ok = await useToastStore.getState().confirm({
+      title: "إلغاء هذا الطلب؟",
+      message: "سيُعلَّم الطلب ملغياً — لا يمكن التراجع.",
+      confirmText: "إلغاء الطلب",
+      danger: true,
+    });
+    if (!ok) return;
+    const result = await updateOrderStatus(orderId, "Cancelled");
+    if (result.ok) {
+      useToastStore.getState().success("تم إلغاء الطلب");
+    } else {
+      useToastStore.getState().error(result.message || "تعذّر الإلغاء");
+    }
   };
 
   return (
@@ -154,6 +173,16 @@ export function OrdersTab() {
                     في updateOrderStatus)، لكن ننصح باتباع التسلسل الطبيعي
                     لتفادي أخطاء تشغيلية (مثل تخطي "جاهز" قبل تعيين سائق). */}
               </div>
+
+              {(STATUS_TRANSITIONS[order.status] || []).includes("Cancelled") && (
+                <button
+                  type="button"
+                  onClick={() => handleCancelOrder(order.id)}
+                  className="w-full rounded-xl bg-danger/10 py-2.5 text-sm font-bold text-danger transition hover:bg-danger/20"
+                >
+                  إلغاء الطلب
+                </button>
+              )}
             </div>
           ))}
         </div>

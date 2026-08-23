@@ -1,29 +1,36 @@
 // src/components/admin/RestaurantsTab.tsx
-// تبويب "المطاعم" — منقول كما هو من src/app/admin/page.tsx
+// تبويب "المطاعم" — إضافة/تعديل/حذف كامل من الأدمن
 "use client";
 
 import React, { useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { useToastStore } from "@/store/useToastStore";
 import { Restaurant } from "@/types/database";
 import {
   addRestaurant as addRestaurantFirestore,
   toggleRestaurantActive as toggleRestaurantActiveFirestore,
   updateRestaurant as updateRestaurantFirestore,
+  deleteRestaurant,
 } from "@/lib/firestore";
 import { ImageUploader } from "@/components/ui/ImageUploader";
 import { inputClass, labelClass } from "./shared";
 
+const emptyForm = {
+  name: "",
+  cuisine: "وجبات سريعة",
+  deliveryFee: 5,
+  etaMinutes: 30,
+  address: "",
+  image: "",
+};
+
 export function RestaurantsTab() {
   const { restaurants } = useAppStore();
 
-  const [restForm, setRestForm] = useState({
-    name: "",
-    cuisine: "وجبات سريعة",
-    deliveryFee: 5,
-    etaMinutes: 30,
-    address: "",
-    image: "",
-  });
+  const [restForm, setRestForm] = useState(emptyForm);
+  const [editingRestaurantId, setEditingRestaurantId] = useState<string | null>(null);
+  const [restBusy, setRestBusy] = useState(false);
 
   const [promoDrafts, setPromoDrafts] = useState<Record<string, string>>({});
 
@@ -38,35 +45,90 @@ export function RestaurantsTab() {
     }
   };
 
+  const startEditRestaurant = (rest: Restaurant) => {
+    setEditingRestaurantId(rest.id);
+    setRestForm({
+      name: rest.name,
+      cuisine: rest.cuisine || "وجبات سريعة",
+      deliveryFee: Number(rest.deliveryFee ?? 5),
+      etaMinutes: Number(rest.etaMinutes ?? 30),
+      address: rest.address || "",
+      image: rest.image || "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const resetRestForm = () => {
+    setEditingRestaurantId(null);
+    setRestForm(emptyForm);
+  };
+
   const handleAddRestaurant = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!restForm.name) return;
-
-    const newRest: Omit<Restaurant, "id"> = {
-      name: restForm.name,
-      cuisine: restForm.cuisine,
-      rating: 5.0,
-      deliveryFee: Number(restForm.deliveryFee),
-      etaMinutes: Number(restForm.etaMinutes),
-      address: restForm.address,
-      active: true,
-      coverGradient: "from-primary to-red-600",
-      logoGradient: "from-primary to-orange-600",
-    };
-    if (restForm.image) newRest.image = restForm.image;
+    if (!restForm.name.trim()) return;
+    setRestBusy(true);
 
     try {
+      // ✅ وضع التحرير: تحديث المطعم القائم بدل إضافة جديد
+      if (editingRestaurantId) {
+        const payload: Partial<Restaurant> = {
+          name: restForm.name.trim(),
+          cuisine: restForm.cuisine.trim(),
+          deliveryFee: Number(restForm.deliveryFee),
+          etaMinutes: Number(restForm.etaMinutes),
+          address: restForm.address.trim(),
+        };
+        // حذف الرابط يعني إزالة الحقل تماماَ (بدلاً من تخزين "")
+        if (restForm.image) payload.image = restForm.image;
+        else payload.image = "";
+        await updateRestaurantFirestore(editingRestaurantId, payload);
+        useToastStore.getState().success("تم حفظ التعديلات");
+        resetRestForm();
+        return;
+      }
+
+      const newRest: Omit<Restaurant, "id"> = {
+        name: restForm.name.trim(),
+        cuisine: restForm.cuisine,
+        rating: 5.0,
+        deliveryFee: Number(restForm.deliveryFee),
+        etaMinutes: Number(restForm.etaMinutes),
+        address: restForm.address,
+        active: true,
+        coverGradient: "from-primary to-red-600",
+        logoGradient: "from-primary to-orange-600",
+      };
+      if (restForm.image) newRest.image = restForm.image;
+
       await addRestaurantFirestore(newRest);
-      setRestForm({
-        name: "",
-        cuisine: "وجبات سريعة",
-        deliveryFee: 5,
-        etaMinutes: 30,
-        address: "",
-        image: "",
-      });
-    } catch (error) {
-      console.error("Failed to add restaurant", error);
+      resetRestForm();
+      useToastStore.getState().success("تمت إضافة المطعم");
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل الحفظ: ${error?.message || "خطأ غير معروف"}`,
+      );
+    } finally {
+      setRestBusy(false);
+    }
+  };
+
+  const handleDeleteRestaurant = async (rest: Restaurant) => {
+    const ok = await useToastStore.getState().confirm({
+      title: `حذف "${rest.name}" نهائياَ؟`,
+      message:
+        "سيُحذف المطعم مع جميع أطباقه نهائياً ولا يمكن التراجع. الطلبات السابقة تبقى في السجل.",
+      confirmText: "حذف المطعم وأطباقه",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteRestaurant(rest.id);
+      if (editingRestaurantId === rest.id) resetRestForm();
+      useToastStore.getState().success("تم حذف المطعم وأطباقه");
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل الحذف: ${error?.message || "خطأ غير معروف"}`,
+      );
     }
   };
 
@@ -82,7 +144,7 @@ export function RestaurantsTab() {
     <div className="grid gap-8 md:grid-cols-3">
       <div className="glass h-fit rounded-2xl p-6">
         <h2 className="mb-4 text-lg font-bold text-primary">
-          إضافة مطعم جديد
+          {editingRestaurantId ? "تعديل المطعم" : "إضافة مطعم جديد"}
         </h2>
         <form onSubmit={handleAddRestaurant} className="space-y-4">
           <div>
@@ -169,10 +231,24 @@ export function RestaurantsTab() {
           </div>
           <button
             type="submit"
-            className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90"
+            disabled={restBusy}
+            className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
           >
-            إضافة المطعم
+            {restBusy
+              ? "جارٍ الحفظ…"
+              : editingRestaurantId
+                ? "حفظ التعديلات"
+                : "إضافة المطعم"}
           </button>
+          {editingRestaurantId && (
+            <button
+              type="button"
+              onClick={resetRestForm}
+              className="w-full rounded-xl border border-glass-border bg-secondary py-2.5 text-sm font-bold text-foreground-muted"
+            >
+              إلغاء التعديل
+            </button>
+          )}
         </form>
       </div>
 
@@ -238,6 +314,22 @@ export function RestaurantsTab() {
                 فعلياً. لخصم حقيقي على السعر استخدم تبويب &quot;أكواد
                 الخصم&quot;.
               </p>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => startEditRestaurant(rest)}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-foreground-muted transition hover:text-primary"
+                >
+                  <Pencil className="size-3.5" aria-hidden /> تعديل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRestaurant(rest)}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-danger/10 px-3 py-1.5 text-xs font-bold text-danger transition hover:bg-danger/20"
+                >
+                  <Trash2 className="size-3.5" aria-hidden /> حذف
+                </button>
+              </div>
             </div>
           ))}
         </div>

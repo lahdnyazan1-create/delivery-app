@@ -412,6 +412,40 @@ export const toggleZoneActive = async (zoneId: string, active: boolean) => {
   await updateZone(zoneId, { active });
 };
 
+/** حذف منطقة توصيل نهائياَ (صلاحيته للأدمن فقط عبر القواعد) */
+export const deleteZone = async (zoneId: string) => {
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, "zones", zoneId));
+};
+
+/** حذف ملف مستخدم من Firestore (يُبقي حساب Auth — لا يمكن حذفه من هنا) */
+export const deleteUserDoc = async (uid: string) => {
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, "users", uid));
+};
+
+/**
+ * حذف مطعم نهائياَ مع كل أطباقه المرتبطة به.
+ * يستخدم batch واحد للأطباق ثم حذف مستند المطعم — لو فشل منتصف العملية
+ * تُعاد محاولة الحذف وتكتمل (delete عملية idempotent).
+ */
+export const deleteRestaurant = async (restaurantId: string) => {
+  const { deleteDoc, writeBatch, query, where, getDocs } = await import(
+    "firebase/firestore"
+  );
+  const dishesQ = query(
+    collection(db, "dishes"),
+    where("restaurantId", "==", restaurantId),
+  );
+  const snap = await getDocs(dishesQ);
+  if (snap.docs.length > 0) {
+    const batch = writeBatch(db);
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  await deleteDoc(doc(db, "restaurants", restaurantId));
+};
+
 // ----------------------------------------------------------------------------
 // ✅ جديد — Driver Wallets (محافظ كاش المندوبين)
 // ----------------------------------------------------------------------------

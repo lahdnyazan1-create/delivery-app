@@ -1,8 +1,9 @@
 // src/components/admin/CategoriesTab.tsx
-// تبويب "الفئات" — منقول كما هو من src/app/admin/page.tsx
+// تبويب "الفئات" — إضافة/تعديل/حذف/إظهار وإخفاء من الأدمن
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Pencil } from "lucide-react";
 import { useToastStore } from "@/store/useToastStore";
 import {
   fetchAllCategories,
@@ -12,18 +13,17 @@ import {
 } from "@/lib/firestore";
 import { CATEGORY_ICON_OPTIONS, inputClass, labelClass } from "./shared";
 
+const emptyCategoryForm = { label: "", icon: CATEGORY_ICON_OPTIONS[0], order: 0 };
+
 export function CategoriesTab() {
   // ---------------- Categories state ----------------
   const [categoriesList, setCategoriesList] = useState<
     { id: string; label: string; icon: string; order: number; visible: boolean }[]
   >([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
-  const [categoryForm, setCategoryForm] = useState({
-    label: "",
-    icon: CATEGORY_ICON_OPTIONS[0],
-    order: 0,
-  });
+  const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
   const [categoryBusy, setCategoryBusy] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   const loadCategories = async () => {
     setCategoriesLoading(true);
@@ -49,19 +49,43 @@ export function CategoriesTab() {
     if (!categoryForm.label.trim()) return;
     setCategoryBusy(true);
     try {
-      await addCategory({
-        label: categoryForm.label.trim(),
-        icon: categoryForm.icon,
-        order: Number(categoryForm.order),
-        visible: true,
-      });
-      setCategoryForm({ label: "", icon: CATEGORY_ICON_OPTIONS[0], order: 0 });
+      if (editingCategoryId) {
+        await updateCategory(editingCategoryId, {
+          label: categoryForm.label.trim(),
+          icon: categoryForm.icon,
+          order: Number(categoryForm.order),
+        });
+        useToastStore.getState().success("تم حفظ تعديلات الفئة");
+        setEditingCategoryId(null);
+      } else {
+        await addCategory({
+          label: categoryForm.label.trim(),
+          icon: categoryForm.icon,
+          order: Number(categoryForm.order),
+          visible: true,
+        });
+        useToastStore.getState().success("تمت إضافة الفئة");
+      }
+      setCategoryForm(emptyCategoryForm);
       await loadCategories();
-    } catch (error) {
-      console.error("Failed to add category", error);
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل الحفظ: ${error?.message || "خطأ غير معروف"}`,
+      );
     } finally {
       setCategoryBusy(false);
     }
+  };
+
+  const startEditCategory = (cat: {
+    id: string;
+    label: string;
+    icon: string;
+    order: number;
+  }) => {
+    setEditingCategoryId(cat.id);
+    setCategoryForm({ label: cat.label, icon: cat.icon, order: cat.order });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleToggleCategoryVisible = async (id: string, visible: boolean) => {
@@ -85,7 +109,7 @@ export function CategoriesTab() {
     <div className="grid gap-8 md:grid-cols-3">
       <div className="glass h-fit rounded-2xl p-6">
         <h2 className="mb-4 text-lg font-bold text-primary">
-          إضافة فئة جديدة
+          {editingCategoryId ? "تعديل الفئة" : "إضافة فئة جديدة"}
         </h2>
         <form onSubmit={handleAddCategory} className="space-y-4">
           <div>
@@ -139,8 +163,24 @@ export function CategoriesTab() {
             disabled={categoryBusy}
             className="mt-2 w-full rounded-xl bg-primary py-3 font-bold text-white transition hover:bg-primary/90 disabled:opacity-50"
           >
-            {categoryBusy ? "جارٍ الإضافة…" : "إضافة الفئة"}
+            {categoryBusy
+              ? "جارٍ الحفظ…"
+              : editingCategoryId
+                ? "حفظ التعديلات"
+                : "إضافة الفئة"}
           </button>
+          {editingCategoryId && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingCategoryId(null);
+                setCategoryForm(emptyCategoryForm);
+              }}
+              className="w-full rounded-xl border border-glass-border bg-secondary py-2.5 text-sm font-bold text-foreground-muted"
+            >
+              إلغاء التعديل
+            </button>
+          )}
         </form>
       </div>
 
@@ -185,6 +225,14 @@ export function CategoriesTab() {
                     }`}
                   >
                     {cat.visible ? "ظاهرة" : "مخفية"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startEditCategory(cat)}
+                    aria-label={`تعديل ${cat.label}`}
+                    className="rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-bold text-foreground-muted hover:text-primary"
+                  >
+                    <Pencil className="inline size-3" aria-hidden /> تعديل
                   </button>
                   <button
                     type="button"

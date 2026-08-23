@@ -63,6 +63,23 @@ export function PromoCodesTab() {
     await loadPromoCodes();
   };
 
+  // ✅ تعديل نسبة الخصم مباشرة من البطاقة (inline)
+  const handleSavePercent = async (code: string, percent: number) => {
+    if (percent < 1 || percent > 100) {
+      useToastStore.getState().error("النسبة يجب أن تكون بين 1 و100%");
+      return;
+    }
+    try {
+      await updatePromoCode(code, { percentOff: Number(percent) });
+      useToastStore.getState().success(`تم تحديث نسبة كود ${code}`);
+      await loadPromoCodes();
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل التحديث: ${error?.message || "خطأ غير معروف"}`,
+      );
+    }
+  };
+
   const handleDeletePromo = async (code: string) => {
     const ok = await useToastStore.getState().confirm({
       title: `حذف كود "${code}"؟`,
@@ -148,41 +165,13 @@ export function PromoCodesTab() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {promoList.map((promo) => (
-              <div
+              <PromoCard
                 key={promo.code}
-                className="glass flex items-center justify-between rounded-2xl p-4"
-              >
-                <div>
-                  <p className="font-mono text-base font-bold">
-                    {promo.code}
-                  </p>
-                  <p className="text-xs text-foreground-muted">
-                    خصم {promo.percentOff}%
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleTogglePromo(promo.code, promo.active)
-                    }
-                    className={`rounded-lg px-2.5 py-1.5 text-xs font-bold ${
-                      promo.active
-                        ? "bg-accent/10 text-accent"
-                        : "bg-danger/10 text-danger"
-                    }`}
-                  >
-                    {promo.active ? "نشط" : "معطّل"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeletePromo(promo.code)}
-                    className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
-                  >
-                    حذف
-                  </button>
-                </div>
-              </div>
+                promo={promo}
+                onToggle={handleTogglePromo}
+                onSavePercent={handleSavePercent}
+                onDelete={handleDeletePromo}
+              />
             ))}
           </div>
         )}
@@ -190,6 +179,75 @@ export function PromoCodesTab() {
           ملاحظة: كود &quot;ZEST30&quot; (اخدش واربح) أُزيل من الواجهة —
           إن كان لا يزال موجوداً بهذه القائمة، احذفه من هنا نهائياً.
         </p>
+      </div>
+    </div>
+  );
+}
+
+function PromoCard({
+  promo,
+  onToggle,
+  onSavePercent,
+  onDelete,
+}: {
+  promo: { code: string; percentOff: number; active: boolean };
+  onToggle: (code: string, active: boolean) => void;
+  onSavePercent: (code: string, percent: number) => void;
+  onDelete: (code: string) => void;
+}) {
+  const [percent, setPercent] = useState(Number(promo.percentOff));
+
+  useEffect(() => {
+    setPercent(Number(promo.percentOff));
+  }, [promo.percentOff]);
+
+  return (
+    <div className="glass rounded-2xl p-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="font-mono text-base font-bold">{promo.code}</p>
+          <p className="text-xs text-foreground-muted">
+            خصم {promo.percentOff}%
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onToggle(promo.code, promo.active)}
+            className={`rounded-lg px-2.5 py-1.5 text-xs font-bold ${
+              promo.active
+                ? "bg-accent/10 text-accent"
+                : "bg-danger/10 text-danger"
+            }`}
+          >
+            {promo.active ? "نشط" : "معطّل"}
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(promo.code)}
+            className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
+          >
+            حذف
+          </button>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={percent}
+          onChange={(e) => setPercent(Number(e.target.value))}
+          className="w-full rounded-lg border border-glass-border bg-secondary px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+        />
+        <button
+          type="button"
+          onClick={() => onSavePercent(promo.code, percent)}
+          disabled={percent === Number(promo.percentOff)}
+          className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40"
+        >
+          حفظ النسبة
+        </button>
       </div>
     </div>
   );

@@ -11,6 +11,11 @@ const nextConfig = {
         protocol: "https",
         hostname: "*.googleusercontent.com",
       },
+      // ✅ روابط صور خارجية يضيفها الأدمن يدويا عبر ImageUploader
+      {
+        protocol: "https",
+        hostname: "**",
+      },
     ],
   },
   async headers() {

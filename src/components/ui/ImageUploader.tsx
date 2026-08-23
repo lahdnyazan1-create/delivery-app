@@ -41,6 +41,8 @@ export function ImageUploader({
   const [preview, setPreview] = useState<string | null>(currentUrl || null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
+  // ✅ خيار "رابط مباشر" — رابط خارجي بدل الرفع من الجهاز
+  const [urlDraft, setUrlDraft] = useState("");
 
 
   // ✅ تنظيف ذاكرة المعاينة المحلية لتسريب الذاكرة (Memory Leak)
@@ -172,6 +174,39 @@ export function ImageUploader({
         className="hidden"
         onChange={(e) => handleFile(e.target.files?.[0] || null)}
       />
+
+      {/* ✅ أو رابط صورة خارجي مباشر */}
+      <div className="mt-2 space-y-1.5">
+        <label className="text-[11px] font-semibold text-foreground-muted">
+          أو رابط صورة مباشر (بدون رفع)
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="url"
+            dir="ltr"
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            placeholder="https://example.com/image.jpg"
+            className="w-full rounded-lg border border-glass-border bg-secondary px-2.5 py-1.5 text-[11px] text-foreground outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const url = urlDraft.trim();
+              if (!/^https?:\/\/.+/i.test(url)) {
+                setError("ضع رابطا كاملا يبدأ بـ https://");
+                return;
+              }
+              setError("");
+              setPreview(url);
+              onUploaded(url);
+            }}
+            className="shrink-0 rounded-lg bg-secondary px-3 py-1.5 text-[11px] font-bold text-foreground transition hover:text-primary"
+          >
+            اعتماد
+          </button>
+        </div>
+      </div>
 
       {error && (
         <p className="mt-1.5 text-xs font-semibold text-danger">{error}</p>

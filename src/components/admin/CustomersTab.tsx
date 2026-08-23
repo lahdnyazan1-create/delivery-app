@@ -1,16 +1,21 @@
 // src/components/admin/CustomersTab.tsx
-// تبويب "العملاء" — منقول كما هو من src/app/admin/page.tsx
+// تبويب "العملاء" — بحث/تغيير أدوار/حذف ملفات المستخدمين
 "use client";
 
 import { useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { useToastStore } from "@/store/useToastStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { UserRole, UserProfile } from "@/types/database";
 import {
   setUserRole,
   fetchAllUsers,
+  deleteUserDoc,
 } from "@/lib/firestore";
 
 export function CustomersTab() {
+  const currentUid = useAuthStore((s) => s.user?.uid);
+
   // ---------------- Users state ----------------
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -23,6 +28,31 @@ export function CustomersTab() {
     } catch (error) {
       console.error("Failed to update role", error);
       useToastStore.getState().error("فشل تغيير الدور. تأكد أنك أدمن.");
+    }
+  };
+
+  const handleDeleteUser = async (u: UserProfile) => {
+    // ✅ حماية: لا يُسمح للأدمن بحذف ملفه من هنا — لو حذفه يفقد صلاحياته
+    if (u.uid === currentUid) {
+      useToastStore.getState().error("لا يمكنك حذف حسابك الخاص");
+      return;
+    }
+    const ok = await useToastStore.getState().confirm({
+      title: `حذف ملف "${u.displayName || u.phone}"؟`,
+      message:
+        "يُحذف الملف الشخصي من قاعدة البيانات فقط — حساب الدخول (Firebase Auth) يبقى ويمكن للمستخدم التسجيل من جديد.",
+      confirmText: "حذف الملف",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteUserDoc(u.uid);
+      setUsersList((prev) => prev.filter((x) => x.uid !== u.uid));
+      useToastStore.getState().success("تم حذف ملف المستخدم");
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل الحذف: ${error?.message || "خطأ غير معروف"}`,
+      );
     }
   };
 
@@ -68,6 +98,7 @@ export function CustomersTab() {
                 <th className="p-3">رقم الهاتف</th>
                 <th className="p-3">تغيير الدور</th>
                 <th className="p-3">تاريخ التسجيل</th>
+                <th className="p-3">حذف الملف</th>
               </tr>
             </thead>
             <tbody>
@@ -75,7 +106,12 @@ export function CustomersTab() {
                 .filter((u) => u.phone.includes(userSearch) || (u.displayName || "").includes(userSearch))
                 .map((u) => (
                 <tr key={u.uid} className="border-t border-glass-border">
-                  <td className="p-3 font-bold">{u.displayName || "بدون اسم"}</td>
+                  <td className="p-3 font-bold">
+                    {u.displayName || "بدون اسم"}
+                    {u.uid === currentUid && (
+                      <span className="mr-1.5 text-[10px] font-semibold text-primary">(أنت)</span>
+                    )}
+                  </td>
                   <td className="p-3 font-mono text-xs" dir="ltr">{u.phone}</td>
                   <td className="p-3">
                     <select
@@ -97,11 +133,25 @@ export function CustomersTab() {
                   <td className="p-3 text-xs text-foreground-muted">
                     {u.createdAt ? new Date(u.createdAt).toLocaleDateString("ar-EG") : "—"}
                   </td>
+                  <td className="p-3">
+                    {u.uid === currentUid ? (
+                      <span className="text-[10px] text-foreground-muted">—</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUser(u)}
+                        aria-label={`حذف ملف ${u.displayName || u.phone}`}
+                        className="rounded-lg bg-danger/10 px-2.5 py-1.5 text-[11px] font-bold text-danger transition hover:bg-danger/20"
+                      >
+                        <Trash2 className="inline size-3" aria-hidden /> حذف
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {usersList.filter((u) => u.phone.includes(userSearch) || (u.displayName || "").includes(userSearch)).length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-4 text-center text-foreground-muted">لا يوجد مستخدمون مطابقون للبحث</td>
+                  <td colSpan={5} className="p-4 text-center text-foreground-muted">لا يوجد مستخدمون مطابقون للبحث</td>
                 </tr>
               )}
             </tbody>
