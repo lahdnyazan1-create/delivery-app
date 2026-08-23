@@ -277,7 +277,7 @@ export const updateOrderStatus = onCall(
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "غير مصرح");
 
-    const { orderId, newStatus } = request.data;
+    const { orderId, newStatus, targetDriverId } = request.data;
     if (!orderId || !newStatus) throw new HttpsError("invalid-argument", "بيانات غير مكتملة");
 
     // ✅ استخدام Transaction لمنع Race Condition
@@ -289,12 +289,11 @@ export const updateOrderStatus = onCall(
       
       const orderData = orderSnap.data()!;
       const currentStatus = orderData.status;
+      const userSnap = await t.get(db.doc(`users/${uid}`));
+      const role = userSnap.data()?.role;
       
       // ✅ التحقق من صلاحية إلغاء الطلب
       if (newStatus === "Cancelled") {
-        const userSnap = await t.get(db.doc(`users/${uid}`));
-        const role = userSnap.data()?.role;
-        
         // فقط الأدمن أو الزبون صاحب الطلب يمكنهم الإلغاء
         if (role !== "admin" && orderData.userId !== uid) {
           throw new HttpsError("permission-denied", "ليس لديك صلاحية إلغاء هذا الطلب");
@@ -307,24 +306,28 @@ export const updateOrderStatus = onCall(
         throw new HttpsError("failed-precondition", `لا يمكن تغيير الحالة من ${currentStatus} إلى ${newStatus}`);
       }
 
-      // ✅ ربط السائق بالطلب عند استلامه وتحديث المحفظة
+      // ✅ ربط السائق بالطلب عند استلامه — المندوب يستلم بنفسه، أو الأدمن يُسند مندوباً
       if (newStatus === "OutForDelivery") {
-        // إذا كان هناك سائق مرتبط بالفعل، نتحقق أنه السائق الحالي
-        if (orderData.courierId && orderData.courierId !== uid) {
-          throw new HttpsError("permission-denied", "هذا الطلب مسند لسائق آخر");
-        }
-        
-        const userSnap = await t.get(db.doc(`users/${uid}`));
-        const role = userSnap.data()?.role;
-        
-        // فقط السائق يمكنه تغيير الحالة إلى OutForDelivery
-        if (role !== "courier") {
+        let courierId: string;
+
+        if (targetDriverId && role === "admin") {
+          const driverSnap = await t.get(db.doc(`users/${targetDriverId}`));
+          if (!driverSnap.exists || driverSnap.data()?.role !== "courier") {
+            throw new HttpsError("invalid-argument", "السائق المحدد غير صالح");
+          }
+          courierId = targetDriverId;
+        } else if (role === "courier") {
+          if (orderData.courierId && orderData.courierId !== uid) {
+            throw new HttpsError("permission-denied", "هذا الطلب مسند لسائق آخر");
+          }
+          courierId = uid;
+        } else {
           throw new HttpsError("permission-denied", "فقط المندوبون يمكنهم استلام الطلبات");
         }
         
         t.update(orderRef, {
           status: newStatus,
-          courierId: uid,
+          courierId,
           updatedAt: Timestamp.now()
         });
 
@@ -348,8 +351,6 @@ export const updateOrderStatus = onCall(
         
         // التحقق من أن السائق هو من ينفذ التسليم
         if (orderData.courierId !== uid) {
-          const userSnap = await t.get(db.doc(`users/${uid}`));
-          const role = userSnap.data()?.role;
           if (role !== "admin") {
             throw new HttpsError("permission-denied", "فقط السائق المسند أو الأدمن يمكنه تأكيد التسليم");
           }
@@ -382,9 +383,6 @@ export const updateOrderStatus = onCall(
       //    Callable Functions تعمل بـ Admin SDK فتتجاوز firestore.rules —
       //    لذا التحقق من الدور هنا إلزامي (سابقاً كان أي مستخدم يمرر الطلب لأي حالة).
       if (newStatus === "Accepted" || newStatus === "Preparing" || newStatus === "Ready") {
-        const userSnap = await t.get(db.doc(`users/${uid}`));
-        const role = userSnap.data()?.role;
-
         let authorized = role === "admin";
         if (!authorized && role === "vendor") {
           const restSnap = await t.get(db.doc(`restaurants/${orderData.restaurantId}`));

@@ -120,11 +120,22 @@ export const subscribeCourierOrders = (
     limit(50),
   );
 
+  // ✅ دعوات الأولوية: بدونه لا تصل دعوة سائق مفضل أبداً لطلبات لم تصر
+  //    Ready بعد — فتنقضي مهلة الـ 5 دقائق بصمت والطلب يتحرر للمندوبين
+  //    الآخرين دون علم السائق المدعو (الفهرس preferredCourierId موجود)
+  const q3 = query(
+    collection(db, "orders"),
+    where("preferredCourierId", "==", courierId),
+    orderBy("createdAt", "desc"),
+    limit(10),
+  );
+
   let orders1: Order[] = [];
   let orders2: Order[] = [];
+  let orders3: Order[] = [];
 
   const emit = () => {
-    const combined = [...orders1, ...orders2];
+    const combined = [...orders1, ...orders2, ...orders3];
     const unique = Array.from(new Map(combined.map((o) => [o.id, o])).values());
     unique.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     callback(unique);
@@ -163,9 +174,25 @@ export const subscribeCourierOrders = (
     console.error("Courier orders (ready) subscription error:", error);
   });
 
+  const unsub3 = onSnapshot(q3, (snapshot) => {
+    orders3 = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toMillis?.() || data.createdAt,
+        updatedAt: data.updatedAt?.toMillis?.() || data.updatedAt,
+      } as Order;
+    });
+    emit();
+  }, (error) => {
+    console.error("Courier invites subscription error:", error);
+  });
+
   return () => {
     unsub1();
     unsub2();
+    unsub3();
   };
 };
 

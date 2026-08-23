@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Store, LogOut, Phone, ChevronDown, ChevronUp, Clock, ChefHat, PackageCheck, Ban, Wallet, Power } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -8,6 +8,7 @@ import { RequireRole } from "@/components/auth/RequireRole";
 import { useAppStore } from "@/store/useAppStore";
 import { useToastStore } from "@/store/useToastStore";
 import { requestCourierForOrder } from "@/lib/orders";
+import { playSound, triggerHaptic } from "@/lib/sound-haptics";
 import { STATUS_LABELS_AR } from "@/constants/orderStatuses";
 import { subscribeRestaurantOrders } from "@/lib/firestore";
 import { formatPrice } from "@/constants/currency";
@@ -33,6 +34,47 @@ function VendorDashboardContent() {
   const activeOrders = useMemo(() => orders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled"), [orders]);
   const historyOrders = useMemo(() => orders.filter((o) => o.status === "Delivered" || o.status === "Cancelled"), [orders]);
   const visibleOrders = tab === "active" ? activeOrders : historyOrders;
+
+  // ✅ إحصائيات اليوم — عدد الطلبات والإيرادات المكتملة اليوم
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }, []);
+  const todayOrders = useMemo(
+    () => orders.filter((o) => (o.createdAt || 0) >= todayStart && o.status !== "Cancelled"),
+    [orders, todayStart],
+  );
+  const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total, 0);
+  const todayNewCount = todayOrders.length;
+
+  // ✅ تنبيه صوتي عند ورود طلب Pending جديد — المطعم قد يكون مشغولاً بالمطبخ
+  //    ولا يلاحظ الطلب؛ نراقب عدد الطلبات المعلقة ونتغير معه
+  const pendingCount = activeOrders.filter((o) => o.status === "Pending").length;
+  const prevPendingRef = useRef(pendingCount);
+  useEffect(() => {
+    if (pendingCount > prevPendingRef.current) {
+      playSound("add");
+      triggerHaptic("medium");
+      useToastStore.getState().info("🔔 طلب جديد وارد!");
+    }
+    prevPendingRef.current = pendingCount;
+  }, [pendingCount]);
+
+  // ✅ تفعيل/تعطيل المطعم — كان الخطأ يُبلَع بصمت (كتابة مباشرة بلا معالجة)
+  const handleToggleActive = async () => {
+    if (!myRestaurant) return;
+    try {
+      await toggleRestaurantActive(myRestaurant.id);
+      useToastStore.getState().success(myRestaurant.active ? "تم إغلاق المطعم مؤقتاً" : "المطعم مفتوح الآن 🎉");
+    } catch (error: any) {
+      useToastStore.getState().error(
+        error?.code === "permission-denied"
+          ? "تم الرفض — تأكد من نشر أحدث قواعد Firestore"
+          : `تعذّر التغيير: ${error?.message || "خطأ غير معروف"}`,
+      );
+    }
+  };
 
   const handleLogout = async () => { await logoutUser(); router.push("/"); };
   const handleTransition = async (orderId: string, newStatus: OrderStatus) => {
@@ -72,7 +114,7 @@ function VendorDashboardContent() {
           {/* ✅ زر إغلاق/فتح المطعم */}
           <button
             type="button"
-            onClick={() => toggleRestaurantActive(myRestaurant.id)}
+            onClick={handleToggleActive}
             className={`no-select touch-target glass flex size-11 items-center justify-center rounded-xl ${myRestaurant.active ? "text-danger" : "text-accent"}`}
             title={myRestaurant.active ? "إغلاق المطعم" : "فتح المطعم"}
           >
@@ -81,6 +123,22 @@ function VendorDashboardContent() {
           <button type="button" onClick={handleLogout} className="no-select touch-target glass flex size-11 items-center justify-center rounded-xl text-foreground-muted hover:text-primary" title="تسجيل الخروج">
             <LogOut className="size-5" />
           </button>
+        </div>
+      </div>
+
+      {/* ✅ إحصائيات اليوم — نظرة سريعة للأداء دون فتح لوحة الأدمن */}
+      <div className="glass mb-5 grid grid-cols-3 gap-2 rounded-2xl p-4 text-center">
+        <div>
+          <p className="text-xl font-extrabold text-primary">{todayNewCount}</p>
+          <p className="text-[11px] font-bold text-foreground-muted">طلبات اليوم</p>
+        </div>
+        <div>
+          <p className="text-xl font-extrabold text-accent">{formatPrice(todayRevenue)}</p>
+          <p className="text-[11px] font-bold text-foreground-muted">إيرادات اليوم</p>
+        </div>
+        <div>
+          <p className="text-xl font-extrabold text-amber-400">{activeOrders.length}</p>
+          <p className="text-[11px] font-bold text-foreground-muted">قيد التنفيذ</p>
         </div>
       </div>
 

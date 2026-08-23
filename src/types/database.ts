@@ -11,6 +11,10 @@ export interface UserProfile {
   lng?: number;
   createdAt: number;
   updatedAt?: number;
+  /** كود دعوة المندوب — يُدار عبر Cloud Function فقط */
+  referralCode?: string;
+  /** توكنات Push للإشعارات */
+  fcmTokens?: string[];
 }
 
 export interface Restaurant {

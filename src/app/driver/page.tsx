@@ -30,6 +30,8 @@ import { RequireRole } from "@/components/auth/RequireRole";
 import { useAppStore } from "@/store/useAppStore";
 import { useToastStore } from "@/store/useToastStore";
 import { getMyReferralCode, respondToCourierInvite } from "@/lib/orders";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { formatPrice } from "@/constants/currency";
 
 function DriverDashboardContent() {
@@ -39,11 +41,10 @@ function DriverDashboardContent() {
     orders,
     updateOrderStatus,
     claimOrder,
-    drivers,
     user,
     logoutUser,
   } = useAppStore();
-  const [tab, setTab] = useState<"my-orders" | "available">("my-orders");
+  const [tab, setTab] = useState<"my-orders" | "available" | "earnings">("my-orders");
   const [claiming, setClaiming] = useState<string | null>(null);
   const [delivering, setDelivering] = useState<string | null>(null);
 
@@ -51,15 +52,39 @@ function DriverDashboardContent() {
   const [myReferralCode, setMyReferralCode] = useState<string | null>(null);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
 
+  // ✅ بروفايل المركبة: يُقرأ من مستند السائق الخاص به (القواعد تسمح له
+  //    بقراءة مستنده فقط) — الاعتماد على drivers بالمتجر كان يعرض دائماً
+  //    "لا يوجد بروفايل" لأن جلب المجموعة كاملة للأدمن حصراً
+  const [myVehicle, setMyVehicle] = useState<string | null>(null);
+
+  // ✅ المحفظة — الكاش الذي بحوزته والذي لم تُسوَّى بعد مع الإدارة
+  const [wallet, setWallet] = useState<{ totalCashInHand: number; cashOrdersSinceSettlement: number } | null>(null);
+
   useEffect(() => {
     let cancelled = false;
+    if (!user?.uid) return;
+    getDoc(doc(db, "drivers", user.uid))
+      .then((snap) => {
+        if (!cancelled && snap.exists()) setMyVehicle(snap.data()?.vehicle || null);
+      })
+      .catch(() => {});
+    getDoc(doc(db, "driverWallets", user.uid))
+      .then((snap) => {
+        if (!cancelled && snap.exists()) {
+          setWallet({
+            totalCashInHand: snap.data()?.totalCashInHand || 0,
+            cashOrdersSinceSettlement: snap.data()?.cashOrdersSinceSettlement || 0,
+          });
+        }
+      })
+      .catch(() => {});
     getMyReferralCode().then((res) => {
       if (!cancelled && res.ok && res.referralCode) setMyReferralCode(res.referralCode);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user?.uid]);
 
   const pendingInvites = useMemo(
     () =>
@@ -81,11 +106,6 @@ function DriverDashboardContent() {
     }
   };
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-
-  const currentDriver = useMemo(
-    () => drivers.find((d) => d.id === user?.uid),
-    [drivers, user],
-  );
 
   const myOrders = useMemo(
     () =>
@@ -127,6 +147,27 @@ function DriverDashboardContent() {
     [availableOrders, activeDeliveryZones, myOrders],
   );
 
+  // ✅ سجل التوصيلات المكتملة + ملخص الأرباح — البيانات تصل أصلاً عبر
+  //    اشتراك courierId (آخر 50) لكن كانت تُفلتر خارج الواجهة
+  const deliveredHistory = useMemo(
+    () => orders.filter((o) => o.courierId === user?.uid && o.status === "Delivered"),
+    [orders, user],
+  );
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }, []);
+  const todayDelivered = useMemo(
+    () => deliveredHistory.filter((o) => (o.createdAt || 0) >= todayStart),
+    [deliveredHistory, todayStart],
+  );
+  const todayCash = todayDelivered.reduce((sum, o) => sum + (o.paymentMethod === "CASH" ? o.total : 0), 0);
+  const totalDeliveredCash = deliveredHistory.reduce(
+    (sum, o) => sum + (o.paymentMethod === "CASH" ? o.total : 0),
+    0,
+  );
+
   const handleClaim = async (orderId: string) => {
     if (!user) return;
     setClaiming(orderId);
@@ -140,10 +181,32 @@ function DriverDashboardContent() {
   };
 
   const handleMarkDelivered = async (orderId: string) => {
+    // ✅ تأكيد قبل الإنهاء — نقرة واحدة خاطئة كانت تُغلق الطلب نهائياً
+    const ok = await useToastStore.getState().confirm({
+      title: "تأكيد تسليم الطلب؟",
+      message: "تأكد من استلام الزبون للمبلغ الكامل قبل التأكيد — لا يمكن التراجع.",
+      confirmText: "نعم، تم التسليم والقبض",
+    });
+    if (!ok) return;
     setDelivering(orderId);
     const result = await updateOrderStatus(orderId, "Delivered");
     setDelivering(null);
-    if (!result.ok && result.message) {
+    if (result.ok) {
+      useToastStore.getState().success("تم تسجيل التسليم 🎉");
+      // إعادة قراءة المحفظة — الكاش المحصّل بحوزتك زاد
+      if (user?.uid) {
+        getDoc(doc(db, "driverWallets", user.uid))
+          .then((snap) => {
+            if (snap.exists()) {
+              setWallet({
+                totalCashInHand: snap.data()?.totalCashInHand || 0,
+                cashOrdersSinceSettlement: snap.data()?.cashOrdersSinceSettlement || 0,
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    } else if (result.message) {
       showError(result.message);
     }
   };
@@ -154,7 +217,6 @@ function DriverDashboardContent() {
   };
 
   const visibleOrders = tab === "my-orders" ? myOrders : availableOrders;
-
   return (
     <AppShell hideNav hideHeader>
       {/* الهيدر */}
@@ -168,9 +230,7 @@ function DriverDashboardContent() {
               {user?.displayName || "المندوب"}
             </h1>
             <p className="text-xs text-foreground-muted">
-              {currentDriver
-                ? `المركبة: ${currentDriver.vehicle}`
-                : "لا يوجد بروفايل مركبة مرتبط بحسابك بعد"}
+              {myVehicle ? `المركبة: ${myVehicle}` : "لا يوجد بروفايل مركبة مرتبط بحسابك بعد"}
             </p>
           </div>
         </div>
@@ -293,9 +353,78 @@ function DriverDashboardContent() {
         >
           طلبات متاحة ({availableOrders.length})
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("earnings")}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+            tab === "earnings"
+              ? "bg-primary text-white"
+              : "text-foreground-muted"
+          }`}
+        >
+          الأرباح والسجل
+        </button>
       </div>
 
-      {/* قائمة الطلبات */}
+      {/* ✅ تبويب الأرباح والسجل — الكاش بحوزة السائق + أداء اليوم + التوصيلات المكتملة */}
+      {tab === "earnings" && (
+        <section className="space-y-4 pb-8">
+          <div className="glass rounded-2xl border border-amber-500/30 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-foreground-muted">الكاش بحوزتك (لم تُسوَّى بعد)</p>
+                <p className="mt-1 text-2xl font-extrabold text-amber-400">
+                  {formatPrice(wallet?.totalCashInHand ?? totalDeliveredCash)}
+                </p>
+              </div>
+              <Wallet className="size-8 text-amber-400/50" aria-hidden />
+            </div>
+            {wallet && (
+              <p className="mt-2 text-[11px] text-foreground-muted">
+                {wallet.cashOrdersSinceSettlement} طلب كاش منذ آخر تسوية مع الإدارة
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="glass rounded-2xl p-4 text-center">
+              <p className="text-2xl font-extrabold text-accent">{todayDelivered.length}</p>
+              <p className="mt-1 text-[11px] font-bold text-foreground-muted">توصيلات اليوم</p>
+            </div>
+            <div className="glass rounded-2xl p-4 text-center">
+              <p className="text-2xl font-extrabold text-accent">{formatPrice(todayCash)}</p>
+              <p className="mt-1 text-[11px] font-bold text-foreground-muted">كاش اليوم</p>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-bold">سجل التوصيلات ({deliveredHistory.length})</h3>
+            {deliveredHistory.length === 0 ? (
+              <div className="glass rounded-2xl p-6 text-center text-xs text-foreground-muted">
+                لا توجد توصيلات مكتملة بعد
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {deliveredHistory.map((o) => (
+                  <div key={o.id} className="glass flex items-center justify-between rounded-xl p-3 text-xs">
+                    <div>
+                      <p className="font-bold">{o.restaurantName}</p>
+                      <p className="text-foreground-muted">
+                        {o.createdAt ? new Date(o.createdAt).toLocaleDateString("ar-EG") : ""} ·{" "}
+                        {o.customerName}
+                      </p>
+                    </div>
+                    <span className="font-extrabold text-primary">{formatPrice(o.total)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* قائمة الطلبات — تُعرض في تبويبي طلباتي/المتاحة فقط */}
+      {tab !== "earnings" && (
       <section className="space-y-3 pb-8">
         {visibleOrders.length === 0 ? (
           <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
@@ -360,6 +489,21 @@ function DriverDashboardContent() {
                       "غير محدد"}
                   </span>
                 </div>
+
+                {/* ✅ فتح الموقع في تطبيق الخرائط — يظهر عند وجود إحداثيات GPS */}
+                {tab === "my-orders" &&
+                  order.status === "OutForDelivery" &&
+                  order.customerLat != null &&
+                  order.customerLng != null && (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${order.customerLat},${order.customerLng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="no-select touch-target flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 py-2 text-xs font-bold text-primary"
+                    >
+                      <MapPin className="size-3.5" aria-hidden /> فتح الموقع في الخرائط 🗺️
+                    </a>
+                  )}
 
                 <button
                   type="button"
@@ -435,6 +579,7 @@ function DriverDashboardContent() {
           })
         )}
       </section>
+      )}
     </AppShell>
   );
 }

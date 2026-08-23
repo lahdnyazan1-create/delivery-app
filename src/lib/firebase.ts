@@ -17,7 +17,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-export const functions = getFunctions(app);
+export const functions = getFunctions(app, "europe-west1");
 export const storage = getStorage(app);
 
 export default app;

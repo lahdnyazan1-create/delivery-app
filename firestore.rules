@@ -27,9 +27,9 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // ✅ المستخدم يقرأ فقط ملفه الخاص، والأدمن يقرأ الكل
-      // تعديل: السماح للجميع بقراءة بيانات السائقين لرؤية كود الدعوة
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || (resource.data.role == 'courier' && resource.data.referralCode != null));
+      // ✅ المستخدم يقرأ ملفه، والأدمن الكل، وأي مستخدم مسجل يقرأ
+      //    ملفات المندوبين (للاتصال أثناء التوصيل — لا يعتمد على referralCode)
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || resource.data.role == 'courier');
 
       // ✅ إنشاء الملف الشخصي عند أول تسجيل دخول — قيود صارمة:
       //    المستخدم نفسه فقط، بدور customer حصراً، وهاتفه يطابق رقمه
@@ -52,7 +52,15 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /restaurants/{restaurantId} { allow read: if true; allow write: if isAdmin(); }
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      // ✅ مالك المطعم يمكنه فتح/إغلاق مطعمه (active فقط)
+      allow update: if isAdmin()
+        || (isRestaurantOwner(restaurantId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'updatedAt']));
+      allow delete: if isAdmin();
+    }
     match /dishes/{dishId} { allow read: if true; allow create: if isAdmin(); allow update: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available', 'updatedAt'])); allow delete: if isAdmin(); }
     // ✅ أكواد الخصم: قراءة للأدمن فقط — التحقق من صلاحية كود يتم عبر
     //    checkPromo Callable (كانت read متاحة للجميع فتُحصر كل الأكوام النشطة)
@@ -93,19 +101,8 @@ service cloud.firestore {
       // ✅不允许客户端直接创建 الطلبات - 必须通过 Cloud Function
       allow create: if false;
       
-      // ✅ المطعم يمكنه تحديث ETA والحالة حتى Preparing فقط
-      // تعديل: إضافة الحقول الجديدة لنظام كود الدعوة
-      allow update: if isAdmin()
-                    || (isRestaurantOwner(resource.data.restaurantId) 
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['etaMinutes', 'updatedAt', 'status'])
-                        && (request.resource.data.status == resource.data.status 
-                            || (resource.data.status == 'Pending' && request.resource.data.status == 'Accepted')
-                            || (resource.data.status == 'Accepted' && request.resource.data.status == 'Preparing')))
-                    || (isCourier() 
-                        && resource.data.courierId == request.auth.uid
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'driverLocation'])
-                        && ((resource.data.status == 'Accepted' && request.resource.data.status == 'PickedUp')
-                            || (resource.data.status == 'PickedUp' && request.resource.data.status == 'Delivered')));
+      // ✅ كل تغييرات الحالة تمر عبر Cloud Functions (Admin SDK) — منع الكتابة المباشرة
+      allow update: if false;
       allow delete: if isAdmin();
     }
     

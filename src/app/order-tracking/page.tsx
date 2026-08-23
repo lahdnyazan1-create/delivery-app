@@ -10,13 +10,16 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, Phone, XCircle } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
 import { AppShell } from "@/components/layout/AppShell";
 import { OrderStageTracker } from "@/components/tracking/OrderStageTracker";
 import { useAppStore } from "@/store/useAppStore";
+import { useToastStore } from "@/store/useToastStore";
+import { db } from "@/lib/firebase";
 import { formatPrice } from "@/constants/currency";
 import type { OrderStatus } from "@/types/database";
 
@@ -47,7 +50,43 @@ export default function OrderTrackingPage() {
     setActiveOrder,
     user,
     subscribeToOrders,
+    updateOrderStatus,
   } = useAppStore();
+  const [cancelling, setCancelling] = useState(false);
+  const [courierPhone, setCourierPhone] = useState<string | null>(null);
+
+  // ✅ جلب هاتف المندوب للاتصال به أثناء التوصيل (قراءة ملف سائق مسموحة
+  //    بالقواعد لأي مستخدم مسجل — استثناء كود الدعوة)
+  useEffect(() => {
+    setCourierPhone(null);
+    const courierId = activeOrder?.courierId;
+    if (activeOrder?.status === "OutForDelivery" && courierId) {
+      getDoc(doc(db, "users", courierId))
+        .then((snap) => setCourierPhone(snap.data()?.phone || null))
+        .catch(() => setCourierPhone(null));
+    }
+  }, [activeOrder?.courierId, activeOrder?.status]);
+
+  // ✅ إلغاء الطلب — الخادم يسمح للزبون صاحب الطلب بالإلغاء قبل التحضير
+  const handleCancel = async () => {
+    if (!activeOrder) return;
+    const ok = await useToastStore.getState().confirm({
+      title: "إلغاء الطلب؟",
+      message: "سيتم إلغاء طلبك نهائياً ولا يمكن التراجع.",
+      confirmText: "نعم، إلغاء الطلب",
+      danger: true,
+    });
+    if (!ok) return;
+    setCancelling(true);
+    const result = await updateOrderStatus(activeOrder.id, "Cancelled");
+    setCancelling(false);
+    if (result.ok) {
+      useToastStore.getState().success("تم إلغاء الطلب");
+      setActiveOrder(null);
+    } else {
+      useToastStore.getState().error(result.message || "تعذّر الإلغاء");
+    }
+  };
 
   // ✅ يضمن وجود اشتراك مباشر بالطلبات حتى لو المستخدم فتح هذه الصفحة
   // مباشرة (رابط محفوظ / تحديث الصفحة) بدون المرور بشاشة السلة أولاً
@@ -170,6 +209,29 @@ export default function OrderTrackingPage() {
         <p className="mt-1 text-sm text-foreground">
           {activeOrder.deliveryAddressDetails || activeOrder.deliveryAddress}
         </p>
+      </div>
+
+      {/* ✅ إجراءات حسب الحالة: الاتصال بالمندوب أثناء التوصيل + الإلغاء قبل التحضير */}
+      <div className="mb-4 flex gap-2">
+        {activeOrder.status === "OutForDelivery" && courierPhone && (
+          <a
+            href={`tel:${courierPhone}`}
+            className="no-select touch-target flex flex-1 items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-sm font-bold text-white transition active:scale-95"
+          >
+            <Phone className="size-4" aria-hidden /> الاتصال بالمندوب
+          </a>
+        )}
+        {(activeOrder.status === "Pending" || activeOrder.status === "Accepted") && (
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="no-select touch-target flex flex-1 items-center justify-center gap-2 rounded-2xl border border-danger/40 bg-danger/10 py-3 text-sm font-bold text-danger transition active:scale-95 disabled:opacity-50"
+          >
+            <XCircle className="size-4" aria-hidden />
+            {cancelling ? "جارٍ الإلغاء…" : "إلغاء الطلب"}
+          </button>
+        )}
       </div>
 
       <div className="glass rounded-3xl p-4">
