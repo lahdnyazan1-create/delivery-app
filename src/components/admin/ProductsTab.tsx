@@ -296,8 +296,10 @@ export function ProductsTab() {
                 key={dish.id}
                 className="glass flex gap-3 rounded-2xl p-3"
               >
+                {/* ✅ relative إلزامية مع <Image fill> — بدونها تتعلق الصورة
+                    بأقرب أصل له وضع وثابت (body) وتغطي البطاقة كلها */}
                 <div
-                  className={`size-16 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${
+                  className={`relative size-16 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${
                     dish.gradient || "from-gray-600 to-gray-800"
                   }`}
                 >
