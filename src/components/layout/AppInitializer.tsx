@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useToastStore } from "@/store/useToastStore";
 import { subscribeToNotifications } from "@/lib/firestore";
 import { useDataStore } from "@/store/useDataStore";
 import { useOrderStore } from "@/store/useOrderStore";
@@ -14,6 +15,9 @@ export function AppInitializer() {
   const { subscribeToOrders, unsubscribeFromOrders } = useOrderStore();
 
   const initializedRef = useRef(false);
+  // ✅ آخر معرف إشعار ظهر كتوست — يمنع تكرار التوست مع كل لقطة
+  // جديدة للاشتراك (اللقطات تصل عند أي تغيير في المجموعة)
+  const lastNotifIdShown = useRef<string | null>(null);
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -33,14 +37,23 @@ export function AppInitializer() {
     if (user?.uid) {
       subscribeToOrders(user.uid, user.role);
       
-      // ✅ الاستماع للإشعارات وتسجيلها بالكونسول (أو يمكن ربطها لاحقاً بجرس الإشعارات)
+      // ✅ الاستماع للإشعارات — يظهر الأحدث غير المقروء كتوست مرئي
+      // (قبل ذلك كان يُطبع في الكونسول فقط ولا يراه المستخدم)
       const unsubNotifs = subscribeToNotifications(user.uid, (notifs) => {
         const lastNotif = notifs[0];
-        if (lastNotif && !lastNotif.read) {
-          console.log("🔔 إشعار جديد:", lastNotif.message);
-          // يمكن إضافة اهتزاز أو صوت هنا مستقبلاً
+        if (
+          lastNotif &&
+          !lastNotif.read &&
+          lastNotif.id !== lastNotifIdShown.current
+        ) {
+          lastNotifIdShown.current = lastNotif.id;
+          useToastStore.getState().info(`🔔 ${lastNotif.message}`);
           if (typeof window !== "undefined" && "vibrate" in navigator) {
-            navigator.vibrate(200);
+            try {
+              navigator.vibrate(200);
+            } catch {
+              /* غير مدعوم */
+            }
           }
         }
       });

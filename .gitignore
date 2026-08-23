@@ -92,4 +92,5 @@ serviceAccountKey.json
 *.private-key.json
 
 # Functions
-functions/node_modules/
+functions/node_modules/project_context_report.txt
+merge.py

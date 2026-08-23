@@ -22,31 +22,6 @@ export function vibrate(pattern: number | number[]) {
   }
 }
 
-/** Soft white-noise burst for scratch interactions */
-export function playScratchNoise(durationMs = 40) {
-  const ctx = getCtx();
-  if (!ctx) return;
-  void ctx.resume();
-
-  const bufferSize = Math.floor(ctx.sampleRate * (durationMs / 1000));
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * 0.08;
-  }
-
-  const source = ctx.createBufferSource();
-  const filter = ctx.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.value = 1800;
-  filter.Q.value = 0.6;
-
-  source.buffer = buffer;
-  source.connect(filter);
-  filter.connect(ctx.destination);
-  source.start();
-}
-
 /** Ascending 2-tone success chime */
 export function playSuccessChime() {
   const ctx = getCtx();

@@ -119,8 +119,10 @@ export function ProductsTab() {
           description: dishForm.description.trim(),
           price: Number(dishForm.price),
           category: dishForm.category.trim(),
+          // ✅ نُرسل image دائماً حتى لو كانت فارغة — لأن updateDoc يتجاهل
+          // الحقول الغائبة، وهذا كان يمنع حذف صورة المنتج عند إزالتها
+          image: dishForm.image || "",
         };
-        if (dishForm.image) payload.image = dishForm.image;
         await updateDish(editingDishId, payload);
         resetForm();
         useToastStore.getState().success("تم حفظ التعديلات");
