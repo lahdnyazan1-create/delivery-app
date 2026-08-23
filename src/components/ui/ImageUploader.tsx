@@ -16,6 +16,7 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import { storage } from "@/lib/firebase";
+import { compressImage, fileNameForBlob } from "@/lib/imageCompress";
 
 type ImageUploaderProps = {
   /** مسار المجلد بـ Storage، مثال: "restaurants" أو "dishes" أو "banners" */
@@ -27,7 +28,7 @@ type ImageUploaderProps = {
   className?: string;
 };
 
-const MAX_SIZE_MB = 5;
+const MAX_SIZE_MB = 15;
 
 export function ImageUploader({
   folder,
@@ -51,7 +52,7 @@ export function ImageUploader({
     };
   }, [preview]);
 
-  const handleFile = (file: File | null) => {
+  const handleFile = async (file: File | null) => {
     if (!file) return;
     setError("");
 
@@ -67,13 +68,30 @@ export function ImageUploader({
     // معاينة فورية محلية أثناء الرفع
     const localPreview = URL.createObjectURL(file);
     setPreview(localPreview);
+    setProgress(0);
 
-    const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+    // تصغير وضغط الصورة قبل الرفع — كي لا تُخزَّن صور بحجم الكاميرا (5-12MB)
+    // التي تُبطئ التحميل وتستهلك التخزين والحصة
+    let blob: Blob;
+    try {
+      blob = await compressImage(file);
+    } catch (err: any) {
+      setError(err?.message || "تعذّرت معالجة الصورة");
+      setPreview(null);
+      setProgress(null);
+      URL.revokeObjectURL(localPreview);
+      return;
+    }
+
+    const safeName = `${Date.now()}_${fileNameForBlob(file.name, blob)}`;
     const path = `${folder}/${entityId}/${safeName}`;
     const fileRef = storageRef(storage, path);
-    const task = uploadBytesResumable(fileRef, file);
+    // تمرير contentType كي يُخدَّم الملف بنوعه الصحيح (webp/jpeg)
+    const task = uploadBytesResumable(fileRef, blob, {
+      contentType: blob.type,
+      cacheControl: "public,max-age=31536000,immutable",
+    });
 
-    setProgress(0);
     task.on(
       "state_changed",
       (snapshot) => {
@@ -159,7 +177,7 @@ export function ImageUploader({
         <p className="mt-1.5 text-xs font-semibold text-danger">{error}</p>
       )}
       <p className="mt-1 text-[10px] text-foreground-muted">
-        حتى {MAX_SIZE_MB}MB — JPG أو PNG أو WEBP
+        حتى {MAX_SIZE_MB}MB — تُصغَّر الصور تلقائياً وتُضغط قبل الرفع
       </p>
     </div>
   );
