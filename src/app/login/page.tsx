@@ -286,6 +286,28 @@ function LoginForm() {
           <button type="submit" disabled={loading} className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60">
             {loading ? "جارِ الإرسال..." : "إرسال رمز التحقق"}
           </button>
+          {/* ✅ مطلوب لمراجعة Google OAuth: إفصاح بأن المتابعة موافقة على
+              الشروط والسياسة، مع روابط فعلية قابلة للفتح */}
+          <p className="text-center text-[11px] leading-relaxed text-foreground-muted">
+            متابعة التسجيل تعني موافقتك على{" "}
+            <a
+              href="https://zest-delivery-97e51.web.app/terms.html"
+              target="_blank"
+              rel="noreferrer"
+              className="font-bold text-primary"
+            >
+              شروط الاستخدام
+            </a>{" "}
+            و{" "}
+            <a
+              href="https://zest-delivery-97e51.web.app/privacy.html"
+              target="_blank"
+              rel="noreferrer"
+              className="font-bold text-primary"
+            >
+              سياسة الخصوصية
+            </a>
+          </p>
         </form>
       )}
 

@@ -19,6 +19,7 @@ echo "📄 firestore.rules: $(wc -l < firestore.rules) سطر"
 echo "📄 storage.rules: $(wc -l < storage.rules) سطر"
 echo "📄 firestore.indexes.json: $(cat firestore.indexes.json | grep -c '"fieldPath"') حقول مفهرسة"
 echo "📄 functions/src/index.ts: $(wc -l < functions/src/index.ts) سطر"
+echo "📄 صفحات الاستضافة: $(ls oauth-site/*.html 2>/dev/null | wc -l) ملفات"
 echo ""
 
 echo "🚀 بدء النشر..."
@@ -65,11 +66,27 @@ fi
 echo "✅ تم نشر Cloud Functions بنجاح"
 echo ""
 
+# نشر الاستضافة (صفحة التعريف + سياسة الخصوصية + شروط الاستخدام)
+# ✅ مطلوب لشاشة موافقة OAuth في Google Cloud Console
+echo "🌐 نشر الاستضافة (Firebase Hosting)..."
+firebase deploy --only hosting
+if [ $? -ne 0 ]; then
+    echo "❌ فشل نشر الاستضافة"
+    exit 1
+fi
+echo "✅ تم نشر الاستضافة بنجاح"
+echo ""
+
 echo "🎉 اكتمل النشر بنجاح!"
 echo "===================="
 echo ""
 echo "📝 الخطوات التالية:"
-echo "1. فعّل Firebase App Check من Firebase Console"
-echo "2. اختبر السيناريوهات الحرجة (انظر PRE_LAUNCH_CHECKLIST.md)"
-echo "3. راقب الأخطاء في Cloud Functions Logs"
+echo "1. Google Cloud Console → OAuth consent screen:"
+echo "   • Application name        = Zest"
+echo "   • Application home page   = https://zest-delivery-97e51.web.app/"
+echo "   • Privacy policy URL      = https://zest-delivery-97e51.web.app/privacy.html"
+echo "   • Authorized domains      = zest-delivery-97e51.web.app"
+echo "2. فعّل Firebase App Check من Firebase Console"
+echo "3. اختبر السيناريوهات الحرجة (انظر PRE_LAUNCH_CHECKLIST.md)"
+echo "4. راقب الأخطاء في Cloud Functions Logs"
 echo ""

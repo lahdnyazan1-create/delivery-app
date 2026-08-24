@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zest | زيت — توصيل الطعام في منطقتك</title>
+  <meta name="description" content="زيت (Zest): تطبيق توصيل طعام محلي. تصفّح المطاعم القريبة، اطلب بضغطة، وتابع مندوبك لحظة بلحظة حتى باب بيتك." />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+      background: #0c0a09; color: #f5f5f4; line-height: 1.8; min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+    a { color: inherit; }
+    .hero {
+      background: linear-gradient(135deg, #7c2d12, #d90429 60%, #ff6b35);
+      padding: 64px 20px 48px; text-align: center;
+    }
+    .logo {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 72px; height: 72px; border-radius: 22px; font-size: 36px;
+      background: rgba(255,255,255,.15); backdrop-filter: blur(8px); margin-bottom: 18px;
+    }
+    h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; }
+    .tagline { margin-top: 8px; font-size: 1.05rem; opacity: .92; max-width: 480px; margin-inline: auto; }
+    .cta {
+      display: inline-block; margin-top: 28px; background: #fff; color: #7c2d12;
+      font-weight: 800; padding: 14px 42px; border-radius: 16px; text-decoration: none; font-size: 1rem;
+    }
+    main { flex: 1; max-width: 860px; margin: 0 auto; padding: 40px 20px 24px; }
+    section + section { margin-top: 36px; }
+    h2 { font-size: 1.25rem; font-weight: 800; color: #ff8c5a; margin-bottom: 12px; }
+    p, li { color: #d6d3d1; font-size: .98rem; }
+    ul { padding-right: 20px; }
+    li + li { margin-top: 6px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 18px; }
+    .card strong { display: block; margin-bottom: 4px; color: #f5f5f4; }
+    footer { border-top: 1px solid rgba(255,255,255,.08); padding: 22px 20px; text-align: center; }
+    footer nav a { margin: 0 10px; font-size: .85rem; text-decoration: none; color: #a8a29e; }
+    footer nav a:hover { color: #fff; }
+    .note { font-size: .8rem; color: #78716c; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <span class="logo" aria-hidden="true">🛵</span>
+    <h1>Zest — زيت</h1>
+    <p class="tagline">
+      تطبيق توصيل طعام محلي: تصفّح المطاعم في منطقتك، اطلب بضغطة واحدة،
+      وتابع مندوبك لحظة بلحظة حتى باب بيتك.
+    </p>
+    <a class="cta" href="https://delivery-app-psi-fawn.vercel.app/login">طلب الآن</a>
+  </header>
+
+  <main>
+    <section aria-labelledby="purpose">
+      <h2 id="purpose">ما هو تطبيق زيت؟</h2>
+      <p>
+        زيت منصة توصيل طلبات تربط الزبائن بالمطاعم والمندوبين في نفس المنطقة
+        السكنية. هدفنا تبسيط طلب الطعام: قوائم واضحة، أسعار شفافة، وإشعارات
+        حية بكل خطوة من خطوات طلبك — من تأكيد المطعم حتى لحظة التسليم.
+      </p>
+    </section>
+
+    <section aria-labelledby="features">
+      <h2 id="features">الميزات الأساسية</h2>
+      <div class="grid">
+        <div class="card"><strong>🍽️ مطاعم محلية</strong> تصفّح القوائم واختر أطباقك مع الصور والأسعار.</div>
+        <div class="card"><strong>⏱️ تتبّع حي</strong> تابع حالة طلبك (مقبول → يُحضَّر → في الطريق) لحظة بلحظة.</div>
+        <div class="card"><strong>💵 الدفع عند الاستلام</strong> ادفع نقداً للمندوب عند التسليم بدون تعقيد.</div>
+        <div class="card"><strong>🔔 إشعارات فورية</strong> يصلك إشعار عند جاهزية طلبك وعند خروج المندوب.</div>
+      </div>
+    </section>
+
+    <section aria-labelledby="how">
+      <h2 id="how">كيف يعمل التطبيق؟</h2>
+      <ul>
+        <li>سجّل برقم جوالك عبر رمز تحقق يُرسل برسالة نصية.</li>
+        <li>اختر منطقتك — تُحسب رسوم التوصيل الفعلية حسبها.</li>
+        <li>أضف الأطباق لسلة طلبك وأكّد الطلب.</li>
+        <li>يستلم المطعم طلبك ويعيّنه لمندوب يوصله إليك.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <nav aria-label="روابط قانونية">
+      <a href="/privacy">سياسة الخصوصية</a>
+      <a href="/terms">شروط الاستخدام</a>
+    </nav>
+    <p class="note">
+      للدعم والاستفسارات: support@zest-delivery.app — زيت (Zest Delivery)
+    </p>
+  </footer>
+</body>
+</html>
