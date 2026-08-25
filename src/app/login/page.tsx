@@ -1,14 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import {
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  type ConfirmationResult,
-  type User as FirebaseUser,
-} from "firebase/auth";
+import { signInWithCustomToken, type User as FirebaseUser } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { AppShell } from "@/components/layout/AppShell";
 import { auth, db } from "@/lib/firebase";
@@ -33,33 +28,12 @@ function normalizePhoneE164(input: string, defaultCountryCode = "+970"): string 
   return `${defaultCountryCode}${digits}`;
 }
 
-/** ترجمة أكواد أخطاء Firebase Auth إلى رسائل عربية مفهومة */
-function friendlyAuthError(err: unknown): string {
-  const anyErr = err as { code?: string; message?: string };
-  const code = anyErr?.code || "";
-  console.error("[Login] فشل تسجيل الدخول — التفاصيل الكاملة:", err);
-
-  switch (code) {
-    case "auth/invalid-phone-number":
-      return "رقم الجوال غير صالح — تأكد من الصيغة الدولية (+970)";
-    case "auth/too-many-requests":
-      return "محاولات كثيرة جدا — انتظر قليلا ثم أعد المحاولة";
-    case "auth/quota-exceeded":
-      return "تم استنفاد حصة الرسائل اليوم — أعِد المحاولة لاحقا";
-    case "auth/captcha-check-failed":
-      return "فشل التحقق الأمني (reCAPTCHA) — أعد المحاولة";
-    case "auth/invalid-app-credential":
-      return "خطأ في تهيئة مفتاح التطبيق — تواصل مع الدعم";
-    case "auth/code-expired":
-      return "انتهت صلاحية الرمز — أرسل رمزا جديدا";
-    case "auth/invalid-verification-code":
-      return "رمز التحقق غير صحيح — تأكد من الأرقام الستة";
-    case "auth/internal-error":
-      return "خطأ داخلي من الخادم — تأكد من الإعدادات ثم أعد المحاولة";
-    case "auth/unauthorized-domain":
-      return "النطاق غير مصرح به في Firebase Console";
-    default:
-      return anyErr?.message || "تعذّر إتمام العملية — أعد المحاولة";
+/** يعرض الرقم بعد تحويله إلى E.164 في عنوان خطوة إدخال الرمز */
+function e164Preview(raw: string): string {
+  try {
+    return normalizePhoneE164(raw);
+  } catch {
+    return raw;
   }
 }
 
@@ -69,75 +43,17 @@ function LoginForm() {
   const next = search.get("next") || "/profile";
   const { completePhoneLogin } = useAppStore();
 
-  const [step, setStep] = useState<"phone" | "otp" | "name">("phone");
-  const [fullName, setFullName] = useState("");
+  // خطوات الدخول: إدخال الرقم ← إدخال رمز WhatsApp ← الاسم (لأول مرة فقط)
+  const [step, setStep] = useState<"phone" | "code" | "name">("phone");
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
+  const [code, setCode] = useState("");
+  const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const confirmationRef = useRef<ConfirmationResult | null>(null);
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
-  const pendingUserRef = useRef<FirebaseUser | null>(null);
-  // ✅ يمنع Strict Mode من إنشاء أكثر من متحقق واحد عند إعادة التركيب السريع
-  const creatingRef = useRef(false);
-
-  const RECAPTCHA_ID = "recaptcha-container";
-
-  /**
-   * ✅ متحقق reCAPTCHA خفي (invisible) — تُنشأ نسخة واحدة فقط على العنصر
-   * الثابت id=recaptcha-container، وتُستبدل بنسخة جديدة بعد كل فشل
-   * (المتحقق القديم بعد الفشل يرفض إعادة الاستخدام في SDK الحديث)
-   */
-  const ensureVerifier = (): RecaptchaVerifier | null => {
-    if (typeof window === "undefined") return null;
-    if (recaptchaRef.current) return recaptchaRef.current;
-    const container = document.getElementById(RECAPTCHA_ID);
-    if (!container) {
-      console.error(`[Login] عنصر الحاوية #${RECAPTCHA_ID} غير موجود في DOM`);
-      return null;
-    }
-    // تفريغ أي بقاياกราฟية من متحقق سابق (إن وجدت)
-    container.innerHTML = "";
-    try {
-      creatingRef.current = true;
-      recaptchaRef.current = new RecaptchaVerifier(auth, container, {
-        size: "invisible",
-      });
-      return recaptchaRef.current;
-    } catch (err) {
-      console.error("[Login] فشل إنشاء متحقق reCAPTCHA:", err);
-      return null;
-    } finally {
-      creatingRef.current = false;
-    }
-  };
-
-  /** يمسح المتحقق الحالي بعد فشل الطلب ليتمكن المستخدم من الإعادة */
-  const clearVerifier = () => {
-    if (!recaptchaRef.current) return;
-    try {
-      recaptchaRef.current.clear();
-    } catch (err) {
-      console.warn("[Login] تنظيف reCAPTCHA رمى خطأ:", err);
-    }
-    recaptchaRef.current = null;
-  };
-
-  useEffect(() => {
-    // إنشاء مبكر ليكتمل تحميل سكربت reCAPTCHA قبل ضغط المستخدم
-    ensureVerifier();
-    return () => {
-      // ✅ StrictMode/HMR: نظف نسخة هذه الجلسة فقط عند التفكيك
-      try {
-        recaptchaRef.current?.clear();
-      } catch {
-        /* تجاهل أخطاء التنظيف أثناء التفكيك */
-      }
-      recaptchaRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // الرقم بصيغة E.164 المثبتة بعد الإرسال، ومستخدم أول مرة ينتظر إدخال اسمه
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [pendingUser, setPendingUser] = useState<FirebaseUser | null>(null);
 
   const finishLogin = async (firebaseUser: FirebaseUser, name: string) => {
     const result = await completePhoneLogin(firebaseUser, name);
@@ -158,12 +74,12 @@ function LoginForm() {
     router.replace(safeNext);
   };
 
-  const handleSendCode = async (e: React.FormEvent) => {
+  /** إرسال رمز التحقق عبر WhatsApp من خلال مسار الخادم */
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    // 1) معيار E.164 قبل أي شيء آخر
     const e164Phone = normalizePhoneE164(phone);
     if (!/^\+\d{8,15}$/.test(e164Phone)) {
       setError("رقم غير صالح — أدخله بالصيغة 05XXXXXXXX أو +970XXXXXXXXX");
@@ -171,64 +87,72 @@ function LoginForm() {
       return;
     }
 
-    const verifier = ensureVerifier();
-    if (!verifier) {
-      console.error("[Login] لا يوجد متحقق reCAPTCHA — قد يكون عنصر الحاوية مفقودا");
-      setError("تعذّر تحميل حماية الدخول — حدّث الصفحة وأعد المحاولة");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const confirmation = await signInWithPhoneNumber(auth, e164Phone, verifier);
-      confirmationRef.current = confirmation;
-      setStep("otp");
-    } catch (err: unknown) {
-      // ✅ طباعة الخطأ التفصيلي للمطور + رسالة مفهومة للمستخدم
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: e164Phone }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setError(data?.error || "تعذّر إرسال الرمز — أعد المحاولة");
+        return;
+      }
+      setPhoneNumber(e164Phone);
+      setCode("");
+      setStep("code");
+    } catch (err) {
       console.error("[Login] فشل إرسال الرمز:", err);
-      setError(friendlyAuthError(err));
-      // ✅ المتحقق المستهلك بعد الفشل لا يصلح لإعادة الاستخدام — استبدله
-      clearVerifier();
+      setError("تعذّر الاتصال بالخادم — تحقق من الإنترنت وأعد المحاولة");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = async () => {
-    setOtp("");
-    setError("");
-    setStep("phone");
-  };
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
+  /** التحقق من الرمز ثم الدخول بـ Custom Token من الخادم */
+  const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!confirmationRef.current) {
-      setError("انتهت الجلسة، الرجاء إعادة إرسال الرمز");
-      setStep("phone");
-      return;
-    }
-    if (otp.trim().length < 6) {
+    if (code.trim().length !== 6) {
       setError("أدخل رمز التحقق كاملا (6 أرقام)");
       return;
     }
     setLoading(true);
+
     try {
-      const credential = await confirmationRef.current.confirm(otp.trim());
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, code: code.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success || !data?.customToken) {
+        setError(data?.error || "رمز التحقق غير صحيح — تأكد من الأرقام الستة");
+        return;
+      }
+
+      // الدخول في Firebase Auth مباشرة بالرمز المخصص
+      const credential = await signInWithCustomToken(auth, data.customToken);
       const existingSnap = await getDoc(doc(db, "users", credential.user.uid));
       if (existingSnap.exists()) {
         // ✅ تمرير نص فارغ آمن تماما للمستخدمين الحاليين
         await finishLogin(credential.user, "");
       } else {
-        pendingUserRef.current = credential.user;
+        setPendingUser(credential.user);
         setStep("name");
       }
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("[Login] فشل التحقق من الرمز:", err);
-      setError(friendlyAuthError(err));
+      setError("تعذّر إتمام الدخول — أعد المحاولة أو أرسل رمزا جديدا");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResend = () => {
+    setCode("");
+    setError("");
+    setStep("phone");
   };
 
   const handleSubmitName = async (e: React.FormEvent) => {
@@ -238,14 +162,14 @@ function LoginForm() {
       setError("الرجاء إدخال الاسم الكامل");
       return;
     }
-    if (!pendingUserRef.current) {
+    if (!pendingUser) {
       setError("انتهت الجلسة، الرجاء البدء من جديد");
       setStep("phone");
       return;
     }
     setLoading(true);
     try {
-      await finishLogin(pendingUserRef.current, fullName.trim());
+      await finishLogin(pendingUser, fullName.trim());
     } catch (err) {
       console.error("[Login] فشل إكمال إنشاء الحساب:", err);
       setError("تعذّر حفظ الاسم — أعد المحاولة");
@@ -262,13 +186,13 @@ function LoginForm() {
 
       <h1 className="text-2xl font-extrabold">تسجيل الدخول</h1>
       <p className="mt-1 text-sm text-foreground-muted">
-        {step === "phone" && "أدخل رقم جوالك، وسنرسل لك رمز تحقق عبر رسالة نصية"}
-        {step === "otp" && `أدخل رمز التحقق المرسل إلى ${e164Preview(phone)}`}
+        {step === "phone" && "أدخل رقم جوالك، وسنرسل لك رمز تحقق عبر واتساب"}
+        {step === "code" && `أدخل رمز التحقق المرسل عبر واتساب إلى ${e164Preview(phoneNumber || phone)}`}
         {step === "name" && "أهلاً بك لأول مرة! ما اسمك الكامل؟"}
       </p>
 
       {step === "phone" && (
-        <form onSubmit={handleSendCode} className="glass mt-6 space-y-3 rounded-3xl p-5">
+        <form onSubmit={handleSendOTP} className="glass mt-6 space-y-3 rounded-3xl p-5">
           <label className="block text-xs font-semibold text-foreground-muted">
             رقم الجوال
             <input
@@ -284,7 +208,7 @@ function LoginForm() {
           </label>
           {error && <p className="text-xs font-semibold text-danger">{error}</p>}
           <button type="submit" disabled={loading} className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60">
-            {loading ? "جارِ الإرسال..." : "إرسال رمز التحقق"}
+            {loading ? "جارِ الإرسال..." : "إرسال رمز التحقق عبر واتساب"}
           </button>
           {/* ✅ مطلوب لمراجعة Google OAuth: إفصاح بأن المتابعة موافقة على
               الشروط والسياسة، مع روابط فعلية قابلة للفتح */}
@@ -311,13 +235,13 @@ function LoginForm() {
         </form>
       )}
 
-      {step === "otp" && (
-        <form onSubmit={handleVerifyCode} className="glass mt-6 space-y-3 rounded-3xl p-5">
+      {step === "code" && (
+        <form onSubmit={handleVerifyOTP} className="glass mt-6 space-y-3 rounded-3xl p-5">
           <label className="block text-xs font-semibold text-foreground-muted">
             رمز التحقق (6 أرقام)
             <input
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
               className="mt-1.5 w-full rounded-xl border border-glass-border bg-secondary px-3 py-3 text-center text-lg tracking-[0.5em] text-foreground outline-none"
               inputMode="numeric"
               maxLength={6}
@@ -355,21 +279,8 @@ function LoginForm() {
           </button>
         </form>
       )}
-
-      {/* ✅ عنصر HTML ثابت لمتحقق reCAPTCHA الخفي — يجب أن يبقى موجوداً
-          في كل خطوات الصفحة ودون أي شروط عرض أو إخفاء */}
-      <div id="recaptcha-container" aria-hidden="true"></div>
     </div>
   );
-}
-
-/** يعرض الرقم بعد تحويله إلى E.164 في عنوان الخطوة الثانية */
-function e164Preview(raw: string): string {
-  try {
-    return normalizePhoneE164(raw);
-  } catch {
-    return raw;
-  }
 }
 
 export default function LoginPage() {
