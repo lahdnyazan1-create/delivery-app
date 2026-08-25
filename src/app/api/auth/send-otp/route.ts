@@ -67,16 +67,30 @@ export async function POST(request: Request) {
       expiresAt: now + OTP_TTL_MS,
     });
 
-    // 3) إرسال الرمز عبر WhatsApp (المتغير قد يحوي البادئة مسبقاً أو لا)
+    // 3) إرسال الرمز عبر WhatsApp
     const from = rawWhatsAppNumber.startsWith("whatsapp:")
       ? rawWhatsAppNumber
       : `whatsapp:${rawWhatsAppNumber}`;
     const client = twilio(accountSid, authToken);
-    await client.messages.create({
-      from,
-      to: `whatsapp:${phoneNumber}`,
-      body: `رمز التحقق الخاص بك هو: ${code} — صالح لمدة 5 دقائق. لا تشاركه مع أحد.`,
-    });
+
+    try {
+      // تجربة الإرسال عبر قالب الـ Sandbox المعتمد من Twilio لتفادي خطأ ContentSid Required
+      await client.messages.create({
+        from,
+        to: `whatsapp:${phoneNumber}`,
+        contentSid: "HX229f5715927781b1c099b794f923b378",
+        contentVariables: JSON.stringify({ "1": code }),
+      });
+    } catch (primaryError) {
+      console.warn("[send-otp] فشل الإرسال عبر contentSid، التجربة عبر body المباشر:", primaryError);
+      
+      // محاولة بديلة بنص مباشر بالإنجليزية لحالات الحسابات المحدثة
+      await client.messages.create({
+        from,
+        to: `whatsapp:${phoneNumber}`,
+        body: `Your Zest verification code is: ${code}`,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
