@@ -1,6 +1,6 @@
 // src/app/api/auth/send-otp/route.ts
 // ============================================================================
-// يرسل رمز تحقق (OTP) من 6 أرقام عبر WhatsApp باستخدام Twilio Content API، 
+// يرسل رمز تحقق (OTP) من 6 أرقام عبر WhatsApp باستخدام Twilio Direct Body، 
 // ويخزنه في Firestore ضمن مجموعة otp_codes (مع صلاحية 5 دقائق).
 // ============================================================================
 
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       expiresAt: now + OTP_TTL_MS,
     });
 
-    // 3) إرسال الرمز عبر WhatsApp باستخدام Content API فقط
+    // 3) إرسال الرمز عبر WhatsApp باستخدام النص المباشر (body)
     const from = rawWhatsAppNumber.startsWith("whatsapp:")
       ? rawWhatsAppNumber
       : `whatsapp:${rawWhatsAppNumber}`;
@@ -75,11 +75,9 @@ export async function POST(request: Request) {
     await client.messages.create({
       from,
       to: `whatsapp:${phoneNumber}`,
-      contentSid: "HX229f5715927781b1c099b794f923b378",
-      contentVariables: JSON.stringify({
-        "1": code,
-      }),
+      body: `رمز التحقق الخاص بك هو: ${code}`,
     });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[send-otp] فشل إرسال الرمز:", error);
