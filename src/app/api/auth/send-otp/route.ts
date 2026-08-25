@@ -1,8 +1,7 @@
 // src/app/api/auth/send-otp/route.ts
 // ============================================================================
-// يرسل رمز تحقق (OTP) من 6 أرقام عبر WhatsApp باستخدام Twilio، ويخزنه في
-// Firestore ضمن مجموعة otp_codes (مع صلاحية 5 دقائق) ليتحقق منه مسار
-// /api/auth/verify-otp لاحقاً.
+// يرسل رمز تحقق (OTP) من 6 أرقام عبر WhatsApp باستخدام Twilio Content API، 
+// ويخزنه في Firestore ضمن مجموعة otp_codes (مع صلاحية 5 دقائق).
 // ============================================================================
 
 import { NextResponse } from "next/server";
@@ -67,30 +66,21 @@ export async function POST(request: Request) {
       expiresAt: now + OTP_TTL_MS,
     });
 
-    // 3) إرسال الرمز عبر WhatsApp
+    // 3) إرسال الرمز عبر WhatsApp باستخدام Content API فقط
     const from = rawWhatsAppNumber.startsWith("whatsapp:")
       ? rawWhatsAppNumber
       : `whatsapp:${rawWhatsAppNumber}`;
     const client = twilio(accountSid, authToken);
 
-    try {
-      // تجربة الإرسال عبر قالب الـ Sandbox المعتمد من Twilio لتفادي خطأ ContentSid Required
-      await client.messages.create({
-        from,
-        to: `whatsapp:${phoneNumber}`,
-        contentSid: "HX229f5715927781b1c099b794f923b378",
-        contentVariables: JSON.stringify({ "1": code }),
-      });
-    } catch (primaryError) {
-      console.warn("[send-otp] فشل الإرسال عبر contentSid، التجربة عبر body المباشر:", primaryError);
-      
-      // محاولة بديلة بنص مباشر بالإنجليزية لحالات الحسابات المحدثة
-      await client.messages.create({
-        from,
-        to: `whatsapp:${phoneNumber}`,
-        body: `Your Zest verification code is: ${code}`,
-      });
-    }
+    await client.messages.create({
+      from,
+      to: `whatsapp:${phoneNumber}`,
+      contentSid: "HXb5b62575e6e4ff6129ad7c8efe1f983e",
+      contentVariables: JSON.stringify({
+        "1": code,
+        "2": "5 minutes",
+      }),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
