@@ -75,13 +75,11 @@ export async function POST(request: Request) {
     await client.messages.create({
       from,
       to: `whatsapp:${phoneNumber}`,
-      contentSid: "HXb5b62575e6e4ff6129ad7c8efe1f983e",
+      contentSid: "HX229f5715927781b1c099b794f923b378",
       contentVariables: JSON.stringify({
         "1": code,
-        "2": "5 minutes",
       }),
     });
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[send-otp] فشل إرسال الرمز:", error);
