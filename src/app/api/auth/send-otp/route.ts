@@ -3,80 +3,69 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 
-const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_TTL_MS = 5 * 60 * 1000; // صلاحية الرمز 5 دقائق
 
 /**
- * دالة لتنظيف الرقم وإرجاع الصيغة الدولية دون فرض مقدمة واحدة
+ * تنظيف الرقم واستخراج الرقم بدون مقدمة محليّة
  */
 function cleanPhoneNumber(phone: string): string {
   let cleaned = phone.replace(/[\s\-\(\)\+]/g, "");
-  if (cleaned.startsWith("00")) {
-    cleaned = cleaned.slice(2);
-  }
+  if (cleaned.startsWith("00")) cleaned = cleaned.slice(2);
+  if (cleaned.startsWith("05")) cleaned = cleaned.slice(1);
   return cleaned;
 }
 
 /**
- * دالة للتحقق من أي المقدمتين (+970 أو +972) لديها حساب واتساب فعّال
+ * جلب chatId الصحيح للواتساب مع اعتماد 972 كافتراضي
  */
-async function getValidWhatsAppChatId(
+async function getWhatsAppChatId(
   rawPhone: string,
   idInstance: string,
   tokenInstance: string
 ): Promise<string> {
-  const cleaned = cleanPhoneNumber(rawPhone);
+  let cleaned = rawPhone.replace(/[\s\-\(\)\+]/g, "");
+  if (cleaned.startsWith("00")) cleaned = cleaned.slice(2);
 
-  // إذا أدخل المستخدم الرقم كاملاً بالمقدمة (مثلاً: 97059xxx أو 97259xxx)
-  if (cleaned.startsWith("970") || cleaned.startsWith("972")) {
-    return `${cleaned}@c.us`;
-  }
+  // إذا أدخل المستخدم المقدمة بيده صراحة (+970 أو +972)
+  if (cleaned.startsWith("970")) return `${cleaned}@c.us`;
+  if (cleaned.startsWith("972")) return `${cleaned}@c.us`;
 
-  // إذا كان الرقم محلياً (يبدأ بـ 05 أو 5)
-  const localNum = cleaned.startsWith("05") ? cleaned.slice(1) : cleaned;
+  const baseNumber = cleanPhoneNumber(rawPhone);
 
-  const candidate970 = `970${localNum}`;
-  const candidate972 = `972${localNum}`;
-
-  // الاستعلام من Green API للتحقق من أيهما له حساب واتساب
+  // فحص الحساب عبر Green API لارسال الرمز للمقدمة الشغالة فعلياً
   const checkUrl = `https://7107.api.greenapi.com/waInstance${idInstance}/checkWhatsApp/${tokenInstance}`;
 
+  // 1) الفحص على 972 أولاً (الافتراضي)
   try {
-    // 1. فحص مقدمة 970
-    const res970 = await fetch(checkUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phoneNumber: candidate970 }),
-    });
-    const data970 = await res970.json();
-
-    if (data970?.existsWhatsApp) {
-      return `${candidate970}@c.us`;
-    }
-
-    // 2. فحص مقدمة 972
     const res972 = await fetch(checkUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phoneNumber: candidate972 }),
+      body: JSON.stringify({ phoneNumber: `972${baseNumber}` }),
     });
     const data972 = await res972.json();
+    if (data972?.existsWhatsApp) return `972${baseNumber}@c.us`;
+  } catch (e) {}
 
-    if (data972?.existsWhatsApp) {
-      return `${candidate972}@c.us`;
-    }
-  } catch (err) {
-    console.error("[Check WhatsApp Failed]:", err);
-  }
+  // 2) الفحص على 970 كخيار ثانٍ
+  try {
+    const res970 = await fetch(checkUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber: `970${baseNumber}` }),
+    });
+    const data970 = await res970.json();
+    if (data970?.existsWhatsApp) return `970${baseNumber}@c.us`;
+  } catch (e) {}
 
-  // افتراضي في حال عدم الربط أو حدوث خطأ
-  return `${candidate970}@c.us`;
+  // 3) الافتراضي النهائي: 972
+  return `972${baseNumber}@c.us`;
 }
 
 export async function POST(request: Request) {
   try {
     if (!adminDb) {
       return NextResponse.json(
-        { success: false, error: "Firebase Admin غير مهيأ على الخادم" },
+        { success: false, error: "Firebase Admin غير مهيأ" },
         { status: 500 }
       );
     }
@@ -96,8 +85,8 @@ export async function POST(request: Request) {
       process.env.GREEN_API_TOKEN_INSTANCE ||
       "a24617774db045c89faf404a141868036548e27145d9498baf";
 
-    // تحديد الـ chatId الصحيح (سواء 970 أو 972)
-    const chatId = await getValidWhatsAppChatId(
+    // تحديد الـ chatId مع جعل 972 هو الافتراضي
+    const chatId = await getWhatsAppChatId(
       rawPhone,
       idInstance,
       tokenInstance
@@ -117,23 +106,19 @@ export async function POST(request: Request) {
     // إرسال الرسالة عبر Green API
     const sendUrl = `https://7107.api.greenapi.com/waInstance${idInstance}/sendMessage/${tokenInstance}`;
 
-    const payload = {
-      chatId: chatId,
-      message: `رمز التحقق الخاص بك في Zest هو: ${code}`,
-    };
-
     const response = await fetch(sendUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chatId: chatId,
+        message: `رمز التحقق الخاص بك في Zest هو: ${code}`,
+      }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("[Green API Send Error]:", data);
+      console.error("[Green API Error]:", data);
       return NextResponse.json(
         { success: false, error: "فشل إرسال الرسالة عبر Green API" },
         { status: 500 }
