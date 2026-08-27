@@ -98,21 +98,31 @@ export const placeOrder = onCall<PlaceOrderInput>(
         throw new HttpsError("permission-denied", "فقط الزبائن يمكنهم تقديم الطلبات");
       }
 
-      // ✅ معالجة كود الدعوة: البحث عن الشوفير صاحب الكود
-      let preferredCourierId: string | null = null;
-      if (referralCode) {
+      // ✅ تحديد الشوفير المفضل:
+      //    1) الشوفير المرتبط بالزبون عبر كود الدعوة عند التسجيل (referredByCourierId)
+      //       — كل طلبات هذا الزبون تُوجَّه له تلقائيا
+      //    2) الكود الممرر مع الطلب نفسه (توافق قديم للزبائن غير المرتبطين)
+      let preferredCourierId: string | null =
+        typeof userData.referredByCourierId === "string" ? userData.referredByCourierId : null;
+
+      if (preferredCourierId) {
+        // التأكد أن حساب الشوفير ما يزال قائما وبدور courier
+        const courierSnap = await t.get(db.doc(`users/${preferredCourierId}`));
+        if (!courierSnap.exists || courierSnap.data()?.role !== "courier") {
+          preferredCourierId = null;
+        }
+      } else if (referralCode) {
         const couriersQuery = await db.collection('users')
           .where('role', '==', 'courier')
           .where('referralCode', '==', referralCode)
           .limit(1)
           .get();
-        
+
         if (couriersQuery.empty) {
           throw new HttpsError("invalid-argument", "كود الدعوة غير صحيح");
         }
-        
-        const courierDoc = couriersQuery.docs[0];
-        preferredCourierId = courierDoc.id;
+
+        preferredCourierId = couriersQuery.docs[0].id;
       }
 
       const restaurantRef = db.doc(`restaurants/${restaurantId}`);
@@ -690,5 +700,73 @@ export const generateCourierReferralCode = onCall(
     });
 
     return { ok: true, referralCode };
+  }
+);
+
+/**
+ * ✅ ربط زبون جديد بشوفير عبر كود الدعوة — مرة واحدة عند التسجيل لأول مرة.
+ *    بعد الربط تُوجَّه كل طلبات هذا الزبون تلقائياً للشوفير صاحب الكود
+ *    (مع مهلة 5 دقائق للقبول قبل تحرير الطلب لبقية المندوبين).
+ */
+export const applyReferralCode = onCall(
+  { region: "europe-west1", memory: "256MiB", timeoutSeconds: 30 },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "يجب تسجيل الدخول");
+
+    const code = typeof request.data?.code === "string" ? request.data.code.trim().toUpperCase() : "";
+    if (!code) throw new HttpsError("invalid-argument", "أدخل كود الدعوة");
+    if (!/^[A-Z0-9]{4,16}$/.test(code)) throw new HttpsError("invalid-argument", "صيغة كود الدعوة غير صحيحة");
+
+    const userSnap = await db.doc(`users/${uid}`).get();
+    if (!userSnap.exists) throw new HttpsError("not-found", "المستخدم غير موجود");
+    const userData = userSnap.data()!;
+
+    if (userData.role !== "customer") {
+      throw new HttpsError("permission-denied", "فقط الزبائن يمكنهم ربط كود دعوة");
+    }
+    if (userData.referredByCourierId) {
+      throw new HttpsError("failed-precondition", "حسابك مرتبط بالفعل بشوفير — لا يمكن تغييره");
+    }
+
+    const couriersQuery = await db.collection("users")
+      .where("role", "==", "courier")
+      .where("referralCode", "==", code)
+      .limit(1)
+      .get();
+    if (couriersQuery.empty) {
+      throw new HttpsError("not-found", "كود الدعوة غير صحيح — تأكد منه مع الشوفير");
+    }
+
+    const courierDoc = couriersQuery.docs[0];
+    const courierName = courierDoc.data()?.displayName || "الشوفير";
+
+    await db.doc(`users/${uid}`).update({
+      referredByCourierId: courierDoc.id,
+      referredByCode: code,
+      updatedAt: Timestamp.now(),
+    });
+
+    // إشعار الشوفير بانضمام زبون جديد عبر كوده
+    try {
+      await db.collection("notifications").add({
+        userId: courierDoc.id,
+        title: "زبون جديد انضم بكودك 🎉",
+        body: `${userData.displayName || userData.phone || "زبون جديد"} استخدم الكود ${code} — طلباته ستُوجَّه إليك تلقائياً.`,
+        type: "referral_customer_joined",
+        createdAt: Timestamp.now(),
+        read: false,
+      });
+      await sendPushToUser(
+        courierDoc.id,
+        "زبون جديد انضم بكودك 🎉",
+        `${userData.displayName || "زبون جديد"} انضم بالكود ${code} — طلباته ستصل إليك أولاً.`,
+        { url: "/driver", tag: `referral-${uid}` },
+      );
+    } catch (e) {
+      console.warn("فشل إرسال إشعار الإحالة:", e);
+    }
+
+    return { ok: true, courierName };
   }
 );
