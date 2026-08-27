@@ -1,95 +1,107 @@
-// src/app/api/auth/send-otp/route.ts
-// ============================================================================
-// يرسل رمز تحقق (OTP) من 6 أرقام عبر WhatsApp باستخدام Twilio Content API، 
-// ويخزنه في Firestore ضمن مجموعة otp_codes (مع صلاحية 5 دقائق).
-// ============================================================================
-
 import { NextResponse } from "next/server";
-import twilio from "twilio";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 
-/** صلاحية رمز التحقق: 5 دقائق */
-const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_TTL_MS = 5 * 60 * 1000; // مدة صلاحية الرمز (5 دقائق)
 
-/** يبقي الرقم بصيغة E.164 الدولية فقط (+ ثم 8-15 رقماً) */
-function isValidE164(phone: string): boolean {
-  return /^\+\d{8,15}$/.test(phone);
+/**
+ * دالة لتنظيف الرقم وتنسيقه حسب صيغة Green API (مثال: 97259xxxxxxx)
+ */
+function formatPhoneNumberForGreenAPI(phone: string): string {
+  // إزالة الأقواس، المسافات، الشرطات، وعلامة +
+  let cleaned = phone.replace(/[\s\-\(\)\+]/g, "");
+
+  // إذا بدأ بـ 00، قم بإزالتها
+  if (cleaned.startsWith("00")) {
+    cleaned = cleaned.slice(2);
+  }
+
+  // تحويل الأرقام المحلية التي تبدأ بـ 05 إلى المقدمة الدولية 972
+  if (cleaned.startsWith("05")) {
+    cleaned = "972" + cleaned.slice(1);
+  } else if (cleaned.startsWith("5")) {
+    cleaned = "972" + cleaned;
+  }
+
+  return cleaned;
 }
 
 export async function POST(request: Request) {
   try {
-    if (!adminAuth || !adminDb) {
+    if (!adminDb) {
       return NextResponse.json(
-        { success: false, error: "Firebase Admin غير مهيأ على الخادم — تحقق من متغيرات البيئة" },
-        { status: 500 },
+        { success: false, error: "Firebase Admin غير مهيأ على الخادم" },
+        { status: 500 }
       );
     }
 
-    let body: { phoneNumber?: string };
-    try {
-      body = await request.json();
-    } catch {
+    const body = await request.json();
+    const rawPhone = body.phoneNumber?.trim() ?? "";
+
+    if (!rawPhone) {
       return NextResponse.json(
-        { success: false, error: "جسم الطلب غير صالح — يجب أن يكون JSON" },
-        { status: 400 },
+        { success: false, error: "رقم الهاتف مطلوب" },
+        { status: 400 }
       );
     }
 
-    const phoneNumber = body.phoneNumber?.trim() ?? "";
-    if (!isValidE164(phoneNumber)) {
-      return NextResponse.json(
-        { success: false, error: "رقم الهاتف غير صالح — يجب أن يكون بالصيغة الدولية مثل +970598531267" },
-        { status: 400 },
-      );
-    }
+    // 1) تنظيف الرقم وتجهيز الـ chatId الخاص بـ Green API
+    const formattedPhone = formatPhoneNumberForGreenAPI(rawPhone);
+    const chatId = `${formattedPhone}@c.us`;
 
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const rawWhatsAppNumber = process.env.TWILIO_WHATSAPP_NUMBER;
-    const contentSid = process.env.TWILIO_CONTENT_SID || "HX229f5715927781b1c099b794f923b378";
+    // 2) بيانات الحساب من ملف البيئة .env.local (أو قيم افتراضية)
+    const idInstance = process.env.GREEN_API_ID_INSTANCE || "710722720854";
+    const tokenInstance =
+      process.env.GREEN_API_TOKEN_INSTANCE ||
+      "a24617774db045c89faf404a141868036548e27145d9498baf";
 
-    if (!accountSid || !authToken || !rawWhatsAppNumber) {
-      return NextResponse.json(
-        { success: false, error: "إعدادات Twilio ناقصة على الخادم" },
-        { status: 500 },
-      );
-    }
-
-    // 1) توليد رمز من 6 أرقام
+    // 3) توليد رمز تحقق عشوائي من 6 أرقام
     const code = String(Math.floor(100000 + Math.random() * 900000));
 
-    // 2) تخزين الرمز في Firestore بصلاحية 5 دقائق
+    // 4) حفظ الرمز في Firestore للتحقق منه لاحقاً
     const now = Date.now();
-    await adminDb.collection("otp_codes").doc(phoneNumber).set({
+    await adminDb.collection("otp_codes").doc(rawPhone).set({
       code,
       createdAt: now,
       expiresAt: now + OTP_TTL_MS,
     });
 
-    // 3) إرسال الرمز عبر WhatsApp باستخدام Content API
-    const from = rawWhatsAppNumber.startsWith("whatsapp:")
-      ? rawWhatsAppNumber
-      : `whatsapp:${rawWhatsAppNumber}`;
-    const client = twilio(accountSid, authToken);
+    // 5) إرسال الرسالة عبر Green API (طريقة مطابقة لـ requests في بايثون)
+    const url = `https://7107.api.greenapi.com/waInstance${idInstance}/sendMessage/${tokenInstance}`;
 
-    await client.messages.create({
-      from,
-      to: `whatsapp:${phoneNumber}`,
-      contentSid: contentSid,
-      contentVariables: JSON.stringify({
-        "1": code,
-      }),
+    const payload = {
+      chatId: chatId,
+      message: `رمز التحقق الخاص بك في Zest هو: ${code}`,
+    };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
 
-    return NextResponse.json({ success: true });
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("[Green API Error]:", data);
+      return NextResponse.json(
+        { success: false, error: "فشل إرسال الرسالة عبر Green API" },
+        { status: 500 }
+      );
+    }
+
+    console.log("[Green API Success]:", data);
+
+    return NextResponse.json({ success: true, phone: formattedPhone });
   } catch (error) {
-    console.error("[send-otp] فشل إرسال الرمز:", error);
+    console.error("[send-otp Error]:", error);
     const message = error instanceof Error ? error.message : "خطأ غير متوقع";
     return NextResponse.json(
-      { success: false, error: `تعذّر إرسال رمز التحقق: ${message}` },
-      { status: 500 },
+      { success: false, error: `تعذّر إرسال الرمز: ${message}` },
+      { status: 500 }
     );
   }
 }
