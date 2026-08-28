@@ -13,6 +13,10 @@ export interface UserProfile {
   updatedAt?: number;
   /** كود دعوة المندوب — يُدار عبر Cloud Function فقط */
   referralCode?: string;
+  /** الشوفير المرتبط بهذا الزبون عبر كود الدعوة عند التسجيل (مرة واحدة) */
+  referredByCourierId?: string | null;
+  /** كود الدعوة الذي استخدمه الزبون عند الربط */
+  referredByCode?: string | null;
   /** توكنات Push للإشعارات */
   fcmTokens?: string[];
 }
@@ -152,7 +156,8 @@ export interface Order {
   /** نظام كود الإحالة — السائق المفضل وحالة دعوته */
   preferredCourierId?: string | null;
   courierInviteStatus?: "pending" | "accepted" | "rejected" | "expired" | null;
-  courierInviteExpiresAt?: number | null;
+  /** تصل من Firestore كـ Timestamp (toMillis) أو رقم ملي ثانية بعد التحويل */
+  courierInviteExpiresAt?: number | { toMillis: () => number } | null;
 }
 
 export interface PromoCode {

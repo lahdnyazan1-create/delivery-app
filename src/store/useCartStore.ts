@@ -14,8 +14,6 @@ interface CartState {
   selectedZoneId: string | null;
   deliveryAddressDetails: string;
   orderNotes: string;
-  /** كود دعوة سائق مفضل (اختياري) — يُمرَّر للخادم مع الطلب */
-  referralCode: string;
 
   addToCart: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => { ok: boolean; message?: string; conflict?: boolean };
   replaceCartAndAdd: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => void;
@@ -27,7 +25,6 @@ interface CartState {
   setSelectedZoneId: (zoneId: string | null) => void;
   setDeliveryAddressDetails: (details: string) => void;
   setOrderNotes: (notes: string) => void;
-  setReferralCode: (code: string) => void;
   getCartTotal: () => { subtotal: number; discount: number; deliveryFee: number; total: number };
 }
 
@@ -41,7 +38,6 @@ export const useCartStore = create<CartState>()(
       selectedZoneId: null,
       deliveryAddressDetails: "",
       orderNotes: "",
-      referralCode: "",
 
       addToCart: (dishId, restaurantId, notes = "", selectedAddons = []) => {
         const state = get();
@@ -103,7 +99,6 @@ export const useCartStore = create<CartState>()(
       setSelectedZoneId: (zoneId) => set({ selectedZoneId: zoneId }),
       setDeliveryAddressDetails: (details) => set({ deliveryAddressDetails: details }),
       setOrderNotes: (notes) => set({ orderNotes: notes }),
-      setReferralCode: (code) => set({ referralCode: code.trim().toUpperCase() }),
 
       getCartTotal: () => {
         const { cart, appliedPromoPercent, selectedZoneId } = get();
@@ -124,7 +119,6 @@ export const useCartStore = create<CartState>()(
         selectedZoneId: state.selectedZoneId,
         deliveryAddressDetails: state.deliveryAddressDetails,
         orderNotes: state.orderNotes,
-        referralCode: state.referralCode,
       }),
     },
   ),

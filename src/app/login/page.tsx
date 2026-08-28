@@ -8,6 +8,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { AppShell } from "@/components/layout/AppShell";
 import { auth, db } from "@/lib/firebase";
 import { useAppStore } from "@/store/useAppStore";
+import { applyReferralCode } from "@/lib/orders";
 
 /**
  * معيار رقم الهاتف الدولي E.164
@@ -48,6 +49,8 @@ function LoginForm() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [fullName, setFullName] = useState("");
+  // ✅ كود دعوة الشوفير — اختياري، يُربط بالحساب مرة واحدة عند أول تسجيل
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -55,12 +58,28 @@ function LoginForm() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pendingUser, setPendingUser] = useState<FirebaseUser | null>(null);
 
-  const finishLogin = async (firebaseUser: FirebaseUser, name: string) => {
+  const finishLogin = async (
+    firebaseUser: FirebaseUser,
+    name: string,
+    withInviteCode?: string,
+  ) => {
     const result = await completePhoneLogin(firebaseUser, name);
     if (!result.ok) {
       setError(result.message);
       return;
     }
+
+    // ✅ كود الدعوة (أول تسجيل فقط): يُربط بالحساب قبل التحويل حتى تتوجه
+    //    كل طلبات الزبون للشوفير صاحب الكود. عند فشل الربط يبقى المستخدم
+    //    في هذه الشاشة ليصحح الكود أو يمسحه ويتابع بدونه
+    if (withInviteCode && withInviteCode.trim()) {
+      const applied = await applyReferralCode(withInviteCode);
+      if (!applied.ok) {
+        setError(`${applied.message} — صحّح الكود أو امسحه للمتابعة بدونه`);
+        return;
+      }
+    }
+
     const allowedPaths = [
       "/",
       "/profile",
@@ -169,7 +188,7 @@ function LoginForm() {
     }
     setLoading(true);
     try {
-      await finishLogin(pendingUser, fullName.trim());
+      await finishLogin(pendingUser, fullName.trim(), inviteCode);
     } catch (err) {
       console.error("[Login] فشل إكمال إنشاء الحساب:", err);
       setError("تعذّر حفظ الاسم — أعد المحاولة");
@@ -273,6 +292,22 @@ function LoginForm() {
               required
             />
           </label>
+          {/* ✅ كود دعوة الشوفير — اختياري ولمرة واحدة: بعده تُوجَّه كل طلبات
+              هذا الزبون تلقائيا للشوفير صاحب الكود */}
+          <label className="block text-xs font-semibold text-foreground-muted">
+            كود الدعوة (اختياري)
+            <input
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              className="mt-1.5 w-full rounded-xl border border-glass-border bg-secondary px-3 py-3 text-center text-sm font-bold tracking-widest text-foreground outline-none"
+              placeholder="مثال: DRV1A2B3C4D"
+              dir="ltr"
+              maxLength={16}
+            />
+          </label>
+          <p className="text-[11px] leading-relaxed text-foreground-muted">
+            إذا سجّلت عبر شوفير معيّن أدخل كوده هنا لتصل طلباتك إليه تلقائيا في كل مرة
+          </p>
           {error && <p className="text-xs font-semibold text-danger">{error}</p>}
           <button type="submit" disabled={loading} className="no-select touch-target w-full rounded-2xl bg-primary py-3.5 text-sm font-bold text-white disabled:opacity-60">
             {loading ? "جارِ الحفظ..." : "متابعة"}

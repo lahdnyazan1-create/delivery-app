@@ -59,7 +59,6 @@ export const useAppStore = () => {
   const selectedZoneId = useCartStore((s) => s.selectedZoneId);
   const deliveryAddressDetails = useCartStore((s) => s.deliveryAddressDetails);
   const orderNotes = useCartStore((s) => s.orderNotes);
-  const referralCode = useCartStore((s) => s.referralCode);
   const setSelectedZoneId = useCartStore((s) => s.setSelectedZoneId);
   const setDeliveryAddressDetails = useCartStore((s) => s.setDeliveryAddressDetails);
   const setOrderNotes = useCartStore((s) => s.setOrderNotes);
@@ -158,7 +157,6 @@ export const useAppStore = () => {
         deliveryAddressDetails,
         orderNotes,
         paymentMethod,
-        referralCode: referralCode || null,
         // ✅ إحداثيات GPS المحفوظة بالبروفايل (إن وُجدت) تُرفق تلقائياً
         // لزيادة موثوقية الموقع لدى المندوب، دون إجبار المستخدم على أي خطوة إضافية
         customerLat: user?.lat ?? null,

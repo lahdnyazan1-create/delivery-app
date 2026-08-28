@@ -16,7 +16,6 @@ export interface PlaceOrderPayload {
   customerLat?: number | null;
   customerLng?: number | null;
   paymentMethod?: PaymentMethod;
-  referralCode?: string | null;
 }
 
 export interface PlaceOrderResponse {
@@ -40,10 +39,9 @@ export async function placeOrder(params: {
   paymentMethod?: PaymentMethod;
   customerLat?: number | null;
   customerLng?: number | null;
-  referralCode?: string | null;
   idempotencyKey?: string;
 }): Promise<{ ok: true; orderId: string; order: Order } | { ok: false; message: string }> {
-  const { restaurantId, cart, promoCode = null, zoneId, deliveryAddressDetails, orderNotes, paymentMethod, customerLat = null, customerLng = null, referralCode = null, idempotencyKey } = params;
+  const { restaurantId, cart, promoCode = null, zoneId, deliveryAddressDetails, orderNotes, paymentMethod, customerLat = null, customerLng = null, idempotencyKey } = params;
 
   if (cart.length === 0) return { ok: false, message: "السلة فارغة" };
   if (!restaurantId) return { ok: false, message: "لم يتم تحديد مطعم" };
@@ -61,7 +59,6 @@ export async function placeOrder(params: {
       deliveryAddressDetails: deliveryAddressDetails.trim(),
       orderNotes: orderNotes?.trim() || "",
       paymentMethod,
-      referralCode,
       customerLat,
       customerLng,
     });
@@ -183,6 +180,26 @@ export async function respondToCourierInvite(
     return { ok: true, message: accept ? "تم قبول الدعوة" : "تم رفض الدعوة" };
   } catch (error: unknown) {
     return { ok: false, message: extractErrorMessage(error, "تعذّر تنفيذ الرد") };
+  }
+}
+
+const applyReferralFn = httpsCallable<{ code: string }, { ok: boolean; courierName?: string }>(
+  functionsRegional,
+  "applyReferralCode",
+);
+
+/**
+ * ربط كود دعوة الزبون بحسابه — مرة واحدة عند التسجيل لأول مرة.
+ * بعده تُوجَّه كل طلبات الزبون تلقائياً للشوفير صاحب الكود.
+ */
+export async function applyReferralCode(
+  code: string,
+): Promise<{ ok: true; courierName?: string } | { ok: false; message: string }> {
+  try {
+    const res = await applyReferralFn({ code: code.trim().toUpperCase() });
+    return { ok: true, courierName: res.data.courierName };
+  } catch (error: unknown) {
+    return { ok: false, message: extractErrorMessage(error, "تعذّر ربط كود الدعوة") };
   }
 }
 

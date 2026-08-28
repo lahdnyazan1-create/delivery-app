@@ -33,6 +33,7 @@ import { getMyReferralCode, respondToCourierInvite } from "@/lib/orders";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { formatPrice } from "@/constants/currency";
+import type { Order } from "@/types/database";
 
 function DriverDashboardContent() {
   const router = useRouter();
@@ -93,6 +94,34 @@ function DriverDashboardContent() {
       ),
     [orders, user],
   );
+
+  // ✅ عداد تنازلي حي لمهلة القبول (5 دقائق) — تكّ كل ثانية فقط أثناء
+  //    وجود دعوات معلقة، ويُحوّل Timestamp/رقم الملي ثانية إلى نص متبقي
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    if (pendingInvites.length === 0) return;
+    setNowTs(Date.now());
+    const timer = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [pendingInvites.length]);
+
+  const inviteRemainingMs = (invite: Order): number => {
+    const exp = invite.courierInviteExpiresAt;
+    const expiresMs =
+      exp && typeof exp === "object" && typeof exp.toMillis === "function"
+        ? exp.toMillis()
+        : typeof exp === "number"
+          ? exp
+          : 0;
+    return Math.max(0, expiresMs - nowTs);
+  };
+
+  const formatRemaining = (ms: number): string => {
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
 
   const handleInviteResponse = async (orderId: string, accept: boolean) => {
     setRespondingTo(orderId);
@@ -247,12 +276,27 @@ function DriverDashboardContent() {
       {/* ✅ دعوات الأولوية المعلّقة — للسائق المدعو 5 دقائق للقبول قبل تحرير الطلب */}
       {pendingInvites.length > 0 && (
         <div className="mb-5 space-y-3">
-          {pendingInvites.map((invite) => (
+          {pendingInvites.map((invite) => {
+            const remainingMs = inviteRemainingMs(invite);
+            return (
             <div key={invite.id} className="glass rounded-2xl border border-primary/40 p-4" role="alert">
-              <p className="text-sm font-extrabold text-primary">🔔 دعوة أولوية من زبونك!</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-extrabold text-primary">🔔 دعوة أولوية من زبونك!</p>
+                {/* ✅ الوقت المتبقي للقبول قبل تحرير الطلب لجميع المندوبين */}
+                <span
+                  dir="ltr"
+                  className={`shrink-0 rounded-lg px-2 py-1 font-mono text-sm font-extrabold ${
+                    remainingMs > 0
+                      ? "bg-primary/10 text-primary"
+                      : "bg-danger/10 text-danger"
+                  }`}
+                >
+                  {remainingMs > 0 ? `⏳ ${formatRemaining(remainingMs)}` : "⌛ يُحرَّر الآن…"}
+                </span>
+              </div>
               <p className="mt-1 text-xs text-foreground-muted">
-                طلب #{invite.id?.slice(0, 6)} من {invite.customerName} — لديك 5 دقائق للقبول قبل
-                تحرير الطلب لجميع المندوبين.
+                طلب #{invite.id?.slice(0, 6)} من {invite.customerName} — اقبله قبل انتهاء المهلة
+                وإلا سيتحرر الطلب لجميع المندوبين.
               </p>
               <div className="mt-3 flex gap-2">
                 <button
@@ -273,7 +317,8 @@ function DriverDashboardContent() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
