@@ -201,9 +201,14 @@ export const placeOrder = onCall<PlaceOrderInput>(
       // ✅ الإصلاح: إضافة paymentMethod و customerLat/customerLng للطلب
       // ✅ إضافة preferredCourierId للطلب
       const newOrder = {
+        id: orderRef.id,
         restaurantId, restaurantName: restaurant.name, items: orderItems, subtotal, discount, deliveryFee, total,
         promoCode: validatedPromoCode, status: "Pending", createdAt: now, updatedAt: now,
-        customerName: userData.displayName || userData.phone, customerPhone: userData.phone,
+        // ✅ التسجيل الجديد بالبريد: الهاتف يُدخل يدوياً وقد يغيب أو يتأخر
+        //    على الحسابات القديمة — الاسم يسقط للبريد ثم للهاتف كخيار أخير
+        customerName: userData.displayName || userData.email || userData.phone || "زبون",
+        customerPhone: userData.phone || "",
+        etaMinutes: restaurant.etaMinutes || 25,
         deliveryAddress: userData.address || deliveryAddressDetails, deliveryAddressDetails, zoneId, userId: uid,
         orderNotes: (typeof orderNotes === "string" ? orderNotes.trim() : "").slice(0, 500), // ✅ ملاحظات العميل (حتى 500 حرف)
         paymentMethod: "CASH", // ✅ ثابت: الدفع عند الاستلام فقط
@@ -752,7 +757,7 @@ export const applyReferralCode = onCall(
       await db.collection("notifications").add({
         userId: courierDoc.id,
         title: "زبون جديد انضم بكودك 🎉",
-        body: `${userData.displayName || userData.phone || "زبون جديد"} استخدم الكود ${code} — طلباته ستُوجَّه إليك تلقائياً.`,
+        body: `${userData.displayName || userData.email || userData.phone || "زبون جديد"} استخدم الكود ${code} — طلباته ستُوجَّه إليك تلقائياً.`,
         type: "referral_customer_joined",
         createdAt: Timestamp.now(),
         read: false,
@@ -768,5 +773,148 @@ export const applyReferralCode = onCall(
     }
 
     return { ok: true, courierName };
+  }
+);
+
+// ============================================================================
+// ✅ التقييم الحقيقي بعد استلام الطلب — rateOrder
+//    شروط صارمة تجعل كل تقييم فعلياً:
+//    1) صاحب الطلب فقط (userId == caller uid)
+//    2) الطلب مُسلَّم فعلاً (status == "Delivered")
+//    3) تقييم واحد لكل طلب — معرّف مستند التقييم = معرّف الطلب
+//    4) نجوم 1-5 صحيحة، وتعليق اختياري حتى 300 حرف
+//    في Transaction واحدة: تُنشأ/تُحدَّث وثيقة rating، وتُحدَّث وثيقة
+//    المطعم بمتوسط وعدد التقييمات، وتُوسم وثيقة الطلب ratedAt/ratingStars.
+// ============================================================================
+
+interface RateOrderInput { orderId: string; stars: number; comment?: string; }
+
+export const rateOrder = onCall<RateOrderInput>(
+  { region: "europe-west1", memory: "256MiB", timeoutSeconds: 30 },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "يجب تسجيل الدخول");
+
+    const { orderId, stars, comment } = request.data || {};
+    const starCount = Math.floor(Number(stars));
+    if (!orderId || typeof orderId !== "string") {
+      throw new HttpsError("invalid-argument", "معرّف الطلب مطلوب");
+    }
+    if (!Number.isFinite(stars) || starCount < 1 || starCount > 5) {
+      throw new HttpsError("invalid-argument", "التقييم يجب أن يكون من 1 إلى 5 نجوم");
+    }
+    const cleanComment =
+      typeof comment === "string" ? comment.trim().slice(0, 300) : "";
+
+    const orderRef = db.doc(`orders/${orderId}`);
+    const ratingRef = db.doc(`ratings/${orderId}`);
+
+    const result = await db.runTransaction(async (t) => {
+      const orderSnap = await t.get(orderRef);
+      if (!orderSnap.exists) {
+        throw new HttpsError("not-found", "الطلب غير موجود");
+      }
+      const order = orderSnap.data()!;
+      if (order.userId !== uid) {
+        throw new HttpsError("permission-denied", "يمكنك تقييم طلباتك فقط");
+      }
+      if (order.status !== "Delivered") {
+        throw new HttpsError("failed-precondition", "يمكن التقييم بعد استلام الطلب فقط");
+      }
+
+      const ratingSnap = await t.get(ratingRef);
+      if (ratingSnap.exists) {
+        throw new HttpsError("already-exists", "تم تقييم هذا الطلب مسبقاً");
+      }
+
+      // ✅ متوسط تقييم المطعم يُحدَّث حسابياً من (المجموع × العدد) السابقين
+      //    — لا نثق بأي قيمة مرسلة من العميل
+      const restaurantRef = db.doc(`restaurants/${order.restaurantId}`);
+      const restaurantSnap = await t.get(restaurantRef);
+      if (!restaurantSnap.exists) {
+        throw new HttpsError("not-found", "المطعم غير موجود");
+      }
+      const restaurant = restaurantSnap.data()!;
+      const oldCount = Math.max(0, Number(restaurant.ratingCount) || 0);
+      const oldRating = Math.max(0, Math.min(5, Number(restaurant.rating) || 0));
+      // استرجاع المتوسط الحقيقي: قد يكون rating قيمة أولية مزروعة بلا
+      // ratingCount — نتعامل معها كأساس متحفظ وليس تقييمات فعلية
+      const newCount = oldCount + 1;
+      const newRating = (oldRating * oldCount + starCount) / newCount;
+
+      const now = Timestamp.now();
+      t.set(ratingRef, {
+        orderId,
+        restaurantId: order.restaurantId,
+        userId: uid,
+        stars: starCount,
+        ...(cleanComment ? { comment: cleanComment } : {}),
+        createdAt: now,
+      });
+      t.update(restaurantRef, {
+        rating: Math.round(newRating * 10) / 10,
+        ratingCount: newCount,
+        updatedAt: now,
+      });
+      t.update(orderRef, {
+        ratedAt: now,
+        ratingStars: starCount,
+        updatedAt: now,
+      });
+
+      return { restaurantId: order.restaurantId, restaurantName: order.restaurantName };
+    });
+
+    return { ok: true, ...result };
+  }
+);
+
+// ============================================================================
+// ✅ جلب تقييمات مطعم مع آخر التعليقات — getRestaurantRatings
+//    يقرأ من مجموعة ratings (قابلة للقراءة للجميع) ويعيد آخر 20 تقييماً
+//    مع اسم صاحب كل تقييم لعرضها في صفحة المطعم/لوحة الأدمن.
+// ============================================================================
+
+export const getRestaurantRatings = onCall<{ restaurantId: string }>(
+  { region: "europe-west1", memory: "256MiB", timeoutSeconds: 30 },
+  async (request) => {
+    const { restaurantId } = request.data || {};
+    if (!restaurantId || typeof restaurantId !== "string") {
+      throw new HttpsError("invalid-argument", "معرّف المطعم مطلوب");
+    }
+
+    const snap = await db.collection("ratings")
+      .where("restaurantId", "==", restaurantId)
+      .orderBy("createdAt", "desc")
+      .limit(20)
+      .get();
+
+    // أسماء أصحاب التقييمات — قراءة متعددة بدفعة واحدة (بدون مصفوفة)
+    const userIds = [...new Set(snap.docs.map((d) => d.data().userId).filter(Boolean))];
+    const users = new Map<string, string>();
+    if (userIds.length > 0) {
+      const userSnaps = await Promise.all(
+        userIds.map((id: string) => db.doc(`users/${id}`).get()),
+      );
+      userSnaps.forEach((u) => {
+        if (u.exists) {
+          const d = u.data()!;
+          users.set(u.id, d.displayName || d.email || "عميل");
+        }
+      });
+    }
+
+    const ratings = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        stars: data.stars,
+        comment: data.comment || "",
+        createdAt: data.createdAt?.toMillis?.() || data.createdAt,
+        customerName: users.get(data.userId) || "عميل",
+      };
+    });
+
+    return { ok: true, ratings };
   }
 );

@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================ الثيم الداكن (الافتراضي) ============================ */
 :root {
   --color-primary: #ff6b35;
   --color-primary-soft: #ff8f66;
@@ -17,10 +18,36 @@
   --glass: rgb(255 255 255 / 0.08);
   --glass-border: rgb(255 255 255 / 0.14);
   --glass-strong: rgb(255 255 255 / 0.12);
+  --nav-bg: rgb(15 23 41 / 0.85);
+  --shadow-card: 0 8px 24px rgb(0 0 0 / 0.25);
+  --shadow-glow: 0 6px 20px rgb(255 107 53 / 0.35);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  color-scheme: dark;
+}
+
+/* ============================ الثيم الفاتح ============================ */
+[data-theme="light"] {
+  --color-primary: #f25c1f;
+  --color-primary-soft: #ff8a5c;
+  --color-secondary: #24346b;
+  --color-secondary-muted: #8b9ec9;
+  --color-accent: #00a844;
+  --color-accent-soft: #0a7d3a;
+  --color-danger: #dc2626;
+  --background: #f7f4ee;
+  --background-elevated: #ffffff;
+  --foreground: #1e2536;
+  --foreground-muted: #6b7386;
+  --glass: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(30 37 54 / 0.09);
+  --glass-strong: rgb(255 255 255 / 0.82);
+  --nav-bg: rgb(247 244 238 / 0.88);
+  --shadow-card: 0 6px 20px rgb(30 37 54 / 0.10);
+  --shadow-glow: 0 6px 18px rgb(242 92 31 / 0.28);
+  color-scheme: light;
 }
 
 @layer base {
@@ -38,6 +65,7 @@
     color: var(--foreground);
     font-family: var(--font-cairo), ui-sans-serif, sans-serif;
     overscroll-behavior: none;
+    transition: background-color 0.35s ease, color 0.35s ease;
   }
 
   button,
@@ -45,6 +73,10 @@
   .no-select {
     user-select: none;
     -webkit-user-select: none;
+  }
+
+  ::selection {
+    background: rgb(255 107 53 / 0.35);
   }
 }
 
@@ -89,5 +121,112 @@
         transparent
       ),
       linear-gradient(180deg, #152238 0%, #0f1729 45%, #0c1322 100%);
+  }
+
+  [data-theme="light"] .app-gradient {
+    background:
+      radial-gradient(
+        ellipse 80% 50% at 20% -10%,
+        rgb(255 145 102 / 0.30),
+        transparent
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 100% 0%,
+        rgb(0 200 83 / 0.14),
+        transparent
+      ),
+      linear-gradient(180deg, #fff6ec 0%, #f9f5ed 45%, #f2efe8 100%);
+  }
+
+  /* نص بتدرج برتقالي — للعناوين الإبداعية */
+  .text-gradient {
+    background: linear-gradient(120deg, var(--color-primary), var(--color-primary-soft) 60%, var(--color-accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* رفع البطاقة عند اللمس/التحويم */
+  .card-lift {
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* هيكل تحميل لامع */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+    background: var(--glass);
+  }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.08),
+      transparent
+    );
+    animation: shimmer-slide 1.4s infinite;
+  }
+  [data-theme="light"] .shimmer::after {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.55),
+      transparent
+    );
+  }
+}
+
+@keyframes shimmer-slide {
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* نبض ناعم حول عناصر "الآن/الحالي" */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(255 107 53 / 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgb(255 107 53 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 107 53 / 0);
+  }
+}
+.pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* طفو خفيف — للعناصر التزيينية والإيموجي */
+@keyframes float-soft {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.float-soft {
+  animation: float-soft 3.2s ease-in-out infinite;
+}
+
+/* احتفال بعد إتمام الطلب */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10%) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(220px) rotate(540deg);
+    opacity: 0;
   }
 }

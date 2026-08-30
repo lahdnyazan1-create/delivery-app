@@ -10,6 +10,16 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { updateUserProfile as updateUserProfileFirestore } from "@/lib/firestore";
+import type { UserGender } from "@/types/database";
+
+/** بيانات التسجيل التي يدخلها المستخدم مع أول حساب (إيميل + كلمة سر) */
+export interface SignupProfile {
+  displayName?: string;
+  phone?: string;
+  email?: string;
+  age?: number;
+  gender?: UserGender;
+}
 
 interface AuthState {
   user: UserProfile | null;
@@ -19,9 +29,9 @@ interface AuthState {
   authReady: boolean;
   error: string | null;
 
-  completePhoneLogin: (
+  completeLogin: (
     firebaseUser: FirebaseUser,
-    fullName: string,
+    profile?: SignupProfile,
   ) => Promise<{ ok: boolean; message: string }>;
   logoutUser: () => Promise<void>;
   initAuthListener: () => () => void;
@@ -48,7 +58,7 @@ export const useAuthStore = create<AuthState>()(
       authReady: false,
       error: null,
 
-      completePhoneLogin: async (firebaseUser, fullName) => {
+      completeLogin: async (firebaseUser, profile = {}) => {
         try {
           const userRef = doc(db, "users", firebaseUser.uid);
           const userSnap = await getDoc(userRef);
@@ -57,16 +67,32 @@ export const useAuthStore = create<AuthState>()(
           if (userSnap.exists()) {
             userData = userSnap.data() as UserProfile;
           } else {
+            // أول تسجيل — الملف يطابق الحقول المسموح بها في firestore.rules
             const newUser: UserProfile = {
               uid: firebaseUser.uid,
-              phone: firebaseUser.phoneNumber || "",
-              displayName: fullName,
+              phone: profile.phone || "",
+              email: profile.email || firebaseUser.email || "",
+              displayName: profile.displayName || firebaseUser.displayName || "",
+              age: profile.age,
+              gender: profile.gender,
               role: "customer",
               address: "",
               createdAt: Date.now(),
             };
-            await setDoc(userRef, newUser);
-            userData = newUser;
+            // انقل الحقول الفارغة كي يبقى المستند ضمن قائمة hasOnly المسموحة
+            const payload: Record<string, unknown> = {
+              uid: newUser.uid,
+              phone: newUser.phone,
+              displayName: newUser.displayName,
+              role: newUser.role,
+              address: newUser.address,
+              createdAt: newUser.createdAt,
+            };
+            if (newUser.email) payload.email = newUser.email;
+            if (newUser.age != null) payload.age = newUser.age;
+            if (newUser.gender) payload.gender = newUser.gender;
+            await setDoc(userRef, payload);
+            userData = { ...newUser };
           }
 
           set({

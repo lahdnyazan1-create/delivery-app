@@ -68,7 +68,7 @@ export function BannerCarousel() {
 
   return (
     <div>
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         <motion.div
           key={banner.id}
           drag="x"
@@ -83,24 +83,34 @@ export function BannerCarousel() {
               restart();
             }
           }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.35 }}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 1.03 }}
+          transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
         >
           {banner.ctaLink ? <Link href={banner.ctaLink}>{content}</Link> : content}
         </motion.div>
       </AnimatePresence>
 
       {banners.length > 1 && (
-        <div className="mt-2 flex justify-center gap-1.5">
+        <div className="mt-2.5 flex justify-center gap-1.5">
           {banners.map((b, i) => (
-            <span
+            <button
               key={b.id}
-              className={`h-1.5 rounded-full transition-all ${
-                i === index ? "w-5 bg-primary" : "w-1.5 bg-white/20"
-              }`}
-            />
+              type="button"
+              onClick={() => {
+                setIndex(i);
+                restart();
+              }}
+              aria-label={`الإعلان ${i + 1}`}
+              className="group p-0.5"
+            >
+              <span
+                className={`block h-1.5 rounded-full transition-all ${
+                  i === index ? "w-5 bg-primary" : "w-1.5 bg-white/25 group-hover:bg-white/40"
+                }`}
+              />
+            </button>
           ))}
         </div>
       )}

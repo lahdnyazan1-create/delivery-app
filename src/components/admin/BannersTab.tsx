@@ -80,15 +80,16 @@ export function BannersTab() {
     if (!bannerForm.title.trim()) return;
     setBannerBusy(true);
     try {
-      // ✅ تعديل: فارغ يعني إزالة الحقل تماماً
-      const strOrDelete = (value: string) => value.trim();
-
+      // ✅ تعديل: يُرسل كل حقول النموذج — سابقاً كانت الوضع-التحرير ترسل
+      //    عنواناً وترتيباً فقط فتضيع الوصف ونص/رابط الزر عند الحفظ
       if (editingBannerId) {
         const payload: Parameters<typeof updateBanner>[1] = {
           title: bannerForm.title.trim(),
+          subtitle: bannerForm.subtitle.trim(),
+          ctaText: bannerForm.ctaText.trim(),
+          ctaLink: bannerForm.ctaLink.trim(),
+          imageUrl: bannerForm.imageUrl.trim(),
           order: Number(bannerForm.order),
-          imageUrl: strOrDelete(bannerForm.imageUrl),
-          gradient: "from-primary to-red-600",
         };
         await updateBanner(editingBannerId, payload);
         setEditingBannerId(null);

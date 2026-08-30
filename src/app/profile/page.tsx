@@ -88,7 +88,7 @@ export default function ProfilePage() {
       <h1 className="mb-1 text-2xl font-extrabold">الملف الشخصي</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         {isAuthenticated && user
-          ? `${user.displayName} · ${user.phone}`
+          ? `${user.displayName || "حسابي"}${user.email ? ` · ${user.email}` : ""}`
           : "زائر · سجّل دخولك"}
       </p>
 
@@ -104,7 +104,7 @@ export default function ProfilePage() {
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold">تسجيل الدخول</span>
             <span className="block text-xs text-foreground-muted">
-              الاسم ورقم الهاتف لإتمام الطلبات
+              بالبريد وكلمة السر لإتمام الطلبات
             </span>
           </span>
           <ChevronRight className="size-5 text-foreground-muted" />

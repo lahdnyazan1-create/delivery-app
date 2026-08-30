@@ -95,10 +95,10 @@ export function ZonesTab() {
     } catch (error: any) {
       console.error("Failed to add zone", error);
       // ✅ نعرض الخطأ الفعلي بدل بلعه بصمت — غالباَ permission-denied يعني
-      // أن قواعد Firestore الجديدة لم ت商铺 بعد على المشروع
+      // أن قواعد Firestore الجديدة لم تُنشَر بعد على المشروع
       setZoneError(
         error?.code === "permission-denied"
-          ? "تم الرفض من Firestore (permission-denied). غالباَ قواعد firestore.rules الجديدة لم ت商铺 بعد — شغّل: firebase deploy --only firestore:rules"
+          ? "تم الرفض من Firestore (permission-denied). غالباَ قواعد firestore.rules الجديدة لم تُنشَر بعد — شغّل: firebase deploy --only firestore:rules"
           : `فشلت العملية: ${error?.message || "خطأ غير معروف"}`,
       );
     } finally {
@@ -350,7 +350,7 @@ function ZoneQuickFields({
         <button
           type="button"
           onClick={() => onSave(zone.id, "estimatedMinutes", minutes)}
-          disabled={minutes === (zone.estimatedMinutes ?? 0)}
+          disabled={minutes === (zone.estimatedMinutes ?? 30)}
           className="shrink-0 rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-foreground-muted disabled:opacity-40"
         >
           حفظ الوقت

@@ -130,9 +130,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
     if (!result.ok) return { ok: false, message: result.message };
 
+    // ✅ Cloud Function لا يعيد id داخل كائن الطلب — بدونه كان إلغاء
+    //    activeOrder يرسل undefined بدل المعرّف ولا يتطابق أبداً مع
+    //    الاشتراك الحي فلا يتحدث الطبق المفعّل
+    const orderWithId: Order = { ...result.order, id: result.orderId };
+
     set((state) => ({
-      orders: [result.order, ...state.orders],
-      activeOrder: result.order,
+      orders: [orderWithId, ...state.orders],
+      activeOrder: orderWithId,
     }));
 
     return { ok: true, orderId: result.orderId };

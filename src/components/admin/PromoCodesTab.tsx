@@ -59,8 +59,14 @@ export function PromoCodesTab() {
   };
 
   const handleTogglePromo = async (code: string, active: boolean) => {
-    await updatePromoCode(code, { active: !active });
-    await loadPromoCodes();
+    try {
+      await updatePromoCode(code, { active: !active });
+      await loadPromoCodes();
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل التبديل: ${error?.message || "خطأ غير معروف"}`,
+      );
+    }
   };
 
   // ✅ تعديل نسبة الخصم مباشرة من البطاقة (inline)
@@ -88,8 +94,14 @@ export function PromoCodesTab() {
       danger: true,
     });
     if (!ok) return;
-    await deletePromoCodeDoc(code);
-    await loadPromoCodes();
+    try {
+      await deletePromoCodeDoc(code);
+      await loadPromoCodes();
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل الحذف: ${error?.message || "خطأ غير معروف"}`,
+      );
+    }
   };
 
   return (

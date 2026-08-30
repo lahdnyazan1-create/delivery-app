@@ -332,6 +332,28 @@ export const updateDish = async (dishId: string, dish: Partial<Dish>) => {
   await updateDoc(ref, { ...dish, updatedAt: serverTimestamp() });
 };
 
+/**
+ * ✅ إعادة تسمية فئة أطباق داخل مطعم واحد — تُحدَّث كل أطباق الفئة دفعة
+ * واحدة (batch). يستقبل قائمة معرّفات الأطباق بدل الاستعلام عنها لتفادي
+ * الحاجة إلى فهرس مركّب (restaurantId + category) في Firestore.
+ */
+export const renameDishCategory = async (
+  dishIds: string[],
+  newName: string,
+) => {
+  const { writeBatch } = await import("firebase/firestore");
+  const trimmed = newName.trim();
+  if (!trimmed) throw new Error("اسم الفئة الجديد مطلوب");
+  const batch = writeBatch(db);
+  dishIds.forEach((id) =>
+    batch.update(doc(db, "dishes", id), {
+      category: trimmed,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await batch.commit();
+};
+
 export const deleteDish = async (dishId: string) => {
   const { deleteDoc } = await import("firebase/firestore");
   await deleteDoc(doc(db, "dishes", dishId));
@@ -456,6 +478,39 @@ export const fetchDriverWallets = async (): Promise<DriverWallet[]> => {
   return snapshot.docs.map(
     (doc) => ({ driverId: doc.id, ...doc.data() }) as DriverWallet,
   );
+};
+
+// ----------------------------------------------------------------------------
+// ✅ جديد — Ratings (تقييمات المطاعم الفعلية — مرآة الأدمن)
+// ----------------------------------------------------------------------------
+
+export interface RatingDoc {
+  id: string;
+  orderId: string;
+  restaurantId: string;
+  userId: string;
+  stars: number;
+  comment?: string;
+  createdAt: number;
+}
+
+/** آخر التقييمات على كل المطاعم — للعرض والتحليل في لوحة الأدمن */
+export const fetchAllRatings = async (limitCount = 100): Promise<RatingDoc[]> => {
+  const snap = await getDocs(
+    query(collection(db, "ratings"), orderBy("createdAt", "desc"), limit(limitCount)),
+  );
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      orderId: data.orderId || d.id,
+      restaurantId: data.restaurantId || "",
+      userId: data.userId || "",
+      stars: Number(data.stars) || 0,
+      comment: data.comment || "",
+      createdAt: data.createdAt?.toMillis?.() || data.createdAt || 0,
+    };
+  });
 };
 
 // ----------------------------------------------------------------------------

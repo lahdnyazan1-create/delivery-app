@@ -32,14 +32,13 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || resource.data.role == 'courier');
 
       // ✅ إنشاء الملف الشخصي عند أول تسجيل دخول — قيود صارمة:
-      //    المستخدم نفسه فقط، بدور customer حصراً، وهاتفه يطابق رقمه
-      //    المُصادَق عليه في Firebase Auth (كان create:false يكسر
-      //    completePhoneLogin نهائياً في الواجهة)
+      //    المستخدم نفسه فقط، بدور customer حصراً. رقم الهاتف يُدخل يدوياً
+      //    (لا يوجد phone_number في توكن الدخول بالبريد) لذا تُقبل الحقول
+      //    الجديدة: email / age / gender بجانب حقول الهاتف القديمة
       allow create: if isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.role == 'customer'
-        && request.resource.data.phone == request.auth.token.phone_number
-        && request.resource.data.keys().hasOnly(['uid', 'phone', 'displayName', 'role', 'address', 'createdAt']);
+        && request.resource.data.keys().hasOnly(['uid', 'phone', 'displayName', 'email', 'age', 'gender', 'role', 'address', 'createdAt']);
 
       // ✅ المستخدم يمكنه تحديث بياناته فقط دون تغيير الدور أو كود الدعوة
       //    (referralCode يُدار حصراً عبر generateCourierReferralCode — لو سمحنا
@@ -47,7 +46,7 @@ service cloud.firestore {
       allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId
         && request.resource.data.role == resource.data.role
         && request.resource.data.referralCode == resource.data.referralCode
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'address', 'locationLabel', 'lat', 'lng', 'updatedAt', 'fcmTokens']));
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'phone', 'email', 'age', 'gender', 'address', 'locationLabel', 'lat', 'lng', 'updatedAt', 'fcmTokens']));
 
       allow delete: if isAdmin();
     }
@@ -81,6 +80,11 @@ service cloud.firestore {
     match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
     match /banners/{id} { allow read: if true; allow write: if isAdmin(); }
     match /zones/{zoneId} { allow read: if true; allow write: if isAdmin(); }
+
+    // ✅ التقييمات الفعلية: قراءة عامة (لعرض المتوسط والتعليقات)، الكتابة
+    //    حصراً عبر rateOrder Cloud Function (Admin SDK يتجاوز القواعد)
+    //    — يضمن تقييماً واحداً لكل طلب مُسلَّم من صاحبه فقط
+    match /ratings/{ratingId} { allow read: if true; allow write: if false; }
     
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || (resource.data.audience == "couriers" && isCourier()) || isAdmin());

@@ -7,8 +7,6 @@ import { SWUpdatePrompt } from "@/components/layout/SWUpdatePrompt";
 import { ToastHost } from "@/components/ui/Toast";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { FloatingCartBar } from "@/components/checkout/FloatingCartBar";
-import { MessageCircle } from "lucide-react";
-import Link from "next/link";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -38,6 +36,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`}>
+      <head>
+        {/* ✅ استرجاع الثيم قبل الرسم — كي لا تومض الصفحة باللون الخاطئ */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('zest-theme');document.documentElement.dataset.theme=(t==='light'?'light':'dark');}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-full font-sans text-foreground">
         <AppInitializer />
         <ServiceWorkerRegister />
@@ -46,17 +52,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <OfflineBanner />
         {children}
         <FloatingCartBar />
-        
-        {/* ✅ تم رفع الزر للأعلى لتفادي التداخل مع السلة العائمة */}
-        <Link
-          href="https://wa.me/970599000000" 
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fixed bottom-44 left-4 z-40 flex size-11 items-center justify-center rounded-full bg-green-500 text-white shadow-lg transition hover:bg-green-600 md:bottom-6 md:left-6"
-          aria-label="الدعم الفني"
-        >
-          <MessageCircle className="size-5" />
-        </Link>
       </body>
     </html>
   );

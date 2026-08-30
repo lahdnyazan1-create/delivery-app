@@ -1,9 +1,15 @@
 export type UserRole = "customer" | "admin" | "courier" | "vendor";
+export type UserGender = "male" | "female";
 
 export interface UserProfile {
   uid: string;
+  /** يُدخله المستخدم يدوياً عند التسجيل — لا تحقق عبر SMS/WhatsApp */
   phone: string;
+  email?: string;
   displayName?: string;
+  /** العمر بالسنوات — يُدخل عند التسجيل */
+  age?: number;
+  gender?: UserGender;
   role: UserRole;
   address?: string;
   locationLabel?: string;
@@ -27,7 +33,10 @@ export interface Restaurant {
   name: string;
   cuisineId?: string;
   cuisine?: string;
+  /** متوسط التقييمات الفعلية (1-5) — يُحدَّث عبر rateOrder فقط */
   rating: number;
+  /** عدد التقييمات الفعلية التي شكّلت المتوسط أعلاه */
+  ratingCount?: number;
   /** @deprecated استُبدل بـ zone.deliveryFee */
   deliveryFee: number;
   etaMinutes: number;
@@ -158,6 +167,20 @@ export interface Order {
   courierInviteStatus?: "pending" | "accepted" | "rejected" | "expired" | null;
   /** تصل من Firestore كـ Timestamp (toMillis) أو رقم ملي ثانية بعد التحويل */
   courierInviteExpiresAt?: number | { toMillis: () => number } | null;
+  /** ✅ التقييم بعد التسليم — يكتبها rateOrder Cloud Function فقط */
+  ratedAt?: number | null;
+  ratingStars?: number | null;
+}
+
+/** ✅ تقييم فعلي من عميل على طلب مُسلَّم — معرّف المستند = معرّف الطلب (تقييم واحد لكل طلب) */
+export interface Rating {
+  id: string;
+  orderId: string;
+  restaurantId: string;
+  userId: string;
+  stars: number;
+  comment?: string;
+  createdAt: number;
 }
 
 export interface PromoCode {

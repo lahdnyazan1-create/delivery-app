@@ -10,13 +10,14 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Phone, XCircle } from "lucide-react";
+import { ArrowLeft, Check, Phone, XCircle, Star } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { AppShell } from "@/components/layout/AppShell";
 import { OrderStageTracker } from "@/components/tracking/OrderStageTracker";
+import { RatingDialog } from "@/components/restaurant/RatingDialog";
 import { useAppStore } from "@/store/useAppStore";
 import { useToastStore } from "@/store/useToastStore";
 import { db } from "@/lib/firebase";
@@ -54,6 +55,23 @@ export default function OrderTrackingPage() {
   } = useAppStore();
   const [cancelling, setCancelling] = useState(false);
   const [courierPhone, setCourierPhone] = useState<string | null>(null);
+  // ✅ نافذة التقييم بعد استلام الطلب — تفتح تلقائياً مرة واحدة عند أول
+  //    وصول للحالة Delivered بلا ratedAt، ويقدر المستخدم يعود إليها بزر
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const ratingPromptShownRef = useRef<string | null>(null);
+
+  // ✅ فتح نافذة التقييم تلقائياً فور تسليم الطلب (قبل أن يغادرها المستخدم)
+  useEffect(() => {
+    if (
+      activeOrder?.status === "Delivered" &&
+      activeOrder.id &&
+      !activeOrder.ratedAt &&
+      ratingPromptShownRef.current !== activeOrder.id
+    ) {
+      ratingPromptShownRef.current = activeOrder.id;
+      setRatingOpen(true);
+    }
+  }, [activeOrder?.status, activeOrder?.id, activeOrder?.ratedAt]);
 
   // ✅ جلب هاتف المندوب للاتصال به أثناء التوصيل (قراءة ملف سائق مسموحة
   //    بالقواعد لأي مستخدم مسجل — استثناء كود الدعوة)
@@ -134,6 +152,7 @@ export default function OrderTrackingPage() {
   }
 
   const stepIndex = STEPS.indexOf(activeOrder.status);
+  const isCancelled = activeOrder.status === "Cancelled";
 
   return (
     <AppShell hideNav>
@@ -149,14 +168,36 @@ export default function OrderTrackingPage() {
         <div>
           <h1 className="text-xl font-extrabold">تتبع الطلب</h1>
           <p className="text-xs text-foreground-muted">
-            {activeOrder.restaurantName} · الوقت المتوقع ~{activeOrder.etaMinutes} دقيقة
+            {activeOrder.restaurantName}
+            {activeOrder.etaMinutes != null && ` · الوقت المتوقع ~${activeOrder.etaMinutes} دقيقة`}
           </p>
         </div>
       </div>
 
-      <div className="mb-5">
-        <OrderStageTracker status={activeOrder.status} />
-      </div>
+      {/* ✅ حالة الإلغاء: سابقاً كانت تُعرض بقايا Steps كلها باهتة بلا أي
+          تفسير للمستخدم — الآن بطاقة واضحة تشرح وتتيح طلباً جديداً */}
+      {isCancelled ? (
+        <div className="glass rounded-3xl px-5 py-10 text-center">
+          <span className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-danger/15 text-danger">
+            <XCircle className="size-7" aria-hidden />
+          </span>
+          <p className="text-lg font-extrabold">تم إلغاء هذا الطلب</p>
+          <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
+            لم يُنفَّذ هذا الطلب — يمكنك إعادة الطلب من سلتك أو بدء طلب جديد
+            وقتما تشاء.
+          </p>
+          <Link
+            href="/"
+            className="mt-4 inline-flex rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white"
+          >
+            بدء طلب جديد
+          </Link>
+        </div>
+      ) : (
+        <div className="mb-5">
+          <OrderStageTracker status={activeOrder.status} />
+        </div>
+      )}
 
       <ol className="glass mb-5 space-y-0 rounded-3xl p-4">
         {STEPS.map((step, i) => {
@@ -204,7 +245,9 @@ export default function OrderTrackingPage() {
       <div className="glass mb-4 rounded-3xl p-4">
         <p className="mb-1 text-sm font-bold">التوصيل إلى</p>
         <p className="text-sm text-foreground-muted">
-          {activeOrder.customerName} · {activeOrder.customerPhone}
+          {activeOrder.customerPhone
+            ? `${activeOrder.customerName} · ${activeOrder.customerPhone}`
+            : activeOrder.customerName}
         </p>
         <p className="mt-1 text-sm text-foreground">
           {activeOrder.deliveryAddressDetails || activeOrder.deliveryAddress}
@@ -232,6 +275,26 @@ export default function OrderTrackingPage() {
             {cancelling ? "جارٍ الإلغاء…" : "إلغاء الطلب"}
           </button>
         )}
+        {/* ✅ بعد الاستلام: التقييم الحقيقي — يغيب الزر بعد التقييم (ratedAt) */}
+        {activeOrder.status === "Delivered" && !activeOrder.ratedAt && (
+          <button
+            type="button"
+            onClick={() => setRatingOpen(true)}
+            className="no-select touch-target pulse-ring flex flex-1 items-center justify-center gap-2 rounded-2xl bg-accent py-3 text-sm font-bold text-white transition active:scale-95"
+          >
+            <Star className="size-4 fill-current" aria-hidden />
+            قيّم طلبك
+          </button>
+        )}
+        {activeOrder.status === "Delivered" && activeOrder.ratedAt && (
+          <div className="glass flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-accent">
+            <Star className="size-4 fill-current" aria-hidden />
+            قيّمت الطلب
+            {activeOrder.ratingStars != null && (
+              <span className="font-extrabold">({activeOrder.ratingStars}/5)</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="glass rounded-3xl p-4">
@@ -248,7 +311,11 @@ export default function OrderTrackingPage() {
               <span>
                 {item.quantity}× {item.name}
               </span>
-              <span>{formatPrice(item.price * item.quantity)}</span>
+              {/* ✅ سعر البند يشمل الإضافات (يحسبها الخادم) — سابقاً كان
+                  مجموع البنود لا يطابق الإجمالي المعروض عند وجود إضافات */}
+              <span>
+                {formatPrice((item.price + (item.addonsPrice || 0)) * item.quantity)}
+              </span>
             </li>
           ))}
         </ul>
@@ -263,6 +330,14 @@ export default function OrderTrackingPage() {
           <span className="text-primary">{formatPrice(activeOrder.total)}</span>
         </p>
       </div>
+
+      {/* ✅ نافذة التقييم — تفتح تلقائياً عند الاستلام أو بزر "قيّم طلبك" */}
+      <RatingDialog
+        orderId={activeOrder.id}
+        restaurantName={activeOrder.restaurantName}
+        open={ratingOpen}
+        onClose={() => setRatingOpen(false)}
+      />
     </AppShell>
   );
 }

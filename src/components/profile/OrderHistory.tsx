@@ -1,15 +1,17 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Order } from "@/types/database";
 import { useAppStore } from "@/store/useAppStore";
 import { STATUS_LABELS_AR } from "@/constants/orderStatuses";
 import { playSound, triggerHaptic } from "@/lib/sound-haptics";
-import { RotateCcw, PackageCheck } from "lucide-react";
+import { RotateCcw, PackageCheck, Star } from "lucide-react";
 import { formatPrice } from "@/constants/currency";
 
 export default function OrderHistory() {
-  const { orders, loading, addToCart, clearCart, getDish } = useAppStore();
+  const router = useRouter();
+  const { orders, loading, addToCart, clearCart, getDish, setActiveOrder } = useAppStore();
 
   const handleQuickReOrder = (orderItems: Order["items"], restaurantId: string) => {
     playSound("add");
@@ -23,6 +25,12 @@ export default function OrderHistory() {
       }
     });
     // ✅ تم إزالة alert المزعج، سيتم نقل المستخدم تلقائياً أو يرى الشريط العائم يظهر
+  };
+
+  // ✅ التقييم يحدث من صفحة التتبع (تفتح نافذة التقييم تلقائياً للطلب المُسلَّم)
+  const handleRate = (order: Order) => {
+    setActiveOrder(order);
+    router.push("/order-tracking");
   };
 
   if (loading) {
@@ -74,14 +82,27 @@ export default function OrderHistory() {
               <span className="text-[10px] text-foreground-muted block">المجموع</span>
               <span className="text-sm font-extrabold text-foreground">{formatPrice(order.total)}</span>
             </div>
-            <button
-              type="button"
-              onClick={() => handleQuickReOrder(order.items, order.restaurantId)}
-              className="no-select touch-target flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-all"
-            >
-              <RotateCcw className="size-3.5" />
-              <span>إعادة الطلب ⚡</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* ✅ تقييم طلب مُسلَّم لم يُقيَّم بعد — يظهر بجانب إعادة الطلب */}
+              {order.status === "Delivered" && !order.ratedAt && (
+                <button
+                  type="button"
+                  onClick={() => handleRate(order)}
+                  className="no-select touch-target flex items-center gap-1.5 rounded-xl bg-accent px-3 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-all"
+                >
+                  <Star className="size-3.5 fill-current" />
+                  <span>قيّم</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleQuickReOrder(order.items, order.restaurantId)}
+                className="no-select touch-target flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-all"
+              >
+                <RotateCcw className="size-3.5" />
+                <span>إعادة الطلب ⚡</span>
+              </button>
+            </div>
           </div>
         </div>
       ))}

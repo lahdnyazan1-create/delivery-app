@@ -64,7 +64,9 @@ export function DishModal({ dish, isOpen, onClose }: DishModalProps) {
       .map((id) => dish.addons?.find((a) => a.id === id))
       .filter(Boolean);
 
-    const result = addToCart(dish.id, dish.restaurantId, notes, addonsData as any);
+    // ✅ تمرير الكمية المختارة — سابقاً كانت الواجهة تعرض سعر الكمية
+    //    كاملة بينما addToCart يضيف 1 فقط
+    const result = addToCart(dish.id, dish.restaurantId, notes, addonsData as any, quantity);
 
     if (!result.ok) {
       if (result.conflict) {
@@ -76,7 +78,7 @@ export function DishModal({ dish, isOpen, onClose }: DishModalProps) {
           danger: true,
         });
         if (!replace) return;
-        replaceCartAndAdd(dish.id, dish.restaurantId, notes, addonsData as any);
+        replaceCartAndAdd(dish.id, dish.restaurantId, notes, addonsData as any, quantity);
       } else {
         setError(result.message || "فشل الإضافة للسلة");
         return;

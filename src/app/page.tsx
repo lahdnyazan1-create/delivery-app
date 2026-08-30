@@ -10,7 +10,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search as SearchIcon } from "lucide-react";
+import { Search as SearchIcon, MapPin, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 import { CategoriesGrid } from "@/components/home/CategoriesGrid";
 import { BannerCarousel } from "@/components/home/BannerCarousel";
 import { RestaurantShelf } from "@/components/home/RestaurantShelf";
@@ -19,21 +20,31 @@ import { AppShell } from "@/components/layout/AppShell";
 import { useAppStore } from "@/store/useAppStore";
 import { useDataStore } from "@/store/useDataStore";
 
+/** تحية حسب وقت اليوم — لمسة حيّة بدل عنوان جامد */
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return "سهرة طعمة 🌙";
+  if (h < 12) return "صباح الخير ☀️";
+  if (h < 17) return "نهارك سعيد 🌤️";
+  return "مساء الورد 🌆";
+}
+
 /** هيكل عظمي أثناء التحميل الأول — بدل "لا توجد مطاعم بعد" الكاذبة */
 function HomeSkeleton() {
   return (
     <div className="space-y-6" role="status" aria-label="جارٍ تحميل المحتوى">
-      <div className="aspect-[16/9] animate-pulse rounded-3xl bg-white/5" />
-      <div className="flex gap-2">
+      <div className="shimmer aspect-[16/9] rounded-3xl" />
+      <div className="flex gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="size-16 animate-pulse rounded-2xl bg-white/5" />
+          <div key={i} className="shimmer size-16 rounded-2xl" style={{ animationDelay: `${i * 0.12}s` }} />
         ))}
       </div>
       <div className="flex gap-3 overflow-hidden">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-40 w-48 shrink-0 animate-pulse rounded-2xl bg-white/5" />
+          <div key={i} className="shimmer h-40 w-48 shrink-0 rounded-2xl" style={{ animationDelay: `${i * 0.12}s` }} />
         ))}
       </div>
+      <div className="shimmer h-24 rounded-3xl" />
     </div>
   );
 }
@@ -88,22 +99,29 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      <div className="glass mb-3 flex items-center justify-between rounded-2xl px-4 py-2.5">
-        <span className="text-xs text-foreground-muted">التوصيل إلى:</span>
-        <select 
-          value={selectedZoneId || ""} 
-          onChange={(e) => setSelectedZoneId(e.target.value)}
-          className="bg-transparent text-sm font-bold text-primary outline-none cursor-pointer"
+      {/* ✅ تحية حية بتدرج لوني + جسيمات ناعمة — بداية ممتعة بدل قائمة جافة */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        className="mb-4 flex items-center justify-between gap-3 rounded-3xl border border-glass-border bg-secondary/40 px-5 py-4"
+      >
+        <div>
+          <p className="text-xs font-semibold text-foreground-muted">{greeting()}</p>
+          <h1 className="text-gradient mt-0.5 text-2xl font-black leading-tight">
+            وشو رأيك تأكل اليوم؟
+          </h1>
+        </div>
+        <motion.span
+          className="float-soft text-4xl"
+          aria-hidden
         >
-          <option value="" disabled>اختر منطقتك</option>
-          {zones.map(z => (
-            <option key={z.id} value={z.id} className="bg-secondary">{z.name} ({z.deliveryFee}₪)</option>
-          ))}
-        </select>
-      </div>
+          🍔
+        </motion.span>
+      </motion.div>
 
-      <label className="glass mb-5 flex items-center gap-3 rounded-2xl px-3 py-2.5">
-        <SearchIcon className="size-5 text-foreground-muted" aria-hidden />
+      <label className="glass mb-4 flex items-center gap-3 rounded-2xl px-4 py-3 transition focus-within:border-primary">
+        <SearchIcon className="size-5 shrink-0 text-foreground-muted" aria-hidden />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -112,6 +130,24 @@ export default function HomePage() {
           aria-label="ابحث عن مطعم"
         />
       </label>
+
+      <div className="glass mb-5 flex items-center justify-between gap-2 rounded-2xl px-4 py-2.5">
+        <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-foreground-muted">
+          <MapPin className="size-3.5 text-primary" aria-hidden />
+          التوصيل إلى
+        </span>
+        <select
+          value={selectedZoneId || ""}
+          onChange={(e) => setSelectedZoneId(e.target.value)}
+          className="min-w-0 flex-1 bg-transparent text-left text-sm font-bold text-primary outline-none cursor-pointer"
+          aria-label="اختر منطقة التوصيل"
+        >
+          <option value="" disabled>اختر منطقتك</option>
+          {zones.map(z => (
+            <option key={z.id} value={z.id} className="bg-secondary text-foreground">{z.name} ({z.deliveryFee}₪)</option>
+          ))}
+        </select>
+      </div>
 
       {loadFailed ? (
         <div className="glass rounded-2xl px-4 py-10 text-center" role="alert">

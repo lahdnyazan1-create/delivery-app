@@ -25,7 +25,11 @@ export default function OrdersPage() {
         </div>
       ) : (
         <>
-          {activeOrder && activeOrder.status !== "Delivered" && (
+          {/* ✅ الطلب "النشط" لا يشمل الملغي — سابقاً كان الطلب الملغي
+              يظهر كبطاقة نشطة ويقود لتتبع بلا معنى */}
+          {activeOrder &&
+            activeOrder.status !== "Delivered" &&
+            activeOrder.status !== "Cancelled" && (
             <Link
               href="/order-tracking"
               className="glass no-select mb-5 flex items-center gap-3 rounded-2xl p-4"

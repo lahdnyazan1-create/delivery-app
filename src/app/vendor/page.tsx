@@ -41,12 +41,18 @@ function VendorDashboardContent() {
     d.setHours(0, 0, 0, 0);
     return d.getTime();
   }, []);
+  // ✅ إيرادات اليوم من الطلبات المسلَّمة فعلاً — سابقاً كان يحسب كل طلب
+  //    غير ملغي (بما فيه قيد التحضير) فتظهر إيرادات لم تُحصَّل بعد
   const todayOrders = useMemo(
-    () => orders.filter((o) => (o.createdAt || 0) >= todayStart && o.status !== "Cancelled"),
+    () => orders.filter(
+      (o) => (o.createdAt || 0) >= todayStart && o.status === "Delivered",
+    ),
     [orders, todayStart],
   );
   const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total, 0);
-  const todayNewCount = todayOrders.length;
+  const todayNewCount = orders.filter(
+    (o) => (o.createdAt || 0) >= todayStart && o.status !== "Cancelled",
+  ).length;
 
   // ✅ تنبيه صوتي عند ورود طلب Pending جديد — المطعم قد يكون مشغولاً بالمطبخ
   //    ولا يلاحظ الطلب؛ نراقب عدد الطلبات المعلقة ونتغير معه

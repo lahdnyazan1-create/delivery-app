@@ -33,6 +33,7 @@ export default function CartPage() {
     updateQuantity,
     removeFromCart,
     applyPromo,
+    removePromo,
     placeOrder,
     getCartTotal,
     zones,
@@ -136,9 +137,12 @@ export default function CartPage() {
             <AnimatePresence initial={false}>
               {visibleCart.map((item) => {
                 const dish = getDish(item.dishId)!;
+                // ✅ مفتاح فريد لكل نسخة (ملاحظات/إضافات مختلفة) — سابقاً
+                //    key={item.dishId} كان يسبب مفاتيح مكررة لنفس الطبق
+                const itemKey = `${item.dishId}::${item.notes || ""}::${JSON.stringify(item.selectedAddons || [])}`;
                 return (
                   <motion.li
-                    key={item.dishId}
+                    key={itemKey}
                     layout
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -173,7 +177,7 @@ export default function CartPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => removeFromCart(item.dishId)}
+                          onClick={() => removeFromCart(item.dishId, item.notes || "", item.selectedAddons || [])}
                           className="no-select touch-target flex size-11 items-center justify-center rounded-xl text-foreground-muted hover:text-primary"
                           aria-label={`إزالة ${dish.name}`}
                         >
@@ -185,7 +189,7 @@ export default function CartPage() {
                           type="button"
                           className="no-select touch-target flex size-11 items-center justify-center rounded-full active:bg-white/10 transition-colors"
                           onClick={() =>
-                            updateQuantity(item.dishId, item.quantity - 1)
+                            updateQuantity(item.dishId, item.quantity - 1, item.notes || "", item.selectedAddons || [])
                           }
                           aria-label="تقليل الكمية"
                         >
@@ -198,7 +202,7 @@ export default function CartPage() {
                           type="button"
                           className="no-select touch-target flex size-11 items-center justify-center rounded-full active:bg-white/10 transition-colors"
                           onClick={() =>
-                            updateQuantity(item.dishId, item.quantity + 1)
+                            updateQuantity(item.dishId, item.quantity + 1, item.notes || "", item.selectedAddons || [])
                           }
                           aria-label="زيادة الكمية"
                         >
@@ -291,7 +295,7 @@ export default function CartPage() {
                     سيُرفق تلقائياً مع الطلب لمساعدة المندوب على الوصول.
                   </p>
                 )}
-                {!user?.lat && (
+                {user?.lat == null && (
                   <p className="mt-1.5 text-[11px] text-foreground-muted">
                     لتحديد موقعك بدقة أكبر عبر GPS، فعّله من صفحة{" "}
                     <button
@@ -321,25 +325,45 @@ export default function CartPage() {
             />
           </div>
 
-          <div className="glass mb-5 flex gap-2 rounded-3xl p-3">
-            <input
-              value={promoInput}
-              onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-              placeholder="كود الخصم"
-              className="min-w-0 flex-1 rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none"
-            />
-            <button
-              type="button"
-              onClick={async () => {
-                setPromoMsg("جارٍ التحقق…");
-                const result = await applyPromo(promoInput);
-                setPromoMsg(result.message);
-              }}
-              className="no-select touch-target rounded-xl bg-primary px-4 text-sm font-bold text-white"
-            >
-              تطبيق
-            </button>
-          </div>
+          {appliedPromo ? (
+            <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-2.5">
+              <p className="text-xs font-bold text-accent">
+                ✅ {appliedPromo} مطبّق — وفّر {formatPrice(discount)}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  removePromo();
+                  setPromoInput("");
+                  setPromoMsg("");
+                }}
+                className="no-select touch-target shrink-0 rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-bold text-foreground-muted transition hover:text-danger"
+                aria-label="إزالة كود الخصم"
+              >
+                إزالة ✕
+              </button>
+            </div>
+          ) : (
+            <div className="glass mb-5 flex gap-2 rounded-3xl p-3">
+              <input
+                value={promoInput}
+                onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                placeholder="كود الخصم"
+                className="min-w-0 flex-1 rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm outline-none"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  setPromoMsg("جارٍ التحقق…");
+                  const result = await applyPromo(promoInput);
+                  setPromoMsg(result.message);
+                }}
+                className="no-select touch-target rounded-xl bg-primary px-4 text-sm font-bold text-white"
+              >
+                تطبيق
+              </button>
+            </div>
+          )}
           {promoMsg && (
             <p className="mb-4 text-center text-xs text-foreground-muted">
               {promoMsg}
@@ -368,7 +392,7 @@ export default function CartPage() {
           </div>
 
           {checkoutError && (
-            <p className="mb-3 text-center text-sm font-semibold text-primary">
+            <p className="mb-3 text-center text-sm font-semibold text-danger" role="alert">
               {checkoutError}
             </p>
           )}

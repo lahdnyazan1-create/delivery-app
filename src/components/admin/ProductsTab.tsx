@@ -12,6 +12,7 @@ import {
   addDish,
   updateDish,
   deleteDish,
+  renameDishCategory,
 } from "@/lib/firestore";
 import { formatPrice } from "@/constants/currency";
 import { ImageUploader } from "@/components/ui/ImageUploader";
@@ -157,8 +158,42 @@ export function ProductsTab() {
     await loadDishes();
   };
 
+  /** ✅ إعادة تسمية فئة عبر كل أطباقها في المطعم المحدد (تُنعكس فوراً في بار الفئات للعميل) */
+  const handleRenameCategory = async (oldName: string) => {
+    const newName = window.prompt(
+      `إعادة تسمية الفئة "${oldName}" — أدخل الاسم الجديد:`,
+      oldName,
+    );
+    if (!newName || !newName.trim() || newName.trim() === oldName) return;
+    try {
+      const ids = dishesForFilter
+        .filter((d) => (d.category || "").trim() === oldName)
+        .map((d) => d.id);
+      await renameDishCategory(ids, newName);
+      useToastStore.getState().success(
+        `تم تحديث "${oldName}" إلى "${newName.trim()}" على ${ids.length} طبق`,
+      );
+      await loadDishes();
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشلت إعادة التسمية: ${error?.message || "خطأ غير معروف"}`,
+      );
+    }
+  };
+
   const dishesForFilter = dishesList.filter(
     (d) => d.restaurantId === dishRestaurantFilter,
+  );
+
+  // ✅ مرآة بار الفئات في صفحة المطعم: فئات أطباق المطعم المحدد
+  //    بترتيب ظهورها الأول + عدد الأطباق في كل فئة — يرى الأدمن
+  //    بالضبط ما سيراه العميل في البار العلوي للمطعم
+  const restaurantCategories = Array.from(
+    dishesForFilter.reduce((map, d) => {
+      const cat = (d.category || "").trim();
+      if (cat) map.set(cat, (map.get(cat) ?? 0) + 1);
+      return map;
+    }, new Map<string, number>()),
   );
 
   return (
@@ -237,15 +272,25 @@ export function ProductsTab() {
               />
             </div>
             <div>
-              <label className={labelClass}>الفئة</label>
+              <label className={labelClass}>
+                الفئة (تظهر في بار الفئات بصفحة المطعم)
+              </label>
               <input
                 type="text"
+                list="dish-category-options"
                 value={dishForm.category}
                 onChange={(e) =>
                   setDishForm({ ...dishForm, category: e.target.value })
                 }
                 className={inputClass}
+                placeholder="مثال: شاورما"
               />
+              {/* ✅ اقتراحات بالفئات الموجودة فعلاً في أطباق هذا المطعم */}
+              <datalist id="dish-category-options">
+                {restaurantCategories.map(([cat]) => (
+                  <option key={cat} value={cat} />
+                ))}
+              </datalist>
             </div>
           </div>
           <button
@@ -283,6 +328,41 @@ export function ProductsTab() {
             "—"}{" "}
           ({dishesForFilter.length})
         </h2>
+
+        {/* ✅ مرآة بار الفئات: ما يراه العميل في أعلى صفحة المطعم يظهر
+            هنا للأدمن — عدد الأطباق بكل فئة + إعادة تسمية دفعة واحدة */}
+        {restaurantCategories.length > 0 && (
+          <div className="glass rounded-2xl p-4">
+            <p className="mb-1 text-sm font-bold text-primary">
+              فئات هذا المطعم ({restaurantCategories.length}) — تظهر للعميل كبار علوي في صفحة المطعم
+            </p>
+            <p className="mb-3 text-[11px] text-foreground-muted">
+              لإعادة تسمية فئة: اضغط ✏️ وادخل الاسم الجديد — يُحدَّث على كل أطباق الفئة فوراً
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {restaurantCategories.map(([cat, count]) => (
+                <span
+                  key={cat}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-glass-border bg-secondary px-3 py-1.5 text-xs font-bold"
+                >
+                  {cat}
+                  <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-bold text-primary">
+                    {count}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRenameCategory(cat)}
+                    aria-label={`إعادة تسمية فئة ${cat}`}
+                    className="touch-target text-foreground-muted transition hover:text-primary"
+                  >
+                    <Pencil className="size-3" aria-hidden />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {dishesLoading ? (
           <div className="glass rounded-2xl p-8 text-center text-foreground-muted">
             جارٍ التحميل...

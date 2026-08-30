@@ -57,18 +57,22 @@ export function SwipeButton({
     if (confirmed.current || disabled || busy) return;
     setBusy(true);
     void animate(x, maxX, { type: "spring", stiffness: 420, damping: 30 });
-    void Promise.resolve(onConfirm()).then((ok) => {
-      if (ok === false) {
-        reset();
-        return;
-      }
-      confirmed.current = true;
-      setComplete(true);
-      setBurst(true);
-      setBusy(false);
-      vibrate([40, 40, 100]);
-      playSuccessChime();
-    });
+    // ✅ رفض onConfirm (أو رمي استثناء) يفك قفل الزر — سابقاً كان busy
+    //    يبقى true للأبد فيعطل الزر نهائياً بعد أول فشل
+    void Promise.resolve(onConfirm())
+      .then((ok) => {
+        if (ok === false) {
+          reset();
+          return;
+        }
+        confirmed.current = true;
+        setComplete(true);
+        setBurst(true);
+        setBusy(false);
+        vibrate([40, 40, 100]);
+        playSuccessChime();
+      })
+      .catch(() => reset());
   };
 
   const onDragEnd = () => {

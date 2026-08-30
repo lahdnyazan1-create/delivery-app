@@ -15,10 +15,10 @@ interface CartState {
   deliveryAddressDetails: string;
   orderNotes: string;
 
-  addToCart: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => { ok: boolean; message?: string; conflict?: boolean };
-  replaceCartAndAdd: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[]) => void;
-  removeFromCart: (dishId: string) => void;
-  updateQuantity: (dishId: string, quantity: number) => void;
+  addToCart: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[], quantity?: number) => { ok: boolean; message?: string; conflict?: boolean };
+  replaceCartAndAdd: (dishId: string, restaurantId: string, notes?: string, selectedAddons?: any[], quantity?: number) => void;
+  removeFromCart: (dishId: string, notes?: string, selectedAddons?: any[]) => void;
+  updateQuantity: (dishId: string, quantity: number, notes?: string, selectedAddons?: any[]) => void;
   clearCart: () => void;
   applyPromo: (code: string) => Promise<{ ok: boolean; message: string }>;
   removePromo: () => void;
@@ -39,12 +39,13 @@ export const useCartStore = create<CartState>()(
       deliveryAddressDetails: "",
       orderNotes: "",
 
-      addToCart: (dishId, restaurantId, notes = "", selectedAddons = []) => {
+      addToCart: (dishId, restaurantId, notes = "", selectedAddons = [], quantity = 1) => {
         const state = get();
         if (state.cartRestaurantId && state.cartRestaurantId !== restaurantId) {
           return { ok: false, message: "سلتك تحتوي أصناف من مطعم آخر", conflict: true };
         }
-        
+
+        const safeQuantity = Math.max(1, Math.floor(quantity));
         // ✅ مقارنة الإضافات كمعرّف فريد لمنع دمج أصناف لها إضافات مختلفة
         const addonsKey = JSON.stringify(selectedAddons || []);
         const existingIndex = state.cart.findIndex(
@@ -54,31 +55,41 @@ export const useCartStore = create<CartState>()(
         let newCart;
         if (existingIndex !== -1) {
           newCart = state.cart.map((item, index) =>
-            index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item,
+            index === existingIndex ? { ...item, quantity: item.quantity + safeQuantity } : item,
           );
         } else {
-          newCart = [...state.cart, { dishId, quantity: 1, notes, selectedAddons }];
+          newCart = [...state.cart, { dishId, quantity: safeQuantity, notes, selectedAddons }];
         }
         set({ cart: newCart, cartRestaurantId: restaurantId });
         return { ok: true };
       },
 
-      replaceCartAndAdd: (dishId, restaurantId, notes = "", selectedAddons = []) => {
+      replaceCartAndAdd: (dishId, restaurantId, notes = "", selectedAddons = [], quantity = 1) => {
         // ✅ يجب تصفير النسبة أيضاً — إبقاؤها كان يعرض خصماً وهمياً على السلة
         //    الجديدة لا يعترف به الخادم وقت الطلب
-        set({ cart: [{ dishId, quantity: 1, notes, selectedAddons }], cartRestaurantId: restaurantId, appliedPromo: null, appliedPromoPercent: null });
+        set({ cart: [{ dishId, quantity: Math.max(1, Math.floor(quantity)), notes, selectedAddons }], cartRestaurantId: restaurantId, appliedPromo: null, appliedPromoPercent: null });
       },
 
-      removeFromCart: (dishId) => {
+      // ✅ الحذف/التعديل يُميّزان نسخ الطبق (ملاحظات/إضافات مختلفة) —
+      //    سابقاً كان حذف نسخة واحدة يحذف كل نسخ الطبق نفسه
+      removeFromCart: (dishId, notes = "", selectedAddons = []) => {
         const { cart } = get();
-        const newCart = cart.filter((item) => item.dishId !== dishId);
+        const addonsKey = JSON.stringify(selectedAddons || []);
+        const newCart = cart.filter(
+          (item) => !(item.dishId === dishId && (item.notes || "") === notes && JSON.stringify(item.selectedAddons || []) === addonsKey),
+        );
         set({ cart: newCart, cartRestaurantId: newCart.length === 0 ? null : get().cartRestaurantId });
       },
 
-      updateQuantity: (dishId, quantity) => {
-        if (quantity <= 0) { get().removeFromCart(dishId); return; }
+      updateQuantity: (dishId, quantity, notes = "", selectedAddons = []) => {
+        const addonsKey = JSON.stringify(selectedAddons || []);
+        if (quantity <= 0) { get().removeFromCart(dishId, notes, selectedAddons); return; }
         const { cart } = get();
-        const newCart = cart.map((item) => (item.dishId === dishId ? { ...item, quantity } : item));
+        const newCart = cart.map((item) =>
+          item.dishId === dishId && (item.notes || "") === notes && JSON.stringify(item.selectedAddons || []) === addonsKey
+            ? { ...item, quantity }
+            : item,
+        );
         set({ cart: newCart });
       },
 

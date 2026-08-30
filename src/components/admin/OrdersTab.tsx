@@ -13,8 +13,23 @@ export function OrdersTab() {
   const { orders, drivers, updateOrderStatus, assignDriverToOrder } =
     useAppStore();
 
-  const handleAssignDriver = (orderId: string, driverId: string) => {
-    assignDriverToOrder(orderId, driverId);
+  const handleAssignDriver = async (orderId: string, driverId: string) => {
+    // ✅ حارس ضد الخيار الفارغ — سابقاً كان يرسل targetDriverId:"" للخادم
+    if (!driverId) return;
+    const result = await assignDriverToOrder(orderId, driverId);
+    if (result.ok) {
+      useToastStore.getState().success("تم إسناد الطلب للمندوب");
+    } else {
+      useToastStore.getState().error(result.message || "تعذّر الإسناد");
+    }
+  };
+
+  // ✅ تغيير الحالة مع إبلاغ النتيجة — سابقاً كانت fire-and-forget تفشل بصمت
+  const handleStatusChange = async (orderId: string, status: OrderStatus) => {
+    const result = await updateOrderStatus(orderId, status);
+    if (!result.ok) {
+      useToastStore.getState().error(result.message || "تعذّر تغيير الحالة");
+    }
   };
 
   // ✅ إلغاء طلب من الأدمن — يمر عبر Cloud Function نفسه الذي تستخدمه
@@ -89,11 +104,15 @@ export function OrdersTab() {
                     order.deliveryAddress ||
                     "—"}
                 </p>
+                {/* ✅ اسم المندوب بدل UID الخام — القائمة محملة في نفس التبويب */}
                 <p>
                   <span className="text-foreground-muted">
                     المندوب الحالي:
                   </span>{" "}
-                  {order.courierId || "غير محدد"}
+                  {order.courierId
+                    ? drivers.find((d) => d.id === order.courierId)?.name ||
+                      order.courierId.slice(-6)
+                    : "غير محدد"}
                 </p>
                 <p>
                   <span className="text-foreground-muted">المجموع:</span>{" "}
@@ -150,7 +169,7 @@ export function OrdersTab() {
                   <select
                     value={order.status}
                     onChange={(e) =>
-                      updateOrderStatus(
+                      handleStatusChange(
                         order.id,
                         e.target.value as OrderStatus,
                       )

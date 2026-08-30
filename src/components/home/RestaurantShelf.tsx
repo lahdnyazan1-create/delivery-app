@@ -11,6 +11,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Clock, Star } from "lucide-react";
+import { motion } from "framer-motion";
 import type { Restaurant } from "@/types/database";
 
 type RestaurantShelfProps = {
@@ -36,28 +37,34 @@ export function RestaurantShelf({
       ) : (
         <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <ul className="flex w-max gap-3 pb-1">
-            {restaurants.map((restaurant) => (
-              <li key={restaurant.id} className="w-48 shrink-0">
+            {restaurants.map((restaurant, i) => (
+              <motion.li
+                key={restaurant.id}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05, type: "spring", stiffness: 300, damping: 26 }}
+                className="w-48 shrink-0"
+              >
                 <Link
                   href={`/restaurant/${restaurant.id}`}
-                  className="no-select glass block overflow-hidden rounded-2xl"
+                  className="no-select glass card-lift block overflow-hidden rounded-2xl"
                 >
                   <div
                     className={`relative aspect-[4/3] overflow-hidden bg-gradient-to-br ${
                       restaurant.coverGradient || "from-gray-700 to-gray-900"
                     }`}
                   >
-                        {restaurant.image && (
-                          <Image
-                            src={restaurant.image}
-                            alt={restaurant.name}
-                            fill
-                            sizes="192px"
-                            className="object-cover"
-                          />
-                        )}
+                    {restaurant.image && (
+                      <Image
+                        src={restaurant.image}
+                        alt={restaurant.name}
+                        fill
+                        sizes="192px"
+                        className="object-cover transition-transform duration-500 hover:scale-110"
+                      />
+                    )}
                     {restaurant.promoTag && (
-                      <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[10px] font-bold text-white">
+                      <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[10px] font-bold text-white shadow-[var(--shadow-glow)]">
                         {restaurant.promoTag}
                       </span>
                     )}
@@ -70,6 +77,9 @@ export function RestaurantShelf({
                       <span className="inline-flex items-center gap-0.5 text-accent-soft">
                         <Star className="size-3 fill-current" />
                         {restaurant.rating?.toFixed(1) ?? "0.0"}
+                        {(restaurant.ratingCount ?? 0) > 0 && (
+                          <span className="text-foreground-muted">({restaurant.ratingCount})</span>
+                        )}
                       </span>
                       <span className="inline-flex items-center gap-0.5">
                         <Clock className="size-3" />
@@ -78,7 +88,7 @@ export function RestaurantShelf({
                     </div>
                   </div>
                 </Link>
-              </li>
+              </motion.li>
             ))}
           </ul>
         </div>

@@ -1,5 +1,6 @@
 // src/components/admin/CustomersTab.tsx
 // تبويب "العملاء" — بحث/تغيير أدوار/حذف ملفات المستخدمين
+// ✅ محدَّث ليعرض بيانات التسجيل الجديدة: البريد والعمر والجنس بجانب الهاتف
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,6 +13,11 @@ import {
   fetchAllUsers,
   deleteUserDoc,
 } from "@/lib/firestore";
+
+const GENDER_LABEL: Record<string, string> = {
+  male: "ذكر",
+  female: "أنثى",
+};
 
 export function CustomersTab() {
   const currentUid = useAuthStore((s) => s.user?.uid);
@@ -38,7 +44,7 @@ export function CustomersTab() {
       return;
     }
     const ok = await useToastStore.getState().confirm({
-      title: `حذف ملف "${u.displayName || u.phone}"؟`,
+      title: `حذف ملف "${u.displayName || u.email || u.phone}"؟`,
       message:
         "يُحذف الملف الشخصي من قاعدة البيانات فقط — حساب الدخول (Firebase Auth) يبقى ويمكن للمستخدم التسجيل من جديد.",
       confirmText: "حذف الملف",
@@ -75,6 +81,13 @@ export function CustomersTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const matchesSearch = (u: UserProfile) =>
+    (u.phone || "").includes(userSearch) ||
+    (u.displayName || "").includes(userSearch) ||
+    (u.email || "").includes(userSearch);
+
+  const filteredUsers = usersList.filter(matchesSearch);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -83,7 +96,7 @@ export function CustomersTab() {
           type="text"
           value={userSearch}
           onChange={(e) => setUserSearch(e.target.value)}
-          placeholder="🔍 ابحث برقم الهاتف أو الاسم..."
+          placeholder="🔍 ابحث بالاسم أو البريد أو الهاتف..."
           className="w-full rounded-xl border border-glass-border bg-secondary px-3 py-2 text-sm text-foreground outline-none focus:border-primary sm:w-72"
         />
       </div>
@@ -91,20 +104,21 @@ export function CustomersTab() {
         <div className="glass rounded-2xl p-8 text-center text-foreground-muted">جارٍ التحميل...</div>
       ) : (
         <div className="glass overflow-x-auto rounded-2xl">
-          <table className="w-full text-right text-sm">
+          <table className="w-full min-w-[640px] text-right text-sm">
             <thead className="bg-secondary text-xs text-foreground-muted">
               <tr>
                 <th className="p-3">الاسم</th>
+                <th className="p-3">البريد الإلكتروني</th>
                 <th className="p-3">رقم الهاتف</th>
+                <th className="p-3">العمر</th>
+                <th className="p-3">الجنس</th>
                 <th className="p-3">تغيير الدور</th>
                 <th className="p-3">تاريخ التسجيل</th>
                 <th className="p-3">حذف الملف</th>
               </tr>
             </thead>
             <tbody>
-              {usersList
-                .filter((u) => u.phone.includes(userSearch) || (u.displayName || "").includes(userSearch))
-                .map((u) => (
+              {filteredUsers.map((u) => (
                 <tr key={u.uid} className="border-t border-glass-border">
                   <td className="p-3 font-bold">
                     {u.displayName || "بدون اسم"}
@@ -112,7 +126,14 @@ export function CustomersTab() {
                       <span className="mr-1.5 text-[10px] font-semibold text-primary">(أنت)</span>
                     )}
                   </td>
-                  <td className="p-3 font-mono text-xs" dir="ltr">{u.phone}</td>
+                  <td className="p-3 font-mono text-xs" dir="ltr">{u.email || "—"}</td>
+                  <td className="p-3 font-mono text-xs" dir="ltr">{u.phone || "—"}</td>
+                  <td className="p-3 text-xs text-foreground-muted">
+                    {u.age != null ? `${u.age} سنة` : "—"}
+                  </td>
+                  <td className="p-3 text-xs text-foreground-muted">
+                    {u.gender ? GENDER_LABEL[u.gender] || u.gender : "—"}
+                  </td>
                   <td className="p-3">
                     <select
                       value={u.role}
@@ -140,7 +161,7 @@ export function CustomersTab() {
                       <button
                         type="button"
                         onClick={() => handleDeleteUser(u)}
-                        aria-label={`حذف ملف ${u.displayName || u.phone}`}
+                        aria-label={`حذف ملف ${u.displayName || u.email || u.phone}`}
                         className="rounded-lg bg-danger/10 px-2.5 py-1.5 text-[11px] font-bold text-danger transition hover:bg-danger/20"
                       >
                         <Trash2 className="inline size-3" aria-hidden /> حذف
@@ -149,9 +170,9 @@ export function CustomersTab() {
                   </td>
                 </tr>
               ))}
-              {usersList.filter((u) => u.phone.includes(userSearch) || (u.displayName || "").includes(userSearch)).length === 0 && (
+              {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-4 text-center text-foreground-muted">لا يوجد مستخدمون مطابقون للبحث</td>
+                  <td colSpan={8} className="p-4 text-center text-foreground-muted">لا يوجد مستخدمون مطابقون للبحث</td>
                 </tr>
               )}
             </tbody>

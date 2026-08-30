@@ -1,11 +1,8 @@
 // src/components/home/RestaurantCard.tsx
 // ============================================================================
-// التعديلات:
-// - ✅ يعرض restaurant.image الفعلية إن وُجدت بدل الاعتماد فقط على تدرج لوني
-// - ✅ حُذف نص "توصيل X₪" المعتمد على restaurant.deliveryFee المهجور (الرسوم
-//   الفعلية تختلف حسب منطقة العميل الآن وليست خاصية ثابتة بالمطعم)
+// بطاقة مطعم في الرئيسية والبحث — صورة بتكبير ناعم عند التحويم، شارة
+// تقييم تعرض المتوسط وعدد التقييمات الفعلية، ورفع البطاقة عند اللمس.
 // ============================================================================
-
 "use client";
 
 import Link from "next/link";
@@ -33,7 +30,7 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
     >
       <Link
         href={`/restaurant/${restaurant.id}`}
-        className="no-select glass block overflow-hidden rounded-3xl transition-transform active:scale-[0.985]"
+        className="no-select glass card-lift block overflow-hidden rounded-3xl transition-transform active:scale-[0.985]"
       >
         <div
           className={`relative aspect-[16/7] overflow-hidden bg-gradient-to-br ${restaurant.coverGradient || "from-gray-700 to-gray-900"}`}
@@ -44,9 +41,10 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
               alt={restaurant.name}
               fill
               sizes="(max-width: 512px) 100vw, 512px"
-              className="object-cover"
+              className="object-cover transition-transform duration-500 hover:scale-105"
             />
           )}
+          <div className={`absolute inset-0 bg-gradient-to-br ${restaurant.logoGradient || "from-primary to-orange-600"} opacity-20`} />
           <div
             className={`absolute -bottom-5 left-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br ${restaurant.logoGradient || "from-primary to-orange-600"} text-lg font-extrabold text-white shadow-lg ring-2 ring-background`}
           >
@@ -55,6 +53,11 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
           <span className="absolute right-3 top-3 rounded-full bg-secondary/70 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur-md">
             {restaurant.cuisine || "مطبخ"}
           </span>
+          {!restaurant.active && (
+            <span className="absolute left-3 top-3 rounded-full bg-danger/90 px-2.5 py-1 text-[10px] font-bold text-white">
+              مغلق الآن
+            </span>
+          )}
         </div>
 
         <div className="space-y-2 px-4 pb-4 pt-7">
@@ -70,6 +73,11 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
             <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-xs font-bold text-accent-soft">
               <Star className="size-3 fill-current" aria-hidden />
               {restaurant.rating?.toFixed(1) ?? "0.0"}
+              {(restaurant.ratingCount ?? 0) > 0 && (
+                <span className="text-[10px] font-semibold text-foreground-muted">
+                  ({restaurant.ratingCount})
+                </span>
+              )}
             </span>
           </div>
 
@@ -86,4 +94,3 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
     </motion.li>
   );
 }
-

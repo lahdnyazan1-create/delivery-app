@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search as SearchIcon } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -11,15 +11,27 @@ import { useAppStore } from "@/store/useAppStore";
 function SearchContent() {
   const params = useSearchParams();
   const [query, setQuery] = useState("");
-  const [cuisine, setCuisine] = useState<string>(params.get("category") || "all");
+  // ✅ مزامنة الفئة مع الرابط: كان يقرأ قيمة ?category= عند أول رسم فقط
+  //    فالتنقل للبحث بفئة أخرى من الرئيسية لا يحدّث الفلتر
+  const categoryParam = params.get("category");
+  const [cuisine, setCuisine] = useState<string>(categoryParam || "all");
+  useEffect(() => {
+    if (categoryParam !== null) setCuisine(categoryParam || "all");
+  }, [categoryParam]);
   const { restaurants, dishes } = useAppStore();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return restaurants.filter((r) => {
       if (!r.active) return false;
-      const cuisineOk = cuisine === "all" || r.cuisineId === cuisine;
-      if (!cuisineOk) return false;
+      // ✅ الفلترة تطابق cuisineId أو نص المطبخ — سابقاً كانت تقارن
+      //    cuisineId فقط وهو حقل لا يكتبه نموذج الأدمن، فكانت أي فئة
+      //    تختار من الشريط تظهر "0 مطعم" دائماً
+      if (cuisine !== "all") {
+        const cuisineOk =
+          r.cuisineId === cuisine || r.cuisine === cuisine;
+        if (!cuisineOk) return false;
+      }
       if (!q) return true;
       const menuHit = dishes.some(
         (d) =>

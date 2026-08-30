@@ -89,8 +89,14 @@ export function CategoriesTab() {
   };
 
   const handleToggleCategoryVisible = async (id: string, visible: boolean) => {
-    await updateCategory(id, { visible: !visible });
-    await loadCategories();
+    try {
+      await updateCategory(id, { visible: !visible });
+      await loadCategories();
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل التبديل: ${error?.message || "خطأ غير معروف"}`,
+      );
+    }
   };
 
   const handleDeleteCategory = async (id: string) => {
@@ -101,8 +107,14 @@ export function CategoriesTab() {
       danger: true,
     });
     if (!ok) return;
-    await deleteCategoryDoc(id);
-    await loadCategories();
+    try {
+      await deleteCategoryDoc(id);
+      await loadCategories();
+    } catch (error: any) {
+      useToastStore.getState().error(
+        `فشل الحذف: ${error?.message || "خطأ غير معروف"}`,
+      );
+    }
   };
 
   return (

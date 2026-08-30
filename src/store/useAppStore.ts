@@ -30,7 +30,7 @@ export const useAppStore = () => {
   const authLoading = useAuthStore((s) => s.loading);
   const authError = useAuthStore((s) => s.error);
   const hasSeenOnboarding = useAuthStore((s) => s.hasSeenOnboarding);
-  const completePhoneLogin = useAuthStore((s) => s.completePhoneLogin);
+  const completeLogin = useAuthStore((s) => s.completeLogin);
   const logoutUser = useAuthStore((s) => s.logoutUser);
   const initAuthListener = useAuthStore((s) => s.initAuthListener);
   const updateUserProfile = useAuthStore((s) => s.updateUserProfile);
@@ -89,7 +89,7 @@ export const useAppStore = () => {
     isAuthenticated,
     authReady,
     hasSeenOnboarding,
-    completePhoneLogin,
+    completeLogin,
     logoutUser,
     initAuthListener,
     updateUserProfile,

@@ -150,6 +150,50 @@ export async function checkPromoCode(
 // ✅ نظام كود الإحالة — أولوية استلام الطلب لسائق مفضل
 // ----------------------------------------------------------------------------
 
+const rateOrderFn = httpsCallable<
+  { orderId: string; stars: number; comment?: string },
+  { ok: boolean; restaurantId: string }
+>(functionsRegional, "rateOrder");
+
+/** تقييم طلب مُسلَّم (نجوم 1-5 + تعليق اختياري) — مرة واحدة لكل طلب */
+export async function rateOrder(
+  orderId: string,
+  stars: number,
+  comment?: string,
+): Promise<{ ok: true; restaurantId: string } | { ok: false; message: string }> {
+  try {
+    const res = await rateOrderFn({ orderId, stars, comment: comment?.trim() || "" });
+    return { ok: true, restaurantId: res.data.restaurantId };
+  } catch (error: unknown) {
+    return { ok: false, message: extractErrorMessage(error, "تعذّر إرسال التقييم") };
+  }
+}
+
+export interface RestaurantRatingEntry {
+  id: string;
+  stars: number;
+  comment: string;
+  createdAt: number;
+  customerName: string;
+}
+
+const getRatingsFn = httpsCallable<
+  { restaurantId: string },
+  { ok: boolean; ratings: RestaurantRatingEntry[] }
+>(functionsRegional, "getRestaurantRatings");
+
+/** آخر تقييمات مطعم مع تعليقاتها وأسماء أصحابها */
+export async function getRestaurantRatings(
+  restaurantId: string,
+): Promise<{ ok: true; ratings: RestaurantRatingEntry[] } | { ok: false; message: string }> {
+  try {
+    const res = await getRatingsFn({ restaurantId });
+    return { ok: true, ratings: res.data.ratings || [] };
+  } catch (error: unknown) {
+    return { ok: false, message: extractErrorMessage(error, "تعذّر جلب التقييمات") };
+  }
+}
+
 const generateReferralFn = httpsCallable<Record<string, never>, { ok: boolean; referralCode: string }>(
   functionsRegional,
   "generateCourierReferralCode",

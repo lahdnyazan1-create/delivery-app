@@ -152,7 +152,7 @@ export function OrderStageTracker({ status }: OrderStageTrackerProps) {
       <div className="relative mt-6 mb-2 px-1">
         <div className="absolute top-4 right-4 left-4 h-1 rounded-full bg-white/10" />
         <motion.div
-          className="absolute top-4 right-4 h-1 rounded-full bg-accent"
+          className="absolute top-4 right-4 h-1 rounded-full bg-gradient-to-l from-accent to-accent-soft"
           initial={false}
           animate={{ width: `${progress * 100}%` }}
           transition={{ type: "spring", stiffness: 180, damping: 24 }}
@@ -168,18 +168,19 @@ export function OrderStageTracker({ status }: OrderStageTrackerProps) {
               >
                 <motion.span
                   animate={{
-                    scale: current ? 1.12 : 1,
+                    scale: current ? 1.15 : 1,
                     backgroundColor: done
                       ? "rgb(0, 200, 83)"
                       : "rgba(255,255,255,0.08)",
                   }}
-                  className="flex size-9 items-center justify-center rounded-full text-sm shadow-sm"
+                  transition={{ type: "spring", stiffness: 350, damping: 20 }}
+                  className={`flex size-9 items-center justify-center rounded-full text-sm shadow-sm ${current ? "pulse-ring" : ""}`}
                 >
                   {stage.icon}
                 </motion.span>
                 <span
-                  className={`text-center text-[10px] font-bold leading-tight ${
-                    current ? "text-primary" : "text-foreground-muted"
+                  className={`text-center text-[10px] font-bold leading-tight transition-colors ${
+                    current ? "text-primary" : done ? "text-foreground" : "text-foreground-muted"
                   }`}
                 >
                   {stage.titleAr}
