@@ -1,6 +1,6 @@
-// ✅ رفع رقم النسخة يحذف كاش الأجهزة القديم تلقائيا عند تحديث الـ SW
+// ✅ رفع رقم النسخة يحذف كاش الأجهزة القديم تلقائياً عند تحديث الـ SW
 // (activate يحذف كل المفاتيح المخالفة) — ضروري بعد كل نشر تغييرات واجهة
-const CACHE = "zest-v3";
+const CACHE = "zest-v4";
 const ASSETS = [
   "/",
   "/offline",
@@ -33,7 +33,16 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
+
+  // ✅ لا نلمس إلا طلبات GET (والمنشورات أبداً) —
   if (req.method !== "GET") return;
+
+  // ✅ لا نلمس أي طلب خارجي: كان الاعتراض يكسر قنوات Firestore الطويلة
+  //    (Listen/Write channel) فتنقطع الاشتراكات الحية ويظهر
+  //    "A ServiceWorker intercepted the request and encountered an
+  //    unexpected error" — وطلبات firebase-messaging-sw أيضاً خارجية.
+  //    كذلك نتجاهل بروتوكولات المتصفح الداخلية (chrome-extension: ...)
+  if (!req.url.startsWith(self.location.origin)) return;
 
   // ✅ التنقلات (فتح الصفحات): الشبكة أولاً (محتوى طازج)، وعند فشلها
   //    نرجع للكاش، وعند غيابهما نعرض /offline — سابقاً كان فشل التنقل
@@ -55,13 +64,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // باقي الأصول: كاش أولاً مع تحديث خلفي
+  // باقي الأصول المحلية: كاش أولاً مع تحديث خلفي
   event.respondWith(
     caches.match(req).then((cached) => {
       const fetchPromise = fetch(req)
         .then((res) => {
           const copy = res.clone();
-          if (res.ok && new URL(req.url).origin === self.location.origin) {
+          if (res.ok) {
             caches.open(CACHE).then((c) => c.put(req, copy));
           }
           return res;

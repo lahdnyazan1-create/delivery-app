@@ -23,6 +23,15 @@ export function AppInitializer() {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
+    // ✅ استرجاع المخازن المُخزنة بعد التركيب (skipHydration) — قبل أول
+    //    رسم كان الاسترجاع يغير input/قيم محفوظة (سلة/عنوان/منطقة)
+    //    فوراً فيكسر الـ hydration مع HTML الخادم (React #422)
+    useAuthStore.persist.rehydrate();
+    useDataStore.getState();
+    import("@/store/useCartStore").then(({ useCartStore }) =>
+      useCartStore.persist.rehydrate(),
+    );
+
     const unsubAuth = initAuthListener();
     loadInitialData();
 
@@ -31,7 +40,8 @@ export function AppInitializer() {
       cleanupListeners();
       unsubscribeFromOrders();
     };
-  }, [initAuthListener, loadInitialData, cleanupListeners, unsubscribeFromOrders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (user?.uid) {
@@ -47,7 +57,11 @@ export function AppInitializer() {
           lastNotif.id !== lastNotifIdShown.current
         ) {
           lastNotifIdShown.current = lastNotif.id;
-          useToastStore.getState().info(`🔔 ${lastNotif.message}`);
+          // ✅ مستندات الإشعارات تحمل title/body (لا يوجد حقل message —
+          //    كان يعرض "🔔 undefined")
+          useToastStore.getState().info(
+            `🔔 ${lastNotif.title}${lastNotif.body ? ` — ${lastNotif.body}` : ""}`,
+          );
           if (typeof window !== "undefined" && "vibrate" in navigator) {
             try {
               navigator.vibrate(200);

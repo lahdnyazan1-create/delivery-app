@@ -57,6 +57,14 @@ export default function HomePage() {
   const reloadInitialData = useDataStore((s) => s.loadInitialData);
   const [query, setQuery] = useState("");
 
+  // ✅ التحية تُحسب بعد التركيب فقط — الصفحة مُخبأة مسبقاً (prerendered)
+  //    فيُخزَّن نصها وقت البناء ويختلف عن وقت الفتح الفعلي فيكسر
+  //    الـ hydration (React #425). أول رسم يستخدم نصاً ثابتاً متطابقاً.
+  const [greetingText, setGreetingText] = useState("أهلاً بك في Zest 👋");
+  useEffect(() => {
+    setGreetingText(greeting());
+  }, []);
+
   useEffect(() => {
     if (!hasSeenOnboarding) {
       router.replace("/onboarding");
@@ -107,7 +115,7 @@ export default function HomePage() {
         className="mb-4 flex items-center justify-between gap-3 rounded-3xl border border-glass-border bg-secondary/40 px-5 py-4"
       >
         <div>
-          <p className="text-xs font-semibold text-foreground-muted">{greeting()}</p>
+          <p className="text-xs font-semibold text-foreground-muted">{greetingText}</p>
           <h1 className="text-gradient mt-0.5 text-2xl font-black leading-tight">
             وشو رأيك تأكل اليوم؟
           </h1>

@@ -170,6 +170,11 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "zest-auth",
       storage: createJSONStorage(() => localStorage),
+      // ✅ الاسترجاع بعد الـ hydration وليس قبله — بدونه يُسترجع
+      //    hasSeenOnboarding على العميل قبل أول رسم فيختلف عن HTML
+      //    الخادم ويكسر الـ hydration (React #422). AppInitializer يستدعي
+      //    rehydrate() بعد التركيب.
+      skipHydration: true,
       partialize: (state) => ({
         hasSeenOnboarding: state.hasSeenOnboarding,
       }),

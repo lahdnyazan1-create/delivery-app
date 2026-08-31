@@ -41,10 +41,13 @@ const nextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            // ✅ السماح لـ reCAPTCHA الخفي بتحميل سكربتاته وإطاراته
-            // (بدون frame-src المدرج هنا يفشل تسجيل الدخول برقم الهاتف)
+            // ✅ connect-src يشمل *.cloudfunctions.net — بدونه يُحجب الاتصال
+            //    بكل Cloud Functions (placeOrder/checkPromo/rateOrder…)
+            //    في الإنتاج ويفشل إنشاء الطلب مع رسالة CSP في الكونسول.
+            //    subdomain wildcard مطلوب لأن المنطقة جزء من النطاق:
+            //    europe-west1-<project>.cloudfunctions.net
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://www.google.com https://www.gstatic.com; frame-src https://www.google.com https://www.gstatic.com;",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https://*.googleapis.com https://*.cloudfunctions.net https://*.firebaseio.com wss://*.firebaseio.com https://www.google.com https://www.gstatic.com; frame-src https://www.google.com https://www.gstatic.com;",
           },
         ],
       },
