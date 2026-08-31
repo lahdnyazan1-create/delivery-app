@@ -304,14 +304,14 @@ export function BannersTab() {
                   <button
                     type="button"
                     onClick={() => startEditBanner(banner)}
-                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/5 py-1.5 text-xs font-bold text-foreground-muted hover:text-primary"
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-foreground/5 py-1.5 text-xs font-bold text-foreground-muted hover:text-primary"
                   >
                     <Pencil className="size-3" aria-hidden /> تعديل
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDeleteBanner(banner.id)}
-                    className="flex-1 rounded-lg bg-white/5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
+                    className="flex-1 rounded-lg bg-foreground/5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
                   >
                     حذف
                   </button>

@@ -70,7 +70,7 @@ export function RestaurantCard({ restaurant, index = 0 }: RestaurantCardProps) {
                 {restaurant.tagline || ""}
               </p>
             </div>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-xs font-bold text-accent-soft">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-foreground/5 px-2 py-1 text-xs font-bold text-accent-soft">
               <Star className="size-3 fill-current" aria-hidden />
               {restaurant.rating?.toFixed(1) ?? "0.0"}
               {(restaurant.ratingCount ?? 0) > 0 && (

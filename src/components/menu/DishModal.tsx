@@ -190,7 +190,7 @@ export function DishModal({ dish, isOpen, onClose }: DishModalProps) {
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="إنقاص الكمية"
                   disabled={quantity <= 1}
-                  className="flex size-8 items-center justify-center rounded-lg bg-white/10 text-foreground disabled:opacity-40"
+                  className="flex size-8 items-center justify-center rounded-lg bg-foreground/10 text-foreground disabled:opacity-40"
                 >
                   <Minus className="size-4" aria-hidden />
                 </button>
@@ -199,7 +199,7 @@ export function DishModal({ dish, isOpen, onClose }: DishModalProps) {
                   type="button"
                   onClick={() => setQuantity((q) => q + 1)}
                   aria-label="زيادة الكمية"
-                  className="flex size-8 items-center justify-center rounded-lg bg-white/10 text-foreground"
+                  className="flex size-8 items-center justify-center rounded-lg bg-foreground/10 text-foreground"
                 >
                   <Plus className="size-4" aria-hidden />
                 </button>

@@ -555,7 +555,7 @@ function DriverDashboardContent() {
                   onClick={() =>
                     setExpandedOrderId(isExpanded ? null : order.id)
                   }
-                  className="text-xs flex items-center gap-1 text-foreground-muted hover:text-white"
+                  className="text-xs flex items-center gap-1 text-foreground-muted hover:text-foreground"
                 >
                   {isExpanded ? "إخفاء التفاصيل" : "عرض التفاصيل والأصناف"}
                   {isExpanded ? (

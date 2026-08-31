@@ -242,14 +242,14 @@ export function CategoriesTab() {
                     type="button"
                     onClick={() => startEditCategory(cat)}
                     aria-label={`تعديل ${cat.label}`}
-                    className="rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-bold text-foreground-muted hover:text-primary"
+                    className="rounded-lg bg-foreground/5 px-2 py-1.5 text-[11px] font-bold text-foreground-muted hover:text-primary"
                   >
                     <Pencil className="inline size-3" aria-hidden /> تعديل
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDeleteCategory(cat.id)}
-                    className="rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-bold text-foreground-muted hover:text-danger"
+                    className="rounded-lg bg-foreground/5 px-2 py-1.5 text-[11px] font-bold text-foreground-muted hover:text-danger"
                   >
                     حذف
                   </button>

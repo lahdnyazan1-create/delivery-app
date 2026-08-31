@@ -2,19 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============================ الثيم الداكن (الافتراضي) ============================ */
+/* ============================ الثيم الداكن (الافتراضي) ============================
+   ✅ الألوان الآن بصيغة "قنوات RGB" (255 107 53) وليست hex — كي يستطيع
+   Tailwind تركيبها مع معدّل الشفافية: rgb(var(--color-primary) / <alpha-value>)
+   فتتبدل كل كلاسات primary/secondary/accent/foreground… تلقائياً مع الثيم. */
 :root {
-  --color-primary: #ff6b35;
-  --color-primary-soft: #ff8f66;
-  --color-secondary: #1a2b4c;
-  --color-secondary-muted: #2a3f66;
-  --color-accent: #00c853;
-  --color-accent-soft: #69f0ae;
-  --color-danger: #ef4444;
-  --background: #0f1729;
-  --background-elevated: #1a2b4c;
-  --foreground: #f7f4ef;
-  --foreground-muted: #a8b3c7;
+  --color-primary: 255 107 53;
+  --color-primary-soft: 255 143 102;
+  --color-secondary: 26 43 76;
+  --color-secondary-muted: 42 63 102;
+  --color-accent: 0 200 83;
+  --color-accent-soft: 105 240 174;
+  --color-danger: 239 68 68;
+  --background: 15 23 41;
+  --background-elevated: 26 43 76;
+  --foreground: 247 244 239;
+  --foreground-muted: 168 179 199;
   --glass: rgb(255 255 255 / 0.08);
   --glass-border: rgb(255 255 255 / 0.14);
   --glass-strong: rgb(255 255 255 / 0.12);
@@ -30,17 +33,17 @@
 
 /* ============================ الثيم الفاتح ============================ */
 [data-theme="light"] {
-  --color-primary: #f25c1f;
-  --color-primary-soft: #ff8a5c;
-  --color-secondary: #24346b;
-  --color-secondary-muted: #8b9ec9;
-  --color-accent: #00a844;
-  --color-accent-soft: #0a7d3a;
-  --color-danger: #dc2626;
-  --background: #f7f4ee;
-  --background-elevated: #ffffff;
-  --foreground: #1e2536;
-  --foreground-muted: #6b7386;
+  --color-primary: 242 92 31;
+  --color-primary-soft: 255 138 92;
+  --color-secondary: 36 52 107;
+  --color-secondary-muted: 139 158 201;
+  --color-accent: 0 168 68;
+  --color-accent-soft: 10 125 58;
+  --color-danger: 220 38 38;
+  --background: 247 244 238;
+  --background-elevated: 255 255 255;
+  --foreground: 30 37 54;
+  --foreground-muted: 107 115 134;
   --glass: rgb(255 255 255 / 0.72);
   --glass-border: rgb(30 37 54 / 0.09);
   --glass-strong: rgb(255 255 255 / 0.82);
@@ -61,8 +64,8 @@
 
   body {
     min-height: 100%;
-    background: var(--background);
-    color: var(--foreground);
+    background: rgb(var(--background));
+    color: rgb(var(--foreground));
     font-family: var(--font-cairo), ui-sans-serif, sans-serif;
     overscroll-behavior: none;
     transition: background-color 0.35s ease, color 0.35s ease;
@@ -140,7 +143,12 @@
 
   /* نص بتدرج برتقالي — للعناوين الإبداعية */
   .text-gradient {
-    background: linear-gradient(120deg, var(--color-primary), var(--color-primary-soft) 60%, var(--color-accent));
+    background: linear-gradient(
+      120deg,
+      rgb(var(--color-primary)),
+      rgb(var(--color-primary-soft)) 60%,
+      rgb(var(--color-accent))
+    );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -230,3 +238,21 @@
     opacity: 0;
   }
 }
+
+/* ============================ تحسينات الثيم الفاتح ============================
+   ألوان زاهية من ذيل Wind كانت مقروءة فوق الخلفية الداكنة فقط — فوق
+   الخلفية الفاتحة تختفي (amber-400 أصفر فاتح، emerald-500 أخضر فاتح).
+   نستبدبها بدرجات أغمق في الوضع الفاتح مع الحفاظ على الدرجة الأصلية
+   في الداكن. التحذير: لا تستبدل النجوم الممتلئة (fill-amber-400) لأن
+   الذهبي مقصود بصرياً — الاستبدال هنا لدرجة أغمق قريبة تبقى ذهبية. */
+[data-theme="light"] .text-amber-400,
+[data-theme="light"] .text-amber-500 {
+  color: #b45309;
+}
+[data-theme="light"] .text-emerald-500 {
+  color: #047857;
+}
+[data-theme="light"] .text-red-400 {
+  color: #b91c1c;
+}
+/* خلفيات amber-400/10 (شرائح الملاحظات) تبقى شفافة وردية مقبولة في الوضعين */

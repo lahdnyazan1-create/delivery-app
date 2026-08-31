@@ -192,7 +192,7 @@ function VendorDashboardContent() {
                   </span>
                 </div>
 
-                <button type="button" onClick={() => setExpandedOrderId(isExpanded ? null : order.id)} className="text-xs flex items-center gap-1 text-foreground-muted hover:text-white">
+                <button type="button" onClick={() => setExpandedOrderId(isExpanded ? null : order.id)} className="text-xs flex items-center gap-1 text-foreground-muted hover:text-foreground">
                   {isExpanded ? "إخفاء الأصناف" : "عرض الأصناف"}
                   {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
                 </button>

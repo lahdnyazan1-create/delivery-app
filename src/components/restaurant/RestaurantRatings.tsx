@@ -43,7 +43,7 @@ export function RestaurantRatings({ restaurantId }: RestaurantRatingsProps) {
     <section className="space-y-3">
       <h2 className="flex items-center gap-2 text-lg font-bold">
         تقييمات الزبائن
-        <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-0.5 text-xs font-bold text-accent-soft">
+        <span className="inline-flex items-center gap-1 rounded-lg bg-foreground/5 px-2 py-0.5 text-xs font-bold text-accent-soft">
           <Star className="size-3 fill-current" aria-hidden />
           {ratings.length}
         </span>

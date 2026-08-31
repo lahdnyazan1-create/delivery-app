@@ -107,7 +107,7 @@ export function BannerCarousel() {
             >
               <span
                 className={`block h-1.5 rounded-full transition-all ${
-                  i === index ? "w-5 bg-primary" : "w-1.5 bg-white/25 group-hover:bg-white/40"
+                  i === index ? "w-5 bg-primary" : "w-1.5 bg-foreground/25 group-hover:bg-foreground/40"
                 }`}
               />
             </button>

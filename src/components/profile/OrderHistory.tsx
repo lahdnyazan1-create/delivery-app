@@ -55,7 +55,7 @@ export default function OrderHistory() {
     <div className="space-y-3" dir="rtl">
       <h3 className="text-sm font-bold px-1">سجل الطلبات وإعادة الطلب السريع 📜</h3>
       {orders.map((order) => (
-        <div key={order.id} className="glass rounded-2xl p-4 transition-all hover:bg-white/5">
+        <div key={order.id} className="glass rounded-2xl p-4 transition-all hover:bg-foreground/5">
           <div className="flex items-center justify-between border-b border-glass-border pb-2 mb-3">
             <div>
               <span className="text-xs font-bold text-primary block">طلب #{order.id?.slice(0, 6) ?? ""}</span>

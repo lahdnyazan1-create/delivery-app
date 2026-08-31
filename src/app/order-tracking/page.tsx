@@ -210,7 +210,7 @@ export default function OrderTrackingPage() {
                   className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${
                     done
                       ? "bg-accent text-secondary"
-                      : "bg-white/10 text-foreground-muted"
+                      : "bg-foreground/10 text-foreground-muted"
                   }`}
                 >
                   {done ? <Check className="size-4" /> : i + 1}
@@ -218,7 +218,7 @@ export default function OrderTrackingPage() {
                 {i < STEPS.length - 1 && (
                   <span
                     className={`mt-1 min-h-4 w-0.5 flex-1 ${
-                      i < stepIndex ? "bg-accent" : "bg-white/10"
+                      i < stepIndex ? "bg-accent" : "bg-foreground/10"
                     }`}
                   />
                 )}

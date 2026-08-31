@@ -115,7 +115,7 @@ export default function ProfilePage() {
           onClick={logoutUser}
           className="no-select glass touch-target mb-5 flex w-full items-center gap-3 rounded-2xl p-4 text-left"
         >
-          <span className="flex size-11 items-center justify-center rounded-xl bg-white/5 text-foreground-muted">
+          <span className="flex size-11 items-center justify-center rounded-xl bg-foreground/5 text-foreground-muted">
             <LogOut className="size-5" />
           </span>
           <span className="min-w-0 flex-1">

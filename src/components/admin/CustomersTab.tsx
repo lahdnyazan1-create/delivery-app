@@ -142,7 +142,7 @@ export function CustomersTab() {
                         u.role === "admin" ? "bg-primary/10 text-primary" :
                         u.role === "vendor" ? "bg-accent/10 text-accent" :
                         u.role === "courier" ? "bg-amber-500/10 text-amber-500" :
-                        "bg-white/5 text-foreground-muted"
+                        "bg-foreground/5 text-foreground-muted"
                       }`}
                     >
                       <option value="customer" className="bg-secondary">عميل (customer)</option>

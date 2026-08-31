@@ -64,7 +64,7 @@ function ScooterCartoon() {
       className="relative mx-auto mt-4 flex h-24 w-full max-w-[220px] items-end justify-center"
       aria-hidden
     >
-      <div className="absolute bottom-3 h-2 w-full rounded-full bg-white/10" />
+      <div className="absolute bottom-3 h-2 w-full rounded-full bg-foreground/10" />
       <motion.div
         className="relative z-10 text-5xl"
         animate={{ y: [0, -8, 0], x: [0, 6, 0] }}
@@ -150,7 +150,7 @@ export function OrderStageTracker({ status }: OrderStageTrackerProps) {
       )}
 
       <div className="relative mt-6 mb-2 px-1">
-        <div className="absolute top-4 right-4 left-4 h-1 rounded-full bg-white/10" />
+        <div className="absolute top-4 right-4 left-4 h-1 rounded-full bg-foreground/10" />
         <motion.div
           className="absolute top-4 right-4 h-1 rounded-full bg-gradient-to-l from-accent to-accent-soft"
           initial={false}

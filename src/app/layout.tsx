@@ -8,6 +8,23 @@ import { ToastHost } from "@/components/ui/Toast";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { FloatingCartBar } from "@/components/checkout/FloatingCartBar";
 
+/**
+ * الغلاف الذي يُعاد تركيبه مع كل route group بمعزل عن الجذر — الاستماع
+ * لجلسة Firebase يبقى حياً هنا مهما تنقّل المستخدم بين الصفحات.
+ */
+function App({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <ServiceWorkerRegister />
+      <SWUpdatePrompt />
+      <ToastHost />
+      <OfflineBanner />
+      {children}
+      <FloatingCartBar />
+    </>
+  );
+}
+
 const cairo = Cairo({
   variable: "--font-cairo",
   subsets: ["latin", "arabic"],
@@ -45,13 +62,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         />
       </head>
       <body className="min-h-full font-sans text-foreground">
+        {/* ✅ مستمع الجلسة والبيانات في جسم الصفحة نفسه (وليس داخل
+            children التي يُعاد تركيبها مع كل route group) — سابقاً كان
+            يستمع داخل /driver و/vendor وحدهما، فيُدمَّر unsubAuth مع
+            مغادرة اللوحة ويعود المستخدم للرئيسية "زائراً" حتى يعيد
+            التحميل اليدوي. هنا يبقى المستمع حياً طوال عمر الصفحة. */}
         <AppInitializer />
-        <ServiceWorkerRegister />
-        <SWUpdatePrompt />
-        <ToastHost />
-        <OfflineBanner />
-        {children}
-        <FloatingCartBar />
+        <App>{children}</App>
       </body>
     </html>
   );

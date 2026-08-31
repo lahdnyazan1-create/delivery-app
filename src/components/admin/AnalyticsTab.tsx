@@ -92,7 +92,7 @@ export function AnalyticsTab() {
       <div className="glass rounded-2xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-primary">تقييمات المطاعم الفعلية</h3>
-          <span className="flex items-center gap-1.5 rounded-xl bg-white/5 px-2.5 py-1 text-xs font-bold text-accent-soft">
+          <span className="flex items-center gap-1.5 rounded-xl bg-foreground/5 px-2.5 py-1 text-xs font-bold text-accent-soft">
             <Star className="size-3.5 fill-current" aria-hidden />
             متوسط عام {avgAll} ({ratings.length} تقييم)
           </span>
@@ -132,7 +132,7 @@ export function AnalyticsTab() {
                 .filter((r) => r.comment)
                 .slice(0, 8)
                 .map((r) => (
-                  <li key={r.id} className="rounded-xl bg-white/5 p-3">
+                  <li key={r.id} className="rounded-xl bg-foreground/5 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-1 text-xs font-bold text-foreground">
                         <MessageSquare className="size-3.5 text-primary" aria-hidden />

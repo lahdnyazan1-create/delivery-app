@@ -63,7 +63,7 @@ export function LivingCard({ dish, index = 0, onDishClick }: LivingCardProps) {
           <p className="mt-0.5 line-clamp-1 text-[11px] text-foreground-muted">{dish.description}</p>
         </div>
         <div className="flex items-center justify-between">
-          <p className="rounded-lg bg-white/5 px-2 py-0.5 text-sm font-extrabold text-primary">
+          <p className="rounded-lg bg-foreground/5 px-2 py-0.5 text-sm font-extrabold text-primary">
             {formatPrice(price)}
           </p>
           {canAdd ? (

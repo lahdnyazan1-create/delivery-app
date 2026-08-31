@@ -159,7 +159,7 @@ export function RestaurantMenu({ id, initialRestaurant = null, initialDishes = [
               {restaurant.tagline || restaurant.cuisine || ""}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-semibold text-foreground-muted">
-              <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-accent-soft">
+              <span className="inline-flex items-center gap-1 rounded-lg bg-foreground/5 px-2 py-1 text-accent-soft">
                 <Star className="size-3.5 fill-current" />
                 {restaurant.rating?.toFixed(1) ?? "0.0"}
                 {restaurant.ratingCount != null && restaurant.ratingCount > 0 && (

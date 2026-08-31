@@ -80,7 +80,7 @@ export function CategoryBar({ categories, activeCategory, onSelect, dishes }: Ca
                 {cat === "" ? "الكل" : cat}
                 <span
                   className={`rounded-full px-1.5 text-[10px] font-extrabold ${
-                    isActive ? "bg-white/25 text-white" : "bg-white/10 text-foreground-muted"
+                    isActive ? "bg-white/25 text-white" : "bg-foreground/10 text-foreground-muted"
                   }`}
                 >
                   {count}

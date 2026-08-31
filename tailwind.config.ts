@@ -9,20 +9,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: "#ff6b35",
-        "primary-soft": "#ff8f66",
-        secondary: "#1a2b4c",
-        "secondary-muted": "#2a3f66",
-        accent: "#00c853",
-        "accent-soft": "#69f0ae",
-        danger: "#ef4444",
-        background: "#0f1729",
-        "background-elevated": "#1a2b4c",
-        foreground: "#f7f4ef",
-        "foreground-muted": "#a8b3c7",
-        glass: "rgb(255 255 255 / 0.08)",
-        "glass-border": "rgb(255 255 255 / 0.14)",
-        "glass-strong": "rgb(255 255 255 / 0.12)",
+        // ✅ كل الألوان مربوطة بمتغيرات CSS (صيغة قنوات RGB) كي تتبدل
+        //    تلقائياً مع data-theme=light/dark، مع دعم معدّلات الشفافية
+        //    مثل bg-primary/15 — سابقاً كانت قيم hex ثابتة فبقيت ألوان
+        //    الثيم الداكن في الوضع الفاتح (نص فاتح على خلفية فاتحة).
+        primary: "rgb(var(--color-primary) / <alpha-value>)",
+        "primary-soft": "rgb(var(--color-primary-soft) / <alpha-value>)",
+        secondary: "rgb(var(--color-secondary) / <alpha-value>)",
+        "secondary-muted": "rgb(var(--color-secondary-muted) / <alpha-value>)",
+        accent: "rgb(var(--color-accent) / <alpha-value>)",
+        "accent-soft": "rgb(var(--color-accent-soft) / <alpha-value>)",
+        danger: "rgb(var(--color-danger) / <alpha-value>)",
+        background: "rgb(var(--background) / <alpha-value>)",
+        "background-elevated": "rgb(var(--background-elevated) / <alpha-value>)",
+        foreground: "rgb(var(--foreground) / <alpha-value>)",
+        "foreground-muted": "rgb(var(--foreground-muted) / <alpha-value>)",
+        glass: "var(--glass)",
+        "glass-border": "var(--glass-border)",
+        "glass-strong": "var(--glass-strong)",
       },
       fontFamily: {
         sans: ["var(--font-cairo)", "ui-sans-serif", "sans-serif"],

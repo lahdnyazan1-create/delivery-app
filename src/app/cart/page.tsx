@@ -184,10 +184,10 @@ export default function CartPage() {
                           <Trash2 className="size-4" />
                         </button>
                       </div>
-                      <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/5 p-1">
+                      <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-foreground/5 p-1">
                         <button
                           type="button"
-                          className="no-select touch-target flex size-11 items-center justify-center rounded-full active:bg-white/10 transition-colors"
+                          className="no-select touch-target flex size-11 items-center justify-center rounded-full active:bg-foreground/10 transition-colors"
                           onClick={() =>
                             updateQuantity(item.dishId, item.quantity - 1, item.notes || "", item.selectedAddons || [])
                           }
@@ -200,7 +200,7 @@ export default function CartPage() {
                         </span>
                         <button
                           type="button"
-                          className="no-select touch-target flex size-11 items-center justify-center rounded-full active:bg-white/10 transition-colors"
+                          className="no-select touch-target flex size-11 items-center justify-center rounded-full active:bg-foreground/10 transition-colors"
                           onClick={() =>
                             updateQuantity(item.dishId, item.quantity + 1, item.notes || "", item.selectedAddons || [])
                           }
@@ -337,7 +337,7 @@ export default function CartPage() {
                   setPromoInput("");
                   setPromoMsg("");
                 }}
-                className="no-select touch-target shrink-0 rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-bold text-foreground-muted transition hover:text-danger"
+                className="no-select touch-target shrink-0 rounded-lg bg-foreground/10 px-2.5 py-1 text-[11px] font-bold text-foreground-muted transition hover:text-danger"
                 aria-label="إزالة كود الخصم"
               >
                 إزالة ✕

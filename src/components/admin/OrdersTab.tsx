@@ -122,7 +122,7 @@ export function OrdersTab() {
                 </p>
               </div>
 
-              <div className="space-y-1 rounded-xl bg-white/5 p-3 text-xs text-foreground-muted">
+              <div className="space-y-1 rounded-xl bg-foreground/5 p-3 text-xs text-foreground-muted">
                 {order.items.map((item, idx) => (
                   <div key={idx} className="flex flex-col py-0.5">
                     <div className="flex justify-between">

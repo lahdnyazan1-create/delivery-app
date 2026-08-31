@@ -22,6 +22,9 @@ export function AppInitializer() {
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
+    if (typeof window !== "undefined") {
+      window.__initRuns = (window.__initRuns || 0) + 1;
+    }
 
     // ✅ استرجاع المخازن المُخزنة بعد التركيب (skipHydration) — قبل أول
     //    رسم كان الاسترجاع يغير input/قيم محفوظة (سلة/عنوان/منطقة)

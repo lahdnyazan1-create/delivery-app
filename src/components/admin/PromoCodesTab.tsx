@@ -237,7 +237,7 @@ function PromoCard({
           <button
             type="button"
             onClick={() => onDelete(promo.code)}
-            className="rounded-lg bg-white/5 px-2.5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
+            className="rounded-lg bg-foreground/5 px-2.5 py-1.5 text-xs font-bold text-foreground-muted hover:text-danger"
           >
             حذف
           </button>
