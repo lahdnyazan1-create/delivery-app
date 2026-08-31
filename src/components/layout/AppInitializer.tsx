@@ -23,7 +23,7 @@ export function AppInitializer() {
     if (initializedRef.current) return;
     initializedRef.current = true;
     if (typeof window !== "undefined") {
-      window.__initRuns = (window.__initRuns || 0) + 1;
+      (window as any).__initRuns = ((window as any).__initRuns || 0) + 1;
     }
 
     // ✅ استرجاع المخازن المُخزنة بعد التركيب (skipHydration) — قبل أول
