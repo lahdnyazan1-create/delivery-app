@@ -60,7 +60,7 @@ export default function HomePage() {
   // ✅ التحية تُحسب بعد التركيب فقط — الصفحة مُخبأة مسبقاً (prerendered)
   //    فيُخزَّن نصها وقت البناء ويختلف عن وقت الفتح الفعلي فيكسر
   //    الـ hydration (React #425). أول رسم يستخدم نصاً ثابتاً متطابقاً.
-  const [greetingText, setGreetingText] = useState("أهلاً بك في Zest 👋");
+  const [greetingText, setGreetingText] = useState("أهلاً بك في دُغْري 👋");
   useEffect(() => {
     setGreetingText(greeting());
   }, []);
@@ -141,13 +141,13 @@ export default function HomePage() {
 
       <div className="glass mb-5 flex items-center justify-between gap-2 rounded-2xl px-4 py-2.5">
         <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-foreground-muted">
-          <MapPin className="size-3.5 text-primary" aria-hidden />
+          <MapPin className="size-3.5 text-teal" aria-hidden />
           التوصيل إلى
         </span>
         <select
           value={selectedZoneId || ""}
           onChange={(e) => setSelectedZoneId(e.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-left text-sm font-bold text-primary outline-none cursor-pointer"
+          className="min-w-0 flex-1 bg-transparent text-left text-sm font-bold text-teal outline-none cursor-pointer"
           aria-label="اختر منطقة التوصيل"
         >
           <option value="" disabled>اختر منطقتك</option>

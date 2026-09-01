@@ -120,7 +120,7 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: "zest-cart",
+      name: "daghri-cart",
       storage: createJSONStorage(() => localStorage),
       // ✅ نفس إصلاح hydration — سلة/عنوان/منطقة محفوظة كانت تُسترجع
       //    قبل أول رسم فتختلف قيم input عن HTML الخادم (React #422)

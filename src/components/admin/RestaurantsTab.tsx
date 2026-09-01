@@ -95,7 +95,7 @@ export function RestaurantsTab() {
         etaMinutes: Number(restForm.etaMinutes),
         address: restForm.address,
         active: true,
-        coverGradient: "from-primary to-red-600",
+        coverGradient: "from-primary to-primary-soft",
         logoGradient: "from-primary to-orange-600",
       };
       if (restForm.image) newRest.image = restForm.image;

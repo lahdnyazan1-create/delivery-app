@@ -5,8 +5,8 @@
 //
 // ============================================================================
 // التعديلات:
-// - ✅ حُذف ذكر "ZEST30" من نص البانر (كان يروّج لكود غير موجود أصلاً —
-//   الأكواد الحقيقية المُنشأة بهذا السكربت هي ZEST10 وWELCOME20 فقط)
+// - ✅ الهوية الجديدة دُغْري (Daghri): البانرات وأكواد الخصم تحمل اسم
+//   العلامة الجديد (DAGHRI10 بدل ZEST10) وبألوان هوية دُغْري
 // - ✅ أُضيف seeding لمجموعة zones (كانت مفقودة تماماً — هذا كان سبب ظهور
 //   "لا توجد مناطق توصيل" بشاشة السلة عند أول تشغيل للمشروع)
 // ============================================================================
@@ -212,7 +212,7 @@ const zones = [
 ];
 
 const promoCodes = [
-  { code: "ZEST10", percentOff: 10, active: true },
+  { code: "DAGHRI10", percentOff: 10, active: true },
   { code: "WELCOME20", percentOff: 20, active: true },
   { code: "OLDCODE5", percentOff: 5, active: false }, // كود غير فعّال، للتأكد إن النظام يتجاهله
 ];
@@ -228,22 +228,22 @@ const categories = [
 const banners = [
   {
     id: "banner-welcome",
-    title: "أهلاً بك في Zest",
-    subtitle: "اطلب من أفضل المطاعم المحلية الآن",
+    title: "أهلاً بك في دُغْري",
+    subtitle: "توصيل أسرع وأسهل — من أفضل المطاعم المحلية",
     ctaText: "تصفح المطاعم",
     ctaLink: "/search",
-    gradient: "from-primary to-red-700",
+    gradient: "from-primary to-primary-soft",
     order: 1,
     active: true,
   },
   {
     id: "banner-promo",
     title: "خصم 10% على أول طلب",
-    // ✅ صار يشير لكود حقيقي فعلاً موجود بقائمة promoCodes فوق (ZEST10)
-    subtitle: "استخدم كود ZEST10 عند الدفع",
+    // ✅ يشير لكود حقيقي فعلاً موجود بقائمة promoCodes فوق (DAGHRI10)
+    subtitle: "استخدم كود DAGHRI10 عند الدفع",
     ctaText: "اطلب الآن",
     ctaLink: "/cart",
-    gradient: "from-secondary to-primary",
+    gradient: "from-teal to-primary",
     order: 2,
     active: true,
   },

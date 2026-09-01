@@ -10,6 +10,7 @@ import {
   type User as FirebaseUser,
 } from "firebase/auth";
 import { AppShell } from "@/components/layout/AppShell";
+import { DaghriLogo } from "@/components/brand/DaghriLogo";
 import { auth } from "@/lib/firebase";
 import { useAppStore } from "@/store/useAppStore";
 import { applyReferralCode } from "@/lib/orders";
@@ -191,6 +192,12 @@ function LoginForm() {
         <ArrowLeft className="size-4" /> رجوع
       </button>
 
+      {/* شعار دُغْري — ترحيب مطابق لهوية العلامة */}
+      <div className="mb-6 flex flex-col items-center text-center">
+        <DaghriLogo markSize={56} />
+        <p className="mt-3 text-xs font-bold text-teal">توصيل أسرع وأسهل… دُغْري!</p>
+      </div>
+
       <h1 className="text-2xl font-extrabold">
         {mode === "signin" ? "تسجيل الدخول" : "حساب جديد"}
       </h1>
@@ -270,7 +277,7 @@ function LoginForm() {
           <p className="text-center text-[11px] leading-relaxed text-foreground-muted">
             متابعة التسجيل تعني موافقتك على{" "}
             <a
-              href="https://zest-delivery-97e51.web.app/terms.html"
+              href="https://daghri-delivery.web.app/terms.html"
               target="_blank"
               rel="noreferrer"
               className="font-bold text-primary"
@@ -279,7 +286,7 @@ function LoginForm() {
             </a>{" "}
             و{" "}
             <a
-              href="https://zest-delivery-97e51.web.app/privacy.html"
+              href="https://daghri-delivery.web.app/privacy.html"
               target="_blank"
               rel="noreferrer"
               className="font-bold text-primary"
@@ -421,7 +428,7 @@ function LoginForm() {
           <p className="text-center text-[11px] leading-relaxed text-foreground-muted">
             متابعة التسجيل تعني موافقتك على{" "}
             <a
-              href="https://zest-delivery-97e51.web.app/terms.html"
+              href="https://daghri-delivery.web.app/terms.html"
               target="_blank"
               rel="noreferrer"
               className="font-bold text-primary"
@@ -430,7 +437,7 @@ function LoginForm() {
             </a>{" "}
             و{" "}
             <a
-              href="https://zest-delivery-97e51.web.app/privacy.html"
+              href="https://daghri-delivery.web.app/privacy.html"
               target="_blank"
               rel="noreferrer"
               className="font-bold text-primary"

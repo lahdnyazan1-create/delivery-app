@@ -19,6 +19,10 @@ const config: Config = {
         "secondary-muted": "rgb(var(--color-secondary-muted) / <alpha-value>)",
         accent: "rgb(var(--color-accent) / <alpha-value>)",
         "accent-soft": "rgb(var(--color-accent-soft) / <alpha-value>)",
+        // 🎨 تيل الثقة #26A69A — لون هوية دُغْري الثانوي (شارات الثقة
+        //    والعناصر المكمّلة) مضاف بجانب الكحلي كـ secondary البنيوي
+        teal: "rgb(var(--color-teal) / <alpha-value>)",
+        "teal-soft": "rgb(var(--color-teal-soft) / <alpha-value>)",
         danger: "rgb(var(--color-danger) / <alpha-value>)",
         background: "rgb(var(--background) / <alpha-value>)",
         "background-elevated": "rgb(var(--background-elevated) / <alpha-value>)",
@@ -29,7 +33,10 @@ const config: Config = {
         "glass-strong": "var(--glass-strong)",
       },
       fontFamily: {
-        sans: ["var(--font-cairo)", "ui-sans-serif", "sans-serif"],
+        // 🎨 هوية دُغْري: Poppins للنص اللاتيني (خط الجسم في دليل الهوية)
+        //    والقاهرة للنص العربي — الترتيب مهم: محارف Poppins لاتينية فقط
+        //    فيسقط النص العربي تلقائياً إلى القاهرة التالية في المكدس.
+        sans: ["var(--font-poppins)", "var(--font-cairo)", "ui-sans-serif", "sans-serif"],
       },
     },
   },

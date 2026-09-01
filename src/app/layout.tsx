@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Cairo } from "next/font/google";
+import { Cairo, Poppins } from "next/font/google";
 import "./globals.css";
 import { AppInitializer } from "@/components/layout/AppInitializer";
 import { ServiceWorkerRegister } from "@/components/layout/ServiceWorkerRegister";
@@ -25,26 +25,35 @@ function App({ children }: { children: React.ReactNode }) {
   );
 }
 
+// 🎨 هوية دُغْري (Daghri): القاهرة للنص العربي + Poppins للاتيني —
+//    كلاهما مُعرَّفان كمتغيرات CSS فيستخدمهما مكدس الخط في tailwind.config
 const cairo = Cairo({
   variable: "--font-cairo",
   subsets: ["latin", "arabic"],
   display: "swap",
 });
 
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://zest.app"),
-  title: { default: "Zest — توصيل الطعام", template: "%s · Zest" },
-  description: "اطلب من أفضل المطاعم المحلية بتجربة سلسة وتفاعلية.",
-  applicationName: "Zest",
+  metadataBase: new URL("https://daghri.app"),
+  title: { default: "دُغْري — Daghri | توصيل مباشر", template: "%s · دُغْري Daghri" },
+  description: "دُغْري (Daghri): أسرع وأسهل توصيل مباشر — اطلب من أفضل المطاعم المحلية في فلسطين وتابع طلبك خطوة بخطوة.",
+  applicationName: "Daghri",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Zest" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "دُغْري Daghri" },
   formatDetection: { telephone: false },
-  openGraph: { title: "Zest — توصيل الطعام", description: "مطاعم محلية، تجربة دفع سلسة، وتتبع مباشر للطلب.", type: "website", locale: "ar_AR" },
+  openGraph: { title: "دُغْري — Daghri | توصيل مباشر", description: "مطاعم محلية، تجربة دفع سلسة، وتتبع مباشر للطلب — دُغْري وأكثر.", type: "website", locale: "ar_AR" },
   icons: { icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }], apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }] },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FF6B35",
+  themeColor: "#FF6B4E",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -52,12 +61,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ar" dir="rtl" className={`${cairo.variable} h-full antialiased`}>
+    <html lang="ar" dir="rtl" className={`${cairo.variable} ${poppins.variable} h-full antialiased`}>
       <head>
         {/* ✅ استرجاع الثيم قبل الرسم — كي لا تومض الصفحة باللون الخاطئ */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('zest-theme');document.documentElement.dataset.theme=(t==='light'?'light':'dark');}catch(e){}`,
+            __html: `try{var t=localStorage.getItem('daghri-theme')||localStorage.getItem('zest-theme');document.documentElement.dataset.theme=(t==='light'?'light':'dark');}catch(e){}`,
           }}
         />
       </head>
@@ -66,8 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             children التي يُعاد تركيبها مع كل route group) — سابقاً كان
             يستمع داخل /driver و/vendor وحدهما، فيُدمَّر unsubAuth مع
             مغادرة اللوحة ويعود المستخدم للرئيسية "زائراً" حتى يعيد
-            التحميل اليدوي. هنا يبقى المستمع حياً طوال عمر الصفحة. */}
-        <AppInitializer />
+            التحميل اليدوي. هنا يبقى المستمع حياً طوال عمر الصفحة. */}        <AppInitializer />
         <App>{children}</App>
       </body>
     </html>

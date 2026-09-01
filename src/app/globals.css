@@ -3,27 +3,35 @@
 @tailwind utilities;
 
 /* ============================ الثيم الداكن (الافتراضي) ============================
-   ✅ الألوان الآن بصيغة "قنوات RGB" (255 107 53) وليست hex — كي يستطيع
-   Tailwind تركيبها مع معدّل الشفافية: rgb(var(--color-primary) / <alpha-value>)
-   فتتبدل كل كلاسات primary/secondary/accent/foreground… تلقائياً مع الثيم. */
+   ✅ الألوان الآن بصيغة "قنوات RGB" وليست hex — كي يستطيع Tailwind تركيبها
+   مع معدّل الشفافية: rgb(var(--color-primary) / <alpha-value>)
+   فتتبدل كل كلاسات primary/secondary/accent/foreground… تلقائياً مع الثيم.
+   🎨 هوية دُغْري (Daghri) — حسب دليل الهوية Brand/Brand.md:
+     primary   = برتقالي دُغْري  #FF6B4E  (أزرار رئيسية وترويسات)
+     secondary = كحلي الاستقرار   #1A2B45  (بنية عالية التباين وواجهات)
+     accent    = أخضر النمو       #4CAF50  (إشعارات النجاح ومراحل التتبع)
+     teal      = تيل الثقة        #26A69A  (عناصر ثانوية وشارات ثقة)
+     الخلفية الكريمية #F8F5EC والكحلي #1A2B45 مقتبسان من البراند بورد. */
 :root {
-  --color-primary: 255 107 53;
-  --color-primary-soft: 255 143 102;
-  --color-secondary: 26 43 76;
-  --color-secondary-muted: 42 63 102;
-  --color-accent: 0 200 83;
-  --color-accent-soft: 105 240 174;
+  --color-primary: 255 107 78;
+  --color-primary-soft: 255 138 112;
+  --color-secondary: 26 43 69;
+  --color-secondary-muted: 35 59 95;
+  --color-accent: 76 175 80;
+  --color-accent-soft: 129 199 132;
+  --color-teal: 38 166 154;
+  --color-teal-soft: 79 191 180;
   --color-danger: 239 68 68;
-  --background: 15 23 41;
-  --background-elevated: 26 43 76;
-  --foreground: 247 244 239;
-  --foreground-muted: 168 179 199;
+  --background: 13 19 33;
+  --background-elevated: 26 43 69;
+  --foreground: 248 245 236;
+  --foreground-muted: 166 180 198;
   --glass: rgb(255 255 255 / 0.08);
   --glass-border: rgb(255 255 255 / 0.14);
   --glass-strong: rgb(255 255 255 / 0.12);
-  --nav-bg: rgb(15 23 41 / 0.85);
+  --nav-bg: rgb(13 19 33 / 0.85);
   --shadow-card: 0 8px 24px rgb(0 0 0 / 0.25);
-  --shadow-glow: 0 6px 20px rgb(255 107 53 / 0.35);
+  --shadow-glow: 0 6px 20px rgb(255 107 78 / 0.35);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -33,23 +41,25 @@
 
 /* ============================ الثيم الفاتح ============================ */
 [data-theme="light"] {
-  --color-primary: 242 92 31;
-  --color-primary-soft: 255 138 92;
-  --color-secondary: 36 52 107;
-  --color-secondary-muted: 139 158 201;
-  --color-accent: 0 168 68;
-  --color-accent-soft: 10 125 58;
+  --color-primary: 244 89 62;
+  --color-primary-soft: 255 124 96;
+  --color-secondary: 26 43 69;
+  --color-secondary-muted: 96 114 148;
+  --color-accent: 56 159 60;
+  --color-accent-soft: 106 190 110;
+  --color-teal: 30 152 140;
+  --color-teal-soft: 66 176 165;
   --color-danger: 220 38 38;
-  --background: 247 244 238;
+  --background: 248 245 236;
   --background-elevated: 255 255 255;
-  --foreground: 30 37 54;
-  --foreground-muted: 107 115 134;
+  --foreground: 26 43 69;
+  --foreground-muted: 100 112 130;
   --glass: rgb(255 255 255 / 0.72);
-  --glass-border: rgb(30 37 54 / 0.09);
+  --glass-border: rgb(26 43 69 / 0.09);
   --glass-strong: rgb(255 255 255 / 0.82);
-  --nav-bg: rgb(247 244 238 / 0.88);
-  --shadow-card: 0 6px 20px rgb(30 37 54 / 0.10);
-  --shadow-glow: 0 6px 18px rgb(242 92 31 / 0.28);
+  --nav-bg: rgb(248 245 236 / 0.88);
+  --shadow-card: 0 6px 20px rgb(26 43 69 / 0.10);
+  --shadow-glow: 0 6px 18px rgb(244 89 62 / 0.28);
   color-scheme: light;
 }
 
@@ -79,7 +89,7 @@
   }
 
   ::selection {
-    background: rgb(255 107 53 / 0.35);
+    background: rgb(255 107 78 / 0.35);
   }
 }
 
@@ -115,43 +125,56 @@
     background:
       radial-gradient(
         ellipse 80% 50% at 20% -10%,
-        rgb(255 107 53 / 0.28),
+        rgb(255 107 78 / 0.26),
         transparent
       ),
       radial-gradient(
         ellipse 60% 40% at 100% 0%,
-        rgb(0 200 83 / 0.12),
+        rgb(38 166 154 / 0.12),
         transparent
       ),
-      linear-gradient(180deg, #152238 0%, #0f1729 45%, #0c1322 100%);
+      linear-gradient(180deg, #16223a 0%, #101a2c 45%, #0d1321 100%);
   }
 
   [data-theme="light"] .app-gradient {
     background:
       radial-gradient(
         ellipse 80% 50% at 20% -10%,
-        rgb(255 145 102 / 0.30),
+        rgb(255 145 112 / 0.30),
         transparent
       ),
       radial-gradient(
         ellipse 60% 40% at 100% 0%,
-        rgb(0 200 83 / 0.14),
+        rgb(38 166 154 / 0.14),
         transparent
       ),
-      linear-gradient(180deg, #fff6ec 0%, #f9f5ed 45%, #f2efe8 100%);
+      linear-gradient(180deg, #fdf7ee 0%, #f9f4ea 45%, #f3efe5 100%);
   }
 
-  /* نص بتدرج برتقالي — للعناوين الإبداعية */
+  /* نص بتدرج برتقالي→تيل — هوية دُغْري للعناوين الإبداعية */
   .text-gradient {
     background: linear-gradient(
       120deg,
       rgb(var(--color-primary)),
-      rgb(var(--color-primary-soft)) 60%,
-      rgb(var(--color-accent))
+      rgb(var(--color-primary-soft)) 55%,
+      rgb(var(--color-teal))
     );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  /* نقش تطريز فلسطيني (تطريز) بروح عصرية — خلفية زخرفية خفيفة
+     مستوحاة من هوية دُغْري: معينات متعاقبة بألوان البراند بشفافية منخفضة */
+  .tatreez {
+    background-image:
+      linear-gradient(135deg, rgb(var(--color-primary) / 0.10) 25%, transparent 25%),
+      linear-gradient(225deg, rgb(var(--color-primary) / 0.10) 25%, transparent 25%),
+      linear-gradient(45deg, rgb(var(--color-teal) / 0.10) 25%, transparent 25%),
+      linear-gradient(315deg, rgb(var(--color-teal) / 0.10) 25%, transparent 25%);
+    background-size: 22px 22px;
+    background-position: 0 0, 11px 0, 11px 11px, 0 11px;
+    background-repeat: repeat;
   }
 
   /* رفع البطاقة عند اللمس/التحويم */
@@ -201,13 +224,13 @@
 /* نبض ناعم حول عناصر "الآن/الحالي" */
 @keyframes pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 rgb(255 107 53 / 0.45);
+    box-shadow: 0 0 0 0 rgb(255 107 78 / 0.45);
   }
   70% {
-    box-shadow: 0 0 0 10px rgb(255 107 53 / 0);
+    box-shadow: 0 0 0 10px rgb(255 107 78 / 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgb(255 107 53 / 0);
+    box-shadow: 0 0 0 0 rgb(255 107 78 / 0);
   }
 }
 .pulse-ring {

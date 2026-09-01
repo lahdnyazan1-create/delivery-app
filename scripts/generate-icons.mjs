@@ -1,34 +1,67 @@
 // scripts/generate-icons.mjs
 // ============================================================================
-// توليد أيقونات التطبيق (PNG) برمجياً بلا اعتمادات خارجية — تدرج برتقالي
-// بزوايا دائرية بهوية Zest (#FF6B35 → #FF8F66) مع "حرف Z" مرسوم بكسلياً.
+// توليد أيقونات تطبيق دُغْري (PNG) برمجياً بلا اعتمادات خارجية — مربع بزوايا
+// دائرية بتدرج برتقالي (#FF6B4E → #FF8F70) يعلوه سكوتر توصيل أبيض بصندوق
+// طلبات، وفق دليل الهوية Brand/Brand.md (الكحلي #1A2B45 لتفاصيل العجلات).
 // للتغيير لشعار مخصص: استبدل ملفات public/icons/*.png بنفس الأسماء فقط.
 // تشغيل: node scripts/generate-icons.mjs
 // ============================================================================
 
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const OUT_DIR = join(process.cwd(), "public", "icons");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const OUT_DIR = join(ROOT, "public", "icons");
 
-// شكل حرف Z مبسط 11×11 (1 = أبيض)
-const Z = [
-  "11111111111",
-  "11111111111",
-  "00000000111",
-  "00000001110",
-  "00000011100",
-  "00000111000",
-  "00001110000",
-  "00011100000",
-  "00111000000",
-  "11111111111",
-  "11111111111",
-];
+// 🎨 ألوان هوية دُغْري
+const TOP = [0xff, 0x6b, 0x4e]; // #FF6B4E برتقالي دُغْري
+const BOTTOM = [0xff, 0x8f, 0x70]; // درجة أفتح للتدرج
+const NAVY = [0x1a, 0x2b, 0x45]; // #1A2B45 كحلي الاستقرار — تفاصيل
 
-const TOP = [0xff, 0x6b, 0x35]; // #FF6B35
-const BOTTOM = [0xff, 0x8f, 0x66]; // #FF8F66
+// ===== أدوات هندسية على شبكة تصميم 64×64 =====
+const distToSeg = (px, py, x1, y1, x2, y2) => {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 ? ((px - x1) * dx + (py - y1) * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+};
+
+const inCircle = (px, py, cx, cy, r) => Math.hypot(px - cx, py - cy) <= r;
+
+const inRoundRect = (px, py, x1, y1, x2, y2, r) => {
+  if (px < x1 || px > x2 || py < y1 || py > y2) return false;
+  const qx = Math.max(x1 + r, Math.min(px, x2 - r));
+  const qy = Math.max(y1 + r, Math.min(py, y2 - r));
+  return Math.hypot(px - qx, py - qy) <= r;
+};
+
+/** لون نقطة من التصميم: "white" / "navy" / null (خلفية التدرج)
+ *  سكوتر توصيل بعجلتين وصندوق طلبات — مقود أمامي وواجهة نظيفة */
+function designColor(x, y) {
+  // صلبا العجلتين الكحليان (قبل الأبيض كي لا يُحجبا)
+  if (inCircle(x, y, 17.5, 43.5, 3.4)) return "navy";
+  if (inCircle(x, y, 44, 43.5, 3.4)) return "navy";
+  // العجلتان (إطار أبيض)
+  if (inCircle(x, y, 17.5, 43.5, 9)) return "white";
+  if (inCircle(x, y, 44, 43.5, 9)) return "white";
+  // سطح الوقوف (المنصة)
+  if (distToSeg(x, y, 23.5, 36.5, 39, 36.5) <= 2.7) return "white";
+  // عمود التوجيه المائل
+  if (distToSeg(x, y, 38, 35.5, 47, 16.5) <= 2.7) return "white";
+  // المقود
+  if (distToSeg(x, y, 37, 15.5, 55, 15.5) <= 2.5) return "white";
+  // حزام الصندوق الكحلي (قبل أبيض الصندوق كي لا يُحجب)
+  if (distToSeg(x, y, 17, 19.5, 17, 31.5) <= 1.7) return "navy";
+  // صندوق التوصيل الخلفي
+  if (inRoundRect(x, y, 9, 18.5, 25, 32.5, 3)) return "white";
+  // حامل الصندوق
+  if (distToSeg(x, y, 17, 32.5, 17, 37.5) <= 2.2) return "white";
+  return null;
+}
 
 function crc32(buf) {
   let table = crc32.table;
@@ -54,17 +87,14 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc]);
 }
 
-/** يبني PNG بحجم size: خلفية تدرج بزوايا دائرية + حرف Z أبيض في المنتصف */
-function renderIcon(size, cornerRatio = 0.22, zScale = 0.55) {
+/** يبني PNG بحجم size: خلفية تدرج بزوايا دائرية + سكوتر دُغْري بمنتصفها.
+ *  glyphScale > 1 يصغّر السكوتر (لهوامش أيقونة maskable الآمنة). */
+function renderIcon(size, cornerRatio = 0.22, glyphScale = 1) {
   const radius = Math.round(size * cornerRatio);
   const pixels = Buffer.alloc(size * size * 4);
 
-  // أبعاد شبكة الـ Z
-  const gridW = Z[0].length;
-  const gridH = Z.length;
-  const cell = Math.floor((size * zScale) / Math.max(gridW, gridH));
-  const zx = Math.floor((size - cell * gridW) / 2);
-  const zy = Math.floor((size - cell * gridH) / 2);
+  // عيّنات فرعية 2×2 داخل كل بكسل لحواف ناعمة (anti-aliasing)
+  const SUB = [0.25, 0.75];
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -73,29 +103,42 @@ function renderIcon(size, cornerRatio = 0.22, zScale = 0.55) {
       // زوايا دائرية → شفاف خارجها
       const dx = Math.max(radius - x, x - (size - 1 - radius), 0);
       const dy = Math.max(radius - y, y - (size - 1 - radius), 0);
-      const inside = dx * dx + dy * dy <= radius * radius;
+      if (dx * dx + dy * dy > radius * radius) continue; // alpha = 0
 
-      if (!inside) continue; // alpha = 0
+      // متوسط 4 عيّنات فرعية: لون التدرج ممزوجاً بلون التصميم إن وجد
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      for (const sy of SUB) {
+        for (const sx of SUB) {
+          const fx = (x + sx) / size;
+          const fy = (y + sy) / size;
+          const t = Math.min(1, (fx + fy) / 2); // قطري علوي ← سفلي
+          let cr = TOP[0] + (BOTTOM[0] - TOP[0]) * t;
+          let cg = TOP[1] + (BOTTOM[1] - TOP[1]) * t;
+          let cb = TOP[2] + (BOTTOM[2] - TOP[2]) * t;
 
-      // تدرج قطري
-      const t = Math.min(1, (x + y) / (2 * size - 2));
-      pixels[idx] = Math.round(TOP[0] + (BOTTOM[0] - TOP[0]) * t);
-      pixels[idx + 1] = Math.round(TOP[1] + (BOTTOM[1] - TOP[1]) * t);
-      pixels[idx + 2] = Math.round(TOP[2] + (BOTTOM[2] - TOP[2]) * t);
-      pixels[idx + 3] = 255;
-
-      // حرف Z أبيض
-      const gx = Math.floor((x - zx) / cell);
-      const gy = Math.floor((y - zy) / cell);
-      if (
-        x >= zx && y >= zy &&
-        gx >= 0 && gx < gridW && gy >= 0 && gy < gridH &&
-        Z[gy][gx] === "1"
-      ) {
-        pixels[idx] = 255;
-        pixels[idx + 1] = 255;
-        pixels[idx + 2] = 255;
+          // إسقاط العينة على شبكة التصميم 64 حول المركز
+          const gx = 32 + (fx * 64 - 32) / glyphScale;
+          const gy = 32 + (fy * 64 - 32) / glyphScale;
+          const c = designColor(gx, gy);
+          if (c === "white") {
+            cr = cg = cb = 255;
+          } else if (c === "navy") {
+            cr = NAVY[0];
+            cg = NAVY[1];
+            cb = NAVY[2];
+          }
+          r += cr / 4;
+          g += cg / 4;
+          b += cb / 4;
+        }
       }
+
+      pixels[idx] = Math.round(r);
+      pixels[idx + 1] = Math.round(g);
+      pixels[idx + 2] = Math.round(b);
+      pixels[idx + 3] = 255;
     }
   }
 
@@ -123,16 +166,28 @@ function renderIcon(size, cornerRatio = 0.22, zScale = 0.55) {
 
 mkdirSync(OUT_DIR, { recursive: true });
 
-// أيقونة عادية + maskable (هوامش أوسع 10% للأمان داخل دائرة الأندرويد)
+// أيقونة عادية + maskable (هوامش أوسع 30% للأمان داخل دائرة الأندرويد)
 const targets = [
-  ["icon-192.png", 192, 0.22, 0.55],
-  ["icon-512.png", 512, 0.22, 0.55],
-  ["icon-512-maskable.png", 512, 0.05, 0.45],
-  ["apple-touch-icon.png", 180, 0.22, 0.55],
+  ["icon-192.png", 192, 0.22, 1],
+  ["icon-512.png", 512, 0.22, 1],
+  ["icon-512-maskable.png", 512, 0.05, 1.3],
+  ["apple-touch-icon.png", 180, 0.22, 1],
 ];
 
-for (const [name, size, corner, z] of targets) {
-  writeFileSync(join(OUT_DIR, name), renderIcon(size, corner, z));
+for (const [name, size, corner, scale] of targets) {
+  writeFileSync(join(OUT_DIR, name), renderIcon(size, corner, scale));
   console.log(`✓ ${name} (${size}×${size})`);
 }
-console.log("تم — الأيقونات في public/icons/");
+
+// أيقونات ميتاداتا Next (src/app) بنفس الهوية
+const appTargets = [
+  ["icon.png", 512, 0.22, 1],
+  ["apple-icon.png", 180, 0.22, 1],
+  ["favicon.png", 64, 0.22, 1],
+];
+for (const [name, size, corner, scale] of appTargets) {
+  writeFileSync(join(ROOT, "src", "app", name), renderIcon(size, corner, scale));
+  console.log(`✓ src/app/${name} (${size}×${size})`);
+}
+
+console.log("تم — أيقونات دُغْري في public/icons/ و src/app/");

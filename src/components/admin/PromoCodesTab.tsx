@@ -188,7 +188,7 @@ export function PromoCodesTab() {
           </div>
         )}
         <p className="text-xs text-foreground-muted">
-          ملاحظة: كود &quot;ZEST30&quot; (اخدش واربح) أُزيل من الواجهة —
+          ملاحظة: كود &quot;DAGHRI30&quot; (اخدش واربح) أُزيل من الواجهة —
           إن كان لا يزال موجوداً بهذه القائمة، احذفه من هنا نهائياً.
         </p>
       </div>

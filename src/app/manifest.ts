@@ -2,14 +2,14 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Zest — توصيل الطعام",
-    short_name: "Zest",
-    description: "اطلب من أفضل المطاعم المحلية بتجربة سلسة وتتبع مباشر لطلبك.",
+    name: "دُغْري — Daghri | توصيل مباشر",
+    short_name: "دُغْري Daghri",
+    description: "دُغْري (Daghri): أسرع وأسهل توصيل مباشر — اطلب من أفضل المطاعم المحلية وتابع طلبك لحظة بلحظة.",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#0F1729",
-    theme_color: "#FF6B35",
+    background_color: "#1A2B45",
+    theme_color: "#FF6B4E",
     icons: [
       {
         src: "/icons/icon-192.png",

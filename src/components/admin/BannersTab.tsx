@@ -101,7 +101,7 @@ export function BannersTab() {
 
       const payload: Parameters<typeof addBanner>[0] = {
         title: bannerForm.title.trim(),
-        gradient: "from-primary to-red-600",
+        gradient: "from-primary to-primary-soft",
         order: Number(bannerForm.order),
         active: true,
       };

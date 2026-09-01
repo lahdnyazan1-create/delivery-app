@@ -13,12 +13,17 @@ import { Moon, Sun } from "lucide-react";
 
 type Theme = "light" | "dark";
 
-export const THEME_STORAGE_KEY = "zest-theme";
+export const THEME_STORAGE_KEY = "daghri-theme";
+/** مفتاح الهوية القديمة (Zest) — يُقرأ مرة أخيرة كي لا يفقد
+ *  المستخدم اختياره بعد التحول إلى هوية دُغْري، ثم يُكتب الجديد فقط */
+const LEGACY_THEME_STORAGE_KEY = "zest-theme";
 
 /** يقرأ الثيم المحفوظ إن وُجد — الداكن هو الافتراضي */
 export function getStoredTheme(): Theme {
   if (typeof window === "undefined") return "dark";
-  return (localStorage.getItem(THEME_STORAGE_KEY) as Theme) || "dark";
+  const stored =
+    localStorage.getItem(THEME_STORAGE_KEY) || localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
+  return (stored as Theme) || "dark";
 }
 
 export function applyTheme(theme: Theme) {

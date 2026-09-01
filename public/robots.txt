@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /driver
 Disallow: /restaurant
 
-Sitemap: https://zest.app/sitemap.xml
+Sitemap: https://daghri.app/sitemap.xml

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- دُغْري Daghri — سكوتر التوصيل بعجلات حلقيّة كحلية (#1A2B45) على خلفية كريمية (#F8F5EC) -->
+  <rect width="512" height="512" rx="112" fill="#F8F5EC"/>
+  <g stroke="#1A2B45" stroke-width="24" stroke-linecap="round">
+    <!-- عمود التوجيه -->
+    <path d="M204 294 L370 134"/>
+    <!-- سطح الوقوف -->
+    <path d="M290 294 L226 294"/>
+    <!-- وصلة سطح الوقوف ← مقود -->
+    <path d="M290 294 L366 294"/>
+    <path d="M290 294 L290 126"/>
+    <!-- المقود -->
+    <path d="M252 126 L424 126"/>
+    <!-- حامل الصندوق -->
+    <path d="M136 294 L136 260"/>
+  </g>
+  <circle cx="140" cy="352" r="74" fill="none" stroke="#1A2B45" stroke-width="28"/>
+  <circle cx="140" cy="352" r="28" fill="#FF6B4E"/>
+  <circle cx="352" cy="352" r="74" fill="none" stroke="#1A2B45" stroke-width="28"/>
+  <circle cx="352" cy="352" r="28" fill="#FF6B4E"/>
+  <rect x="76" y="156" width="124" height="108" rx="24" fill="#FF6B4E"/>
+  <rect x="130" y="166" width="16" height="88" fill="#1A2B45"/>
+</svg>

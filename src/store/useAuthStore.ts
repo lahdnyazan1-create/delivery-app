@@ -168,7 +168,7 @@ export const useAuthStore = create<AuthState>()(
       clearError: () => set({ error: null }),
     }),
     {
-      name: "zest-auth",
+      name: "daghri-auth",
       storage: createJSONStorage(() => localStorage),
       // ✅ الاسترجاع بعد الـ hydration وليس قبله — بدونه يُسترجع
       //    hasSeenOnboarding على العميل قبل أول رسم فيختلف عن HTML

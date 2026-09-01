@@ -16,7 +16,7 @@ fetch("/api/push-config")
     const messaging = firebase.messaging();
 
     messaging.onBackgroundMessage((payload) => {
-      const title = payload.notification?.title || "Zest — إشعار جديد";
+      const title = payload.notification?.title || "دُغْري — إشعار جديد";
       const body = payload.notification?.body || "";
       self.registration.showNotification(title, {
         body,
@@ -24,7 +24,7 @@ fetch("/api/push-config")
         lang: "ar",
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
-        tag: payload.data?.tag || "zest-notification",
+        tag: payload.data?.tag || "daghri-notification",
         data: payload.data || {},
       });
     });

@@ -3,18 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zest | زيت — توصيل الطعام في منطقتك</title>
-  <meta name="description" content="زيت (Zest): تطبيق توصيل طعام محلي. تصفّح المطاعم القريبة، اطلب بضغطة، وتابع مندوبك لحظة بلحظة حتى باب بيتك." />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <title>دُغْري | Daghri — توصيل الطعام في منطقتك</title>
+  <meta name="description" content="دُغْري (Daghri): تطبيق توصيل طعام محلي. تصفّح المطاعم القريبة، اطلب بضغطة، وتابع مندوبك لحظة بلحظة حتى باب بيتك." />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
-      background: #0c0a09; color: #f5f5f4; line-height: 1.8; min-height: 100vh;
+      font-family: "Cairo", "Poppins", system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+      background: #1A2B45; color: #F8F5EC; line-height: 1.8; min-height: 100vh;
       display: flex; flex-direction: column;
     }
     a { color: inherit; }
     .hero {
-      background: linear-gradient(135deg, #7c2d12, #d90429 60%, #ff6b35);
+      background: linear-gradient(135deg, #FF6B4E, #FF8F70 55%, #26A69A);
       padding: 64px 20px 48px; text-align: center;
     }
     .logo {
@@ -24,31 +27,33 @@
     }
     h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; }
     .tagline { margin-top: 8px; font-size: 1.05rem; opacity: .92; max-width: 480px; margin-inline: auto; }
+    .brand-latin { font-family: "Poppins", sans-serif; margin-top: 10px; font-size: .72rem; letter-spacing: .35em; font-weight: 700; color: #F8F5EC; opacity: .85; }
     .cta {
-      display: inline-block; margin-top: 28px; background: #fff; color: #7c2d12;
+      display: inline-block; margin-top: 28px; background: #fff; color: #1A2B45;
       font-weight: 800; padding: 14px 42px; border-radius: 16px; text-decoration: none; font-size: 1rem;
     }
     main { flex: 1; max-width: 860px; margin: 0 auto; padding: 40px 20px 24px; }
     section + section { margin-top: 36px; }
-    h2 { font-size: 1.25rem; font-weight: 800; color: #ff8c5a; margin-bottom: 12px; }
-    p, li { color: #d6d3d1; font-size: .98rem; }
+    h2 { font-size: 1.25rem; font-weight: 800; color: #26A69A; margin-bottom: 12px; }
+    p, li { color: #E7E2D8; font-size: .98rem; }
     ul { padding-right: 20px; }
     li + li { margin-top: 6px; }
     .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
     .card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 18px; }
-    .card strong { display: block; margin-bottom: 4px; color: #f5f5f4; }
+    .card strong { display: block; margin-bottom: 4px; color: #F8F5EC; }
     footer { border-top: 1px solid rgba(255,255,255,.08); padding: 22px 20px; text-align: center; }
     footer nav a { margin: 0 10px; font-size: .85rem; text-decoration: none; color: #a8a29e; }
-    footer nav a:hover { color: #fff; }
-    .note { font-size: .8rem; color: #78716c; margin-top: 10px; }
+    footer nav a:hover { color: #26A69A; }
+    .note { font-size: .8rem; color: #9FB0C6; margin-top: 10px; }
   </style>
 </head>
 <body>
   <header class="hero">
     <span class="logo" aria-hidden="true">🛵</span>
-    <h1>Zest — زيت</h1>
+    <h1>دُغْري — Daghri</h1>
+    <p class="brand-latin" dir="ltr">DAGHRI · PALESTINIAN LOCAL DELIVERY</p>
     <p class="tagline">
-      تطبيق توصيل طعام محلي: تصفّح المطاعم في منطقتك، اطلب بضغطة واحدة،
+      توصيل أسرع وأسهل… دُغْري! تطبيق توصيل طعام محلي: تصفّح المطاعم في منطقتك، اطلب بضغطة واحدة،
       وتابع مندوبك لحظة بلحظة حتى باب بيتك.
     </p>
     <a class="cta" href="https://delivery-app-psi-fawn.vercel.app/login">طلب الآن</a>
@@ -56,9 +61,9 @@
 
   <main>
     <section aria-labelledby="purpose">
-      <h2 id="purpose">ما هو تطبيق زيت؟</h2>
+      <h2 id="purpose">ما هو تطبيق دُغْري؟</h2>
       <p>
-        زيت منصة توصيل طلبات تربط الزبائن بالمطاعم والمندوبين في نفس المنطقة
+        دُغْري منصة توصيل طلبات تربط الزبائن بالمطاعم والمندوبين في نفس المنطقة
         السكنية. هدفنا تبسيط طلب الطعام: قوائم واضحة، أسعار شفافة، وإشعارات
         حية بكل خطوة من خطوات طلبك — من تأكيد المطعم حتى لحظة التسليم.
       </p>
@@ -91,7 +96,7 @@
       <a href="/terms">شروط الاستخدام</a>
     </nav>
     <p class="note">
-      للدعم والاستفسارات: support@zest-delivery.app — زيت (Zest Delivery)
+      للدعم والاستفسارات: support@daghri.app — دُغْري (Daghri)
     </p>
   </footer>
 </body>
